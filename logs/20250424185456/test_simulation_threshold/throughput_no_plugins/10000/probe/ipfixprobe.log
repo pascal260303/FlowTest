@@ -1,0 +1,8 @@
+Input stats:
+  #      packets       parsed               bytes      dropped           qtime status
+  0            0            0                   0            0               0     ok
+SUM            0            0                   0            0               0
+
+Output stats:
+  #      biflows      packets          bytes (L4)      dropped status
+  0            0            0                   0            0     ok

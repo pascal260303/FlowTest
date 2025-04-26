@@ -214,7 +214,7 @@ class SimGeneral(SimTest, SimConfig):
 
     loops: int = 1
     replicator: Optional[int] = None
-    analysis: AnalysisCfg = AnalysisCfg()
+    analysis: AnalysisCfg = field(default_factory=AnalysisCfg)
 
     def get_replicator_units(self, sampling: float) -> int:
         """Get number of replicator units (either directly configured or based on sampling value).
@@ -238,7 +238,7 @@ class SimOverload(SimTest, SimConfig):
     """Configuration of an individual test in overload simulation test scenario."""
 
     multiplier: float = 1.0
-    analysis: AnalysisCfg = AnalysisCfg()
+    analysis: AnalysisCfg = field(default_factory=AnalysisCfg)
 
 
 @dataclass
@@ -249,7 +249,7 @@ class SimThreshold(SimTest, SimConfig):
     speed_min: int = 0
     speed_max: Optional[int] = None
     mbps_required: int = 0
-    analysis: AnalysisCfg = AnalysisCfg()
+    analysis: AnalysisCfg = field(default_factory=AnalysisCfg)
 
 
 @dataclass
@@ -259,7 +259,7 @@ class ScenarioCfg(YAMLWizard):
     name: str = required_field()
     description: str = required_field()
     marks: list[str] = required_field()
-    requirements: Requirements = Requirements()
+    requirements: Requirements = field(default_factory=Requirements)
 
     def check(self) -> None:
         """Check validity of the configuration."""
@@ -395,7 +395,7 @@ class ValidationScenario(ScenarioCfg):
 
     key: Optional[list[str]] = None
     at_least_one: Optional[list[str]] = None
-    probe: Optional[ProbeCfg] = ProbeCfg()
+    probe: Optional[ProbeCfg] = field(default_factory=ProbeCfg)
 
     def get_tests(self, filename: str, *_) -> list[tuple]:
         """

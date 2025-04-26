@@ -1,0 +1,6 @@
+ERROR: tcp input plugin: Failed to bind to socket (local IP: ::, port: 4739): Address already in use
+ERROR: tcp input plugin: Initialization function of the instance failed!
+WARNING: Ring buffer: Destroying of a ring buffer that still contains 1 unprocessed message(s)!
+WARNING: Ring buffer: Destroying of a ring buffer that still contains 1 unprocessed message(s)!
+WARNING: Ring buffer: Destroying of a ring buffer that still contains 1 unprocessed message(s)!
+ERROR: Configurator: Collector failed to start: Failed to initialize the instance of the input plugin!

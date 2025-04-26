@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <cstdint>
 
 namespace generator {
 namespace config {

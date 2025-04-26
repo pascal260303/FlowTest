@@ -1,0 +1,1 @@
+[2025-04-24 18:56:01.380] [[1m[41mcritical[m] main: Not enough free disk space in the target location (estimated PCAP size: 23.64 GB, free disk space: 21.13 GB). Run with --no-diskspace-check to proceed anyway.
