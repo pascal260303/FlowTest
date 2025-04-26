@@ -11,6 +11,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include <vector>
+#include <cstdint>
 
 namespace generator {
 namespace config {

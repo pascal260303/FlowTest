@@ -758,6 +758,9 @@ class IpfixprobeRaw(Ipfixprobe):
         for ifc in self._ifc_names.split(","):
             Tool(f"ip link set dev {ifc} up", executor=self._executor, sudo=True).run()
             Tool(f"ip link set dev {ifc} mtu {self._mtu}", executor=self._executor, sudo=True).run()
+            
+    def set_prefilter(self, ip_ranges):
+        return
 
 
 class IpfixprobeDpdk(Ipfixprobe):
