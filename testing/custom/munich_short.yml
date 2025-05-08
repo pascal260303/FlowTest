@@ -5,7 +5,7 @@ marks: [university]
 requirements:
   speed: 100
 profile: /home/student/2025-bsc-kuppler-flowmeter/profile_trimmed_1-10_60s_1s.csv
-mtu: 3046
+mtu: 1526
 sampling: 1
 
 # default configuration describing the setup during profile collection

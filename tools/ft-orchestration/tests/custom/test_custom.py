@@ -109,7 +109,7 @@ def test_custom(
     ref_file = os.path.join(tmp_dir, "report.csv")
 
     # set max inter packet gap in a profile slightly below configured probe's inactive timeout
-    generator_conf.max_flow_inter_packet_gap = int(inactive_t * 0.9)
+    generator_conf.max_flow_inter_packet_gap = int(inactive_t * 0.8)
 
     # setup replicator
     flow_replicator, prefilter_conf = setup_replicator(

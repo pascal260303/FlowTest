@@ -521,18 +521,20 @@ class FtReplay(Replicator):
 
         logging.getLogger().info("PCAP generator started, profile: %s", profile_path)
         start = time.time()
-        pcap, report = self._ft_generator.generate(profile_path, generator_config, self._generator_log_file)
+        pcap, self._report = self._ft_generator.generate(profile_path, generator_config, self._generator_log_file)
         end = time.time()
         logging.getLogger().info("PCAP generated in %.2f seconds.", (end - start))
 
         self.start(pcap, speed, loop_count, remote_pcap=True)
 
-        cache_rsync = Rsync(self._executor, data_dir=path.dirname(report))
+        cache_rsync = Rsync(self._executor, data_dir=path.dirname(self._report))
         try:
-            report = cache_rsync.pull_path(report, self._work_dir)
+            report = cache_rsync.pull_path(self._report, self._work_dir)
+            shutil.copy(report, report_path)
+            self._report_pull_failed = False
         except AssertionError as e: 
-            pass
-        shutil.copy(report, report_path)
+            self._report_path = report_path
+            self._report_pull_failed = True
 
     def stop(self, timeout=None) -> None:
         """Stop current execution of ft-replay.
@@ -596,6 +598,11 @@ class FtReplay(Replicator):
 
         start_time = int(re.findall(r"Start time:.*\[ms since epoch: (\d+)\]", output)[0])
         end_time = int(re.findall(r"End time:.*\[ms since epoch: (\d+)\]", output)[0])
+        
+        if self._report_pull_failed:
+            cache_rsync = Rsync(self._executor, data_dir=path.dirname(self._report))
+            report = cache_rsync.pull_path(self._report, self._work_dir)
+            shutil.copy(report, self._report_path)
 
         return GeneratorStats(pkts, bts, start_time, end_time)
 
