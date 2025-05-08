@@ -1,21 +1,7 @@
-import ipaddress
-import logging
 import os
-from typing import Optional
 
-import pandas as pd
 import pytest
-from ftanalyzer.models.precise_model import PreciseModel
-from ftanalyzer.models.sm_data_types import (
-    SMMetric,
-    SMMetricType,
-    SMRule,
-    SMSubnetSegment,
-)
-from ftanalyzer.models.statistical_model import StatisticalModel
-from ftanalyzer.replicator.flow_replicator import FlowReplicator
-from ftanalyzer.reports.precise_report import PreciseReport
-from ftanalyzer.reports.statistical_report import StatisticalReport
+import time
 from lbr_testsuite.topology.topology import select_topologies
 from src.collector.collector_builder import CollectorBuilder
 from src.common.html_report_plugin import HTMLReportData
@@ -23,13 +9,10 @@ from src.common.utils import (
     collect_scenarios,
     download_logs,
     get_project_root,
-    get_replicator_prefix,
-    ip_network_add_offset,
 )
-from src.config.scenario import AnalysisCfg, SimulationScenario
-from src.generator.ft_generator import FtGeneratorConfig
+from src.config.scenario import SimulationScenario
 from src.generator.generator_builder import GeneratorBuilder
-from src.generator.interface import MultiplierSpeed, Replicator
+from src.generator.interface import MultiplierSpeed
 from src.probe.probe_builder import ProbeBuilder
 from tests.simulation.test_simulation_general import setup_replicator, validate
 
@@ -41,7 +24,8 @@ DEFAULT_REPLICATOR_PREFIX = 8
 
 @pytest.mark.custom
 @pytest.mark.parametrize(
-    "scenario, test_id", collect_scenarios(CUSTOM_TESTS_DIR, SimulationScenario, name="sim_general")
+    "scenario, test_id",
+    collect_scenarios(CUSTOM_TESTS_DIR, SimulationScenario, name="sim_general"),
 )
 # pylint: disable=too-many-locals
 # pylint: disable=unused-argument
@@ -95,7 +79,12 @@ def test_custom(
     probe_instance, collector_instance, generator_instance = (None, None, None)
 
     def finalizer_download_logs():
-        download_logs(log_dir, collector=collector_instance, generator=generator_instance, probe=probe_instance)
+        download_logs(
+            log_dir,
+            collector=collector_instance,
+            generator=generator_instance,
+            probe=probe_instance,
+        )
 
     request.addfinalizer(cleanup)
     request.addfinalizer(finalizer_download_logs)
@@ -106,7 +95,9 @@ def test_custom(
     collector_instance.start()
 
     # initialize probe
-    probe_conf = scenario.test.get_probe_conf(device.get_instance_type(), scenario.default.probe)
+    probe_conf = scenario.test.get_probe_conf(
+        device.get_instance_type(), scenario.default.probe
+    )
     probe_instance = device.get(mtu=scenario.mtu, **probe_conf)
     objects_to_cleanup.append(probe_instance)
     active_t, inactive_t = probe_instance.get_timeouts()
@@ -118,7 +109,7 @@ def test_custom(
     ref_file = os.path.join(tmp_dir, "report.csv")
 
     # set max inter packet gap in a profile slightly below configured probe's inactive timeout
-    generator_conf.max_flow_inter_packet_gap = inactive_t - 1
+    generator_conf.max_flow_inter_packet_gap = int(inactive_t * 0.9)
 
     # setup replicator
     flow_replicator, prefilter_conf = setup_replicator(
@@ -151,6 +142,8 @@ def test_custom(
     # method stats blocks until traffic is sent
     stats = generator_instance.stats()
 
+    time.sleep(15)
+
     probe_instance.stop()
     collector_instance.stop()
 
@@ -179,8 +172,14 @@ def test_custom(
         precise_report.print_results()
 
     HTMLReportData.simulation_summary_report.update_stats(
-        "sim_general", stats_report.is_passing() and (not precise_report or precise_report.is_passing())
+        "sim_general",
+        stats_report.is_passing()
+        and (not precise_report or precise_report.is_passing()),
     )
 
-    if not stats_report.is_passing() or (precise_report is not None and not precise_report.is_passing()):
-        assert False, f"evaluation of test: {request.function.__name__}[{test_id}] failed"
+    if not stats_report.is_passing() or (
+        precise_report is not None and not precise_report.is_passing()
+    ):
+        assert False, (
+            f"evaluation of test: {request.function.__name__}[{test_id}] failed"
+        )

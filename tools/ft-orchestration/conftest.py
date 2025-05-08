@@ -44,5 +44,7 @@ def pytest_configure():
     """Restrict certain loggers so they don't pollute
     output with useless messages.
     """
+    
 
     logging.getLogger("paramiko.transport").setLevel(logging.WARNING)
+    logging.getLogger().setLevel(logging.WARNING)

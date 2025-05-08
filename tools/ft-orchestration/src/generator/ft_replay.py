@@ -469,7 +469,7 @@ class FtReplay(Replicator):
         cmd_args += ["-i", pcap_path]
         
         #disable ram check:
-        cmd_args += ["--no-freeram-check"]
+        #cmd_args += ["--no-freeram-check"]
 
         if self._output_plugin.output_plugin in ["raw", "xdp", "packet"]:
             Tool(f"ip link set dev {self._interface} up", executor=self._executor, sudo=True).run()
@@ -528,7 +528,10 @@ class FtReplay(Replicator):
         self.start(pcap, speed, loop_count, remote_pcap=True)
 
         cache_rsync = Rsync(self._executor, data_dir=path.dirname(report))
-        report = cache_rsync.pull_path(report, self._work_dir)
+        try:
+            report = cache_rsync.pull_path(report, self._work_dir)
+        except AssertionError as e: 
+            pass
         shutil.copy(report, report_path)
 
     def stop(self, timeout=None) -> None:
