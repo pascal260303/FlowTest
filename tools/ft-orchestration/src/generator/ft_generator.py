@@ -13,7 +13,7 @@ import logging
 import pickle
 import tempfile
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from os import path
 from pathlib import Path
 from typing import Any, Optional, TextIO, Union
@@ -147,8 +147,8 @@ class FtGeneratorConfig(YAMLWizard, JSONWizard, key_transform="SNAKE"):
         mac_range: Union[list[str], str]
 
     encapsulation: Optional[list[Encapsulation]] = None
-    ipv4: IP = IP()
-    ipv6: IP = IP()
+    ipv4: IP = field(default_factory=IP)
+    ipv6: IP = field(default_factory=IP)
     mac: Optional[Mac] = None
     packet_size_probabilities: Optional[dict[str, float]] = None
     max_flow_inter_packet_gap: Optional[int] = None

@@ -24,6 +24,7 @@ from src.common.typed_dataclass import bool_convertor, typed_dataclass
 from src.config.common import InterfaceCfg
 from src.probe.interface import ProbeException, ProbeInterface
 from src.probe.probe_target import ProbeTarget
+from lbr_testsuite.executable import ExecutableProcessError
 
 PROTOCOLS_TO_PLUGINS = {
     "eth": "basic",
@@ -278,7 +279,7 @@ class IpfixprobeStats:
 
         active_part = self.input
         active_columns = []
-        for line in [l.strip() for l in stdout]:
+        for line in [l.strip() for l in stdout]: # noqa
             if "Input stats" in line:
                 active_part = self.input
                 continue
@@ -448,12 +449,16 @@ class Ipfixprobe(ProbeInterface, ABC):
             return
 
         logging.getLogger().info("Stopping ipfixprobe exporter.")
-
-        stdout, _ = self._process.stop()
+        
+        stdout = []
+        try:
+            stdout, _ = self._process.stop()
+        except ExecutableProcessError:
+            pass
 
         if self._process.returncode() > 0:
             # stderr is redirected to stdout
-            # Since stdout could be filled with normal output, print only last 1 line
+            # Since stdout could be filled with normal output, print only last 1 line#
             err = stdout[-1]
             logging.getLogger().error("ipfixprobe runtime error: %s, error: %s", self._process.returncode(), err)
             self._last_run_stats = None
