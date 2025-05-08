@@ -11,13 +11,15 @@ import logging
 import shutil
 import tempfile
 import time
+import copy
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
+from fabric import Connection
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from lbr_testsuite.executable import Daemon, Executor, Rsync, Tool
+from lbr_testsuite.executable import Daemon, Executor, Rsync, Tool, RemoteExecutor, LocalExecutor
 from src.common.required_field import required_field
 from src.common.tool_is_installed import assert_tool_is_installed
 from src.common.typed_dataclass import bool_convertor, typed_dataclass
@@ -365,6 +367,11 @@ class Ipfixprobe(ProbeInterface, ABC):
         """
 
         self._executor = executor
+        if isinstance(executor, RemoteExecutor):
+            connection: Connection = executor.get_connection()
+            self._fallback_executor = RemoteExecutor(executor.get_host(), **connection.connect_kwargs)
+        else:
+            self._fallback_executor = LocalExecutor()
         self._process = None
         self._sudo = sudo
         self._ifc_names = ",".join([ifc.name for ifc in interfaces])
@@ -449,6 +456,9 @@ class Ipfixprobe(ProbeInterface, ABC):
             return
 
         logging.getLogger().info("Stopping ipfixprobe exporter.")
+               
+        command = self._cmd.split(" ",1)[0]
+        Tool(f"kill $(pgrep {command})", executor=self._fallback_executor, failure_verbosity="silent").run()
         
         stdout = []
         try:
