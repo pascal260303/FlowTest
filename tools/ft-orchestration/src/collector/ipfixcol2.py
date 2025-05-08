@@ -243,7 +243,12 @@ class Ipfixcol2(CollectorInterface):
         if self._process is None:
             return
 
-        stdout, _ = self._process.stop()
+
+        stdout = []
+        try:
+            stdout, _ = self._process.stop()
+        except ExecutableProcessError:
+            pass
 
         if self._process.returncode() > 0:
             # stderr is redirected to stdout

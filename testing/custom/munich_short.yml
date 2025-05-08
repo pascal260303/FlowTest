@@ -1,0 +1,44 @@
+# Profile information which cannot be modified by the orchestration tool.
+name: Munich short
+description: Munich short
+marks: [university]
+requirements:
+  speed: 100
+profile: /home/student/2025-bsc-kuppler-flowmeter/profile_trimmed_1-10_60s_1s.csv
+mtu: 3046
+sampling: 1
+
+# default configuration describing the setup during profile collection
+default:
+  pps: 708150
+  mbps: 7075
+  generator: []
+  #  ipv4:
+  #    fragmentation_probability: 0.05%
+  #  ipv6:
+  #    fragmentation_probability: 0%
+  probe:
+    protocols: [ as, eth, tcp, ipv4, ipv6, dns, http, tls, mail, mpls, vlan ]
+    active_timeout: 300
+    inactive_timeout: 30
+
+# individual tests for general simulation scenario
+sim_general:
+  - id: munich_precise
+    marks: [precise]
+    speed_multiplier: 1.0
+    analysis:
+      model: "precise"
+
+  - id: munich_precise
+    marks: []
+    speed_multiplier: 1.0
+    analysis:
+      model: "statistical"
+      metrics:
+        - key: PACKETS
+          diff: 0.5
+        - key: BYTES
+          diff: 0.5
+        - key: FLOWS
+          diff: 0.5

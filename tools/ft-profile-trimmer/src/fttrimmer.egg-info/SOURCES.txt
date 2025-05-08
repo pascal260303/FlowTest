@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+src/fttrimmer.py
+src/fttrimmer/__init__.py
+src/fttrimmer/fttrimmer.py
+src/fttrimmer.egg-info/PKG-INFO
+src/fttrimmer.egg-info/SOURCES.txt
+src/fttrimmer.egg-info/dependency_links.txt
+src/fttrimmer.egg-info/entry_points.txt
+src/fttrimmer.egg-info/requires.txt
+src/fttrimmer.egg-info/top_level.txt

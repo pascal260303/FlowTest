@@ -103,7 +103,7 @@ def get_replicator_prefix(
     return min_prefix
 
 
-def collect_scenarios(path: str, target: ScenarioCfg, name: Optional[str] = None) -> list["ParameterSet"]:
+def collect_scenarios(path: str, target: ScenarioCfg, name: Optional[str] = None) -> list["ParameterSet"]: # noqa
     """
     Collect all scenario files in the provided directory.
     The function provides created configuration object and name of the respective scenario file.
