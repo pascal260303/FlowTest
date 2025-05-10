@@ -21,3 +21,6 @@ venv/
 
 # log files
 logs/
+
+# downloaded profiles
+profiles/
