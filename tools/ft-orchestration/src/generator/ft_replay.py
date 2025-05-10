@@ -8,6 +8,7 @@ Connector for ft-replay tool.
 """
 
 import logging
+import math
 import re
 import shutil
 import tempfile
@@ -280,11 +281,15 @@ class FtReplay(Replicator):
         self._process = None
         self._rsync = Rsync(executor)
 
-        if self._output_plugin.output_plugin == "xdp" and mtu != 2048:
-            logging.getLogger().warning("Xdp output plugin supports only MTU of value 2048. Parameter is ignored.")
-            self._mtu = 2048
-        else:
-            self._mtu = mtu
+        if self._output_plugin.output_plugin == "xdp":
+            if not math.log2(mtu).is_integer():
+                logging.getLogger().warning("Xdp output plugin supports only MTU that is a power of 2")
+                mtu = pow(2, math.ceil(math.log2(mtu)))
+                logging.getLogger().warning(f"Using MTU of {mtu} for ft-replay")
+            #if self._output_plugin.zero_copy and mtu > 2048:
+            #    logging.getLogger().warning("Xdp output plugin supports only MTU of value <= 2048. Parameter is ignored.")
+            #    mtu = 2048
+        self._mtu = mtu
 
         self._replication_units = []
         self._srcip_offset = None
@@ -455,6 +460,28 @@ class FtReplay(Replicator):
 
         # negative values mean infinite loop
         loop_count = max(loop_count, 0)
+        
+        if self._output_plugin.output_plugin == 'xdp' and not self._output_plugin.zero_copy:
+            Tool(f"ip link set dev {self._interface} xdp off", executor=self._executor, sudo=True).run()
+
+        if self._output_plugin.output_plugin in ["raw", "xdp", "packet"]:
+            Tool(f"ip link set dev {self._interface} up", executor=self._executor, sudo=True).run()
+            # find maxmtu and use that instead
+            stdout,_ = Tool(f"ip -d link show dev {self._interface}", executor=self._executor, sudo=True).run()
+            maxmtu = 0
+            next = False
+            for field in stdout.split(" "):
+                if field == "maxmtu":
+                    next = True
+                    continue
+                if next:
+                    maxmtu=int(field)
+                    break
+            if maxmtu != 0 and self._mtu > maxmtu:
+                self._mtu = pow(2,math.floor(math.log2(maxmtu)))
+                logging.getLogger().warning(f"MTU larger than max MTU using {self._mtu} instead")
+            
+            Tool(f"ip link set dev {self._interface} mtu {self._mtu}", executor=self._executor, sudo=True).run()
 
         self._save_config()
 
@@ -469,11 +496,7 @@ class FtReplay(Replicator):
         cmd_args += ["-i", pcap_path]
         
         #disable ram check:
-        #cmd_args += ["--no-freeram-check"]
-
-        if self._output_plugin.output_plugin in ["raw", "xdp", "packet"]:
-            Tool(f"ip link set dev {self._interface} up", executor=self._executor, sudo=True).run()
-            Tool(f"ip link set dev {self._interface} mtu {self._mtu}", executor=self._executor, sudo=True).run()
+        #cmd_args += ["--no-freeram-check"]                            
 
         self._process = AsyncTool(
             f"{self._bin} {' '.join(cmd_args)}",
