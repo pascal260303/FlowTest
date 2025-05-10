@@ -30,9 +30,11 @@ Umem::Umem(const QueueConfig& cfg)
 {
 	struct xsk_umem_config umemConfig {};
 
+	size_t frame_size = 4096;
+
 	umemConfig.fill_size = cfg._xskQueueSize;
 	umemConfig.comp_size = cfg._xskQueueSize;
-	umemConfig.frame_size = cfg._packetSize;
+	umemConfig.frame_size = std::min(frame_size, cfg._packetSize);
 	umemConfig.frame_headroom = 0;
 	umemConfig.flags = 0;
 
@@ -47,7 +49,7 @@ Umem::Umem(const QueueConfig& cfg)
 		&umemConfig);
 	if (ret) {
 		_logger->error("Cannot register UMEM. Maybe insufficient privileges.");
-		throw std::runtime_error("Umem::Umem() has failed");
+		throw std::runtime_error("Umem::Umem() has failed: " + std::to_string(ret));
 	}
 }
 
