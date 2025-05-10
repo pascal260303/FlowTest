@@ -11,7 +11,6 @@ import logging
 import shutil
 import tempfile
 import time
-import copy
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum

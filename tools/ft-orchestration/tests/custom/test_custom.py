@@ -1,7 +1,22 @@
+import ipaddress
+import logging
 import os
-
-import pytest
 import time
+from typing import Optional
+
+import pandas as pd
+import pytest
+from ftanalyzer.models.precise_model import PreciseModel
+from ftanalyzer.models.sm_data_types import (
+    SMMetric,
+    SMMetricType,
+    SMRule,
+    SMSubnetSegment,
+)
+from ftanalyzer.models.statistical_model import StatisticalModel
+from ftanalyzer.replicator.flow_replicator import FlowReplicator
+from ftanalyzer.reports.precise_report import PreciseReport
+from ftanalyzer.reports.statistical_report import StatisticalReport
 from lbr_testsuite.topology.topology import select_topologies
 from src.collector.collector_builder import CollectorBuilder
 from src.common.html_report_plugin import HTMLReportData
@@ -9,18 +24,155 @@ from src.common.utils import (
     collect_scenarios,
     download_logs,
     get_project_root,
+    get_replicator_prefix,
+    ip_network_add_offset,
 )
-from src.config.scenario import SimulationScenario
+from src.config.scenario import AnalysisCfg, SimulationScenario
+from src.generator.ft_generator import FtGeneratorConfig
 from src.generator.generator_builder import GeneratorBuilder
-from src.generator.interface import MultiplierSpeed
+from src.generator.interface import MultiplierSpeed, Replicator
 from src.probe.probe_builder import ProbeBuilder
-from tests.simulation.test_simulation_general import setup_replicator, validate
 
 PROJECT_ROOT = get_project_root()
 CUSTOM_TESTS_DIR = os.path.join(PROJECT_ROOT, "testing/custom")
 select_topologies(["replicator"])
 
 DEFAULT_REPLICATOR_PREFIX = 8
+
+def validate(
+    analysis: AnalysisCfg,
+    prefilter_conf: list[str],
+    flows_file: str,
+    reference: pd.DataFrame,
+    active_timeout: int,
+    start_time: int,
+    biflows: bool,
+) -> tuple[StatisticalReport, Optional[PreciseReport]]:
+    """Perform statistical and/or precise model evaluation of the test scenario.
+
+    Parameters
+    ----------
+    analysis: AnalysisCfg
+        Object describing how the test results should be evaluated.
+    prefilter_conf: list[str]
+        Prefilter IP ranges.
+    flows_file: str
+        Path to a file with flows from collector.
+    reference: pd.DataFrame
+        Reference flows in DataFrame.
+    active_timeout: int
+        Active timeout which was used during flow creation process by the probe.
+    start_time: int
+        Timestamp of the first packet.
+    biflows: bool
+        Probe exports biflows.
+
+    Returns
+    -------
+    tuple
+        Reports from the evaluation. Statistical report is always present,
+        precise report is present only if a precise model is selected.
+    """
+
+    if analysis.model == "precise":
+        model = PreciseModel(flows_file, reference, active_timeout, start_time, biflows)
+        if len(prefilter_conf) > 0:
+            precise_report = model.validate_precise(
+                [SMSubnetSegment(subnet, bidir=True) for subnet in prefilter_conf],
+                check_complement=True,
+            )
+        else:
+            precise_report = model.validate_precise()
+
+        # precise model always expects zero faults
+        metrics = [
+            SMMetric(SMMetricType.PACKETS, 0),
+            SMMetric(SMMetricType.BYTES, 0),
+            SMMetric(SMMetricType.FLOWS, 0),
+        ]
+    else:
+        model = StatisticalModel(flows_file, reference, start_time)
+        precise_report = None
+        metrics = analysis.metrics
+
+    if len(prefilter_conf) > 0:
+        rules = [SMRule(metrics, SMSubnetSegment(subnet, bidir=True)) for subnet in prefilter_conf]
+        check_complement = True
+    else:
+        rules = [SMRule(metrics)]
+        check_complement = False
+
+    stats_report = model.validate(rules, check_complement)
+
+    return stats_report, precise_report
+
+
+def setup_replicator(
+    generator: Replicator,
+    conf: FtGeneratorConfig,
+    prefilter_conf: list[str],
+    loop_cnt: int,
+    unit_cnt: int,
+) -> tuple[FlowReplicator, list[str]]:
+    """
+    Setup replicator units and loops so that there is enough bits in an IP prefix
+    to perform replication in a way that IP subnets do not overlap.
+
+    Parameters
+    ----------
+    generator: Replicator
+        Generator instance.
+    conf: FtGeneratorConfig
+        Generator configuration.
+    prefilter_conf: list[str]
+        Prefilter IP ranges.
+    loop_cnt: int
+        Number of traffic replay loops.
+    unit_cnt: int
+        Number of replication units.
+
+    Returns
+    -------
+    (FlowReplicator, list[str])
+        Flow replicator object to adjust reference flows report form the packet player.
+        List of strings with extended prefilter IP ranges. Scaled to match replication
+        units and loops.
+    """
+
+    assert loop_cnt > 0 and unit_cnt > 0
+
+    prefix = get_replicator_prefix(
+        (loop_cnt * unit_cnt - 1).bit_length(), DEFAULT_REPLICATOR_PREFIX, conf.ipv4.ip_range, conf.ipv6.ip_range
+    )
+    if conf.ipv4.ip_range is None:
+        conf.ipv4.ip_range = f"{ipaddress.IPv4Address(2 ** (32 - prefix)):s}/{prefix}"
+
+    if conf.ipv6.ip_range is None:
+        conf.ipv6.ip_range = f"{ipaddress.IPv6Address(2 ** (128 - prefix)):s}/{prefix}"
+
+    extended_prefilter_conf = set()
+
+    for unit_n in range(unit_cnt):
+        offset = unit_n * 2 ** (32 - prefix)
+        generator.add_replication_unit(
+            srcip=Replicator.AddConstant(offset),
+            dstip=Replicator.AddConstant(offset),
+        )
+        for subnet in prefilter_conf:
+            extended_prefilter_conf.add(ip_network_add_offset(subnet, offset))
+
+    loop_offset = unit_cnt * 2 ** (32 - prefix)
+    generator.set_loop_modifiers(srcip_offset=loop_offset, dstip_offset=loop_offset)
+    extended_prefilter_conf = {
+        ip_network_add_offset(subnet, loop_n * loop_offset)
+        for subnet in extended_prefilter_conf
+        for loop_n in range(loop_cnt)
+    }
+
+    logging.getLogger().info("Generator - ipv4 range: %s, ipv6 range: %s", conf.ipv4.ip_range, conf.ipv6.ip_range)
+    logging.getLogger().info("Replicator - units: %d, loops: %d, prefix: %d", unit_cnt, loop_cnt, prefix)
+
+    return FlowReplicator(generator.get_replicator_config()), list(map(str, extended_prefilter_conf))
 
 @pytest.mark.custom
 @pytest.mark.parametrize(
