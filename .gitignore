@@ -18,3 +18,6 @@ build/
 
 # log files
 logs/
+
+# downloaded profiles
+profiles/

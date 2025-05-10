@@ -1,10 +1,10 @@
 # Profile information which cannot be modified by the orchestration tool.
 name: Munich short
 description: Munich short
-marks: [university, short, small_mtu]
+marks: [university, small_mtu]
 requirements:
   speed: 100
-profile: /home/student/2025-bsc-kuppler-flowmeter/profile_trimmed_1-10_60s_1s.csv
+profile: https://liberouter.org/repo/flowtest/profiles/100G_MUNI/profile_trimmed_1-10_360s_10s.csv
 mtu: 1526
 sampling: 1
 
