@@ -50,6 +50,7 @@ class PreciseModel(StatisticalModel):
         active_timeout: int,
         start_time: int = 0,
         biflows_ts_correction: bool = False,
+        end_time: int = 0
     ) -> None:
         """Initialize the statistical model with sorted input data.
         Parameters
@@ -75,7 +76,7 @@ class PreciseModel(StatisticalModel):
             Unable to process provided files.
         """
 
-        super().__init__(flows, reference, start_time, merge=True, biflows_ts_correction=biflows_ts_correction)
+        super().__init__(flows, reference, start_time, merge=True, biflows_ts_correction=biflows_ts_correction, end_time=end_time)
         self._report = None
         self._active_timeout = active_timeout * 1000
 
