@@ -25,6 +25,9 @@ class SMMetricType(Enum):
     PACKETS = "PACKETS"
     BYTES = "BYTES"
     FLOWS = "FLOWS"
+    PPS = "PACKETS / S"
+    MBPS = "MB / S"
+    DURATION = "DURATION"
 
 
 @dataclass

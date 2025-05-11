@@ -555,7 +555,7 @@ class FtReplay(Replicator):
             report = cache_rsync.pull_path(self._report, self._work_dir)
             shutil.copy(report, report_path)
             self._report_pull_failed = False
-        except AssertionError as e: 
+        except AssertionError: 
             self._report_path = report_path
             self._report_pull_failed = True
 

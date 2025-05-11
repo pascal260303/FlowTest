@@ -42,6 +42,12 @@ sim_general:
           diff: 0.5
         - key: FLOWS
           diff: 0.5
+        - key: PACKETS / S
+          diff: 1
+        - key: MB / S
+          diff: 1
+        - key: DURATION
+          diff: 1
   - id: munich_speedup_400G
     marks: [speedup]
     mbps: 400000
@@ -54,4 +60,10 @@ sim_general:
         - key: BYTES
           diff: 0.5
         - key: FLOWS
+          diff: 0.5
+        - key: PACKETS / S
+          diff: 0.5
+        - key: MB / S
+          diff: 0.5
+        - key: DURATION
           diff: 0.5

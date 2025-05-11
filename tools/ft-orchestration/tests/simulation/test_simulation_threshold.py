@@ -47,6 +47,7 @@ def validate(
     flows_file: str,
     reference: pd.DataFrame,
     start_time: int,
+    end_time: int,
 ) -> bool:
     """Perform statistical and/or precise model evaluation of the test scenario.
 
@@ -68,7 +69,7 @@ def validate(
         precise report is present only if a precise model is selected.
     """
 
-    model = StatisticalModel(flows_file, reference, start_time)
+    model = StatisticalModel(flows_file, reference, start_time, end_time=end_time)
     stats_report = model.validate([SMRule(analysis.metrics)])
     stats_report.print_results()
     print("")
@@ -215,6 +216,7 @@ def test_simulation_threshold(
             flows_file=flows_file,
             reference=replicated_ref,
             start_time=stats.start_time,
+            end_time=stats.end_time,
         )
 
         return ret
