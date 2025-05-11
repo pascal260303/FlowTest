@@ -230,10 +230,10 @@ class StatisticalModel:
     
     def _filter_multicast(self):
         # ipv4
-        self._flows = self._flows[self._flows["DST_IP"] == "255.255.255.255"]
+        self._flows = self._flows[self._flows["DST_IP"] != "255.255.255.255"]
         
         #ipv6
-        self._flows = self._flows[self._flows["DST_IP"].str.startswith("ff02::")]
+        self._flows = self._flows[~self._flows["DST_IP"].str.startswith("ff02::")]
 
     def _merge_flows(self, biflows_ts_correction: bool) -> None:
         """
