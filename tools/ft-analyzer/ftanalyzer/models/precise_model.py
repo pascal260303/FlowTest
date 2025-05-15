@@ -14,6 +14,7 @@ import pandas as pd
 from ftanalyzer.models.sm_data_types import SMSubnetSegment, SMTimeSegment
 from ftanalyzer.models.statistical_model import StatisticalModel
 from ftanalyzer.reports.precise_report import PMFlow, PMTestCategory, PreciseReport
+from src.generator.interface import GeneratorStats
 
 
 # pylint: disable=too-few-public-methods
@@ -48,9 +49,8 @@ class PreciseModel(StatisticalModel):
         flows: str,
         reference: Union[str, pd.DataFrame],
         active_timeout: int,
-        start_time: int = 0,
+        stats: GeneratorStats,
         biflows_ts_correction: bool = False,
-        end_time: int = 0
     ) -> None:
         """Initialize the statistical model with sorted input data.
         Parameters
@@ -76,7 +76,7 @@ class PreciseModel(StatisticalModel):
             Unable to process provided files.
         """
 
-        super().__init__(flows, reference, start_time, merge=True, biflows_ts_correction=biflows_ts_correction, end_time=end_time)
+        super().__init__(flows, reference, stats, merge=True, biflows_ts_correction=biflows_ts_correction)
         self._report = None
         self._active_timeout = active_timeout * 1000
 

@@ -26,6 +26,7 @@ from ftanalyzer.models.sm_data_types import (
     SMTimeSegment,
 )
 from ftanalyzer.reports import StatisticalReport
+from src.generator.interface import GeneratorStats
 
 
 class StatisticalModel:
@@ -89,10 +90,9 @@ class StatisticalModel:
         self,
         flows: str,
         reference: Union[str, pd.DataFrame],
-        start_time: int = 0,
+        stats: GeneratorStats,
         merge: bool = False,
         biflows_ts_correction: bool = False,
-        end_time: int = 0,
     ) -> None:
         """Read provided files and converts it to data frames.
 
@@ -135,22 +135,23 @@ class StatisticalModel:
         except Exception as err:
             raise SMException("Unable to read file with flows.") from err
 
-        if start_time > 0:
-            self._ref["START_TIME"] = self._ref["START_TIME"] + start_time
-            self._ref["END_TIME"] = self._ref["END_TIME"] + start_time
+        if stats.start_time > 0:
+            self._ref["START_TIME"] = self._ref["START_TIME"] + stats.start_time
+            self._ref["END_TIME"] = self._ref["END_TIME"] + stats.start_time
             
             # filter out flows that start before the start time
-            self._flows = self._flows[self._flows["START_TIME"] >= start_time]
+            self._flows = self._flows[self._flows["START_TIME"] >= stats.start_time]
             
-        if end_time > 0:
+        if stats.end_time > 0:
             # filter out flows that start before the end time
-            self._flows = self._flows[self._flows["START_TIME"] <= end_time]
+            self._flows = self._flows[self._flows["START_TIME"] <= stats.end_time]
             
         self._filter_multicast()
 
         if merge:
             self._merge_flows(biflows_ts_correction)
-
+            
+        self._generator_stats: GeneratorStats = stats
         self._flows_ip_addresses_converted = False
         self._ref_ip_addresses_converted = isinstance(reference, pd.DataFrame)
 
@@ -188,7 +189,7 @@ class StatisticalModel:
                 raise SMException(f"Rule contains duplicated metrics: {rule.metrics}")
 
             duration = (flows["END_TIME"].max() - flows["START_TIME"].min()+1) / 1000
-            ref_duration = (ref["END_TIME"].max() - ref["START_TIME"].min()+1) / 1000
+            ref_duration = (self._generator_stats.end_time - self._generator_stats.start_time +1) / 1000
             
             for metric in rule.metrics:
                 match metric.key:
@@ -197,10 +198,10 @@ class StatisticalModel:
                         reference = len(ref.index)
                     case SMMetricType.MBPS:
                         value = flows[SMMetricType.BYTES.value].sum() / duration / pow(10, 6)
-                        reference = ref[SMMetricType.BYTES.value].sum() / ref_duration / pow(10, 6)
+                        reference = self._generator_stats.bytes / ref_duration / pow(10, 6)
                     case SMMetricType.PPS:
                         value = flows[SMMetricType.PACKETS.value].sum() / duration
-                        reference = ref[SMMetricType.PACKETS.value].sum() / ref_duration
+                        reference = self._generator_stats.packets / ref_duration
                     case SMMetricType.DURATION:
                         value = duration
                         reference = ref_duration

@@ -30,7 +30,7 @@ from src.common.utils import (
 from src.config.scenario import AnalysisCfg, SimulationScenario
 from src.generator.ft_generator import FtGeneratorConfig
 from src.generator.generator_builder import GeneratorBuilder
-from src.generator.interface import MultiplierSpeed, Replicator
+from src.generator.interface import GeneratorStats, MultiplierSpeed, Replicator
 from src.probe.probe_builder import ProbeBuilder
 
 PROJECT_ROOT = get_project_root()
@@ -45,9 +45,8 @@ def validate(
     flows_file: str,
     reference: pd.DataFrame,
     active_timeout: int,
-    start_time: int,
+    stats: GeneratorStats,
     biflows: bool,
-    end_time: int,
 ) -> tuple[StatisticalReport, Optional[PreciseReport]]:
     """Perform statistical and/or precise model evaluation of the test scenario.
 
@@ -76,7 +75,7 @@ def validate(
     """
 
     if analysis.model == "precise":
-        model = PreciseModel(flows_file, reference, active_timeout, start_time, biflows, end_time)
+        model = PreciseModel(flows_file, reference, active_timeout, stats, biflows)
         if len(prefilter_conf) > 0:
             precise_report = model.validate_precise(
                 [SMSubnetSegment(subnet, bidir=True) for subnet in prefilter_conf],
@@ -95,7 +94,7 @@ def validate(
             SMMetric(SMMetricType.DURATION, 0),
         ]
     else:
-        model = StatisticalModel(flows_file, reference, start_time, end_time=end_time)
+        model = StatisticalModel(flows_file, reference, stats)
         precise_report = None
         metrics = analysis.metrics
 
@@ -318,9 +317,8 @@ def test_custom(
         flows_file=flows_file,
         reference=replicated_ref,
         active_timeout=active_t,
-        start_time=stats.start_time,
+        stats=stats,
         biflows=device.get_biflow_export(),
-        end_time=stats.end_time
     )
 
     print("")
