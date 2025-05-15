@@ -262,7 +262,7 @@ def test_simulation_overload(
         speed_multiplier=speed.speed if isinstance(speed, MultiplierSpeed) else 1.0,
     )
 
-    model = StatisticalModel(flows_file, replicated_ref, stats.start_time, end_time=stats.end_time)
+    model = StatisticalModel(flows_file, replicated_ref, stats)
     report = model.validate([SMRule(scenario.test.analysis.metrics, segment) for segment in segments])
     report.print_results()
 

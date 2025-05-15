@@ -32,7 +32,7 @@ from src.common.utils import (
 from src.config.scenario import AnalysisCfg, SimulationScenario
 from src.generator.ft_generator import FtGeneratorConfig
 from src.generator.generator_builder import GeneratorBuilder
-from src.generator.interface import MbpsSpeed, Replicator
+from src.generator.interface import GeneratorStats, MbpsSpeed, Replicator
 from src.probe.probe_builder import ProbeBuilder
 
 PROJECT_ROOT = get_project_root()
@@ -46,8 +46,7 @@ def validate(
     analysis: AnalysisCfg,
     flows_file: str,
     reference: pd.DataFrame,
-    start_time: int,
-    end_time: int,
+    stats: GeneratorStats,
 ) -> bool:
     """Perform statistical and/or precise model evaluation of the test scenario.
 
@@ -69,7 +68,7 @@ def validate(
         precise report is present only if a precise model is selected.
     """
 
-    model = StatisticalModel(flows_file, reference, start_time, end_time=end_time)
+    model = StatisticalModel(flows_file, reference, stats)
     stats_report = model.validate([SMRule(analysis.metrics)])
     stats_report.print_results()
     print("")
@@ -215,8 +214,7 @@ def test_simulation_threshold(
             analysis=scenario.test.analysis,
             flows_file=flows_file,
             reference=replicated_ref,
-            start_time=stats.start_time,
-            end_time=stats.end_time,
+            stats=stats,
         )
 
         return ret
