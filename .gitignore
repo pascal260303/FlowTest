@@ -2,7 +2,7 @@
 build/
 
 # Visual Studio files
-.vscode/
+#.vscode/
 
 # JetBrains files
 .idea/

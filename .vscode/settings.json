@@ -1,0 +1,20 @@
+{
+    "python.testing.pytestArgs": [
+        ".",
+        "--config-path=/home/student/2025-bsc-kuppler-flowmeter/flowtest-configs",
+        "--replicator=kuppler-2-xdp-zc",
+        "--collector=ipfixcol-1",
+        "--probe=ipfix-probe-dpdk",
+        "--disable-ansible",
+        "--html=logs/report.html",
+        "--self-contained-html",
+        "-m custom and (small_mtu and short)",
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "python.analysis.extraPaths": [
+        "./tools/ft-analyzer",
+        "./tools/ft-orchestration",
+    ],
+    "terminal.integrated.scrollback": 1000,
+}
