@@ -111,6 +111,8 @@ class ProbeBuilder(BuilderBase, Device):
         additional_args = {**self._connector_args, **kwargs}
         if mtu is not None:
             additional_args.update({"mtu": mtu})
+            
+        protocols = list(set(protocols) & set(self.get_supported_protocols()))
 
         return self._class(self._executor, self._target, protocols, self._interfaces, **additional_args)
 
