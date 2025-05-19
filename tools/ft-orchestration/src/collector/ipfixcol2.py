@@ -162,6 +162,7 @@ class Ipfixcol2(CollectorInterface):
             Absolute paths to log files.
         """
         log_files = [Path(self._conf_dir, self.CONFIG_FILE)]
+        log_files.append(self._log_dir / "flows.csv")
         if self._verbose:
             log_files.extend([self._log_dir / "json.*"])
         return log_files
@@ -252,7 +253,7 @@ class Ipfixcol2(CollectorInterface):
             return
 
         command = self._cmd.split(" ",1)[0]
-        Tool(f"kill $(pgrep {command})", executor=self._fallback_executor, failure_verbosity="silent").run()
+        Tool(f"kill $(pidof -s {command})", executor=self._fallback_executor, failure_verbosity="silent").run()
 
         stdout = []
         try:

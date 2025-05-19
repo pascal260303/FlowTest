@@ -457,7 +457,7 @@ class Ipfixprobe(ProbeInterface, ABC):
         logging.getLogger().info("Stopping ipfixprobe exporter.")
                
         command = self._cmd.split(" ",1)[0]
-        Tool(f"kill $(pgrep {command})", executor=self._fallback_executor, failure_verbosity="silent").run()
+        Tool(f"kill $(pidof -s {command})", executor=self._fallback_executor, failure_verbosity="silent").run()
         
         stdout = []
         try:
@@ -704,6 +704,10 @@ class Ipfixprobe(ProbeInterface, ABC):
             args += ["-Q", str(settings.output_queue_size)]
         if settings.packet_buffer_size:
             args += ["-B", str(settings.packet_buffer_size)]
+            
+        # telemetry args
+        
+        args += ["-t", "/tmp/telemetry"]
 
         return args
 

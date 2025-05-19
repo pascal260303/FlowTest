@@ -14,7 +14,7 @@ from typing import Optional, Union
 
 import pytest
 from dataclass_wizard.errors import MissingFields, ParseError
-from src.config.scenario import ScenarioCfg, ScenarioCfgException
+from src.config.scenario import ScenarioCfg, ScenarioCfgException, SimulationScenario
 from yaml.scanner import ScannerError
 
 
@@ -139,7 +139,7 @@ def collect_scenarios(path: str, target: ScenarioCfg, name: Optional[str] = None
         abspath = os.path.join(path, file)
         logging.getLogger().info("Loading test scenario from file: %s", abspath)
         try:
-            scenario = target.from_yaml_file(abspath)
+            scenario: SimulationScenario = target.from_yaml_file(abspath)
             scenario.check()
             for test_cfg, test_marks, test_id in scenario.get_tests(file, name):
                 marks = [getattr(pytest.mark, mark) for mark in test_marks]
