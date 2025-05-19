@@ -442,7 +442,8 @@ class FlowReplicator:
         # ORIG_INDEX - leave flows that are separated in input csv unmerged - expectation of correct reference
         # (e.g. two flows with the same flow key at different times)
         key = self.FLOW_KEY + ["ORIG_INDEX", "_SRC_IP_OFFSET", "_DST_IP_OFFSET"]
-        res = res.groupby(key, sort=False).agg(self.AGGREGATE_SPLIT_FLOWS).reset_index()
+        res = res.groupby(key, sort=False)
+        res = res.agg(self.AGGREGATE_SPLIT_FLOWS).reset_index()
         res.reindex()
         res.sort_values(by=["ORIG_INDEX"], inplace=True)
 

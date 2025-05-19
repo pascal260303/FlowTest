@@ -44,6 +44,9 @@ class PMFlow:
     END_TIME: int
     TIME_DIFF: int = 0
     FLOW_COUNT: int = 0
+    index_x: int = None
+    index_y: int = None
+    index: int = None
 
     def __str__(self) -> str:
         return (

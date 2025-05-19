@@ -68,8 +68,8 @@ class StatisticalModel:
         "PROTOCOL",
     ]
     CSV_COLUMN_TYPES = {
-        "START_TIME": np.int64,
-        "END_TIME": np.int64,
+        "START_TIME": np.uint64,
+        "END_TIME": np.uint64,
         "PROTOCOL": np.uint8,
         "SRC_IP": str,
         "DST_IP": str,
@@ -122,7 +122,7 @@ class StatisticalModel:
         try:
             logging.getLogger().debug("reading file with flows=%s", flows)
             # ports could be empty in flows with protocol like ICMP
-            flows = pd.read_csv(flows, engine="pyarrow")
+            flows = pd.read_csv(flows, engine="pyarrow", dtype=self.CSV_COLUMN_TYPES)
             flows["SRC_PORT"] = flows["SRC_PORT"].fillna(0)
             flows["DST_PORT"] = flows["DST_PORT"].fillna(0)
             self._flows: pd.DataFrame = flows.astype(self.CSV_COLUMN_TYPES)
@@ -142,9 +142,9 @@ class StatisticalModel:
             # filter out flows that start before the start time
             self._flows = self._flows[self._flows["START_TIME"] >= stats.start_time]
             
-        if stats.end_time > 0:
-            # filter out flows that start before the end time
-            self._flows = self._flows[self._flows["START_TIME"] <= stats.end_time]
+        #if stats.end_time > 0:
+        #    # filter out flows that start before the end time
+        #    self._flows = self._flows[self._flows["START_TIME"] <= stats.end_time]
             
         self._filter_multicast()
 

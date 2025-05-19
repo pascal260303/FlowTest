@@ -131,7 +131,9 @@ class PreciseModel(StatisticalModel):
             # which are in one frame and not the other using '_merge' column
             # store original indexes using 'reset_index()'
             # integer values are cast to float because of the introduction of NaN values
-            combined = pd.merge(flows.reset_index(), refs.reset_index(), on=self.FLOW_KEY, how="outer", indicator=True)
+            flows = flows.reset_index().convert_dtypes(convert_integer=True)
+            refs = refs.reset_index().convert_dtypes(convert_integer=True)
+            combined = pd.merge(flows, refs, on=self.FLOW_KEY, how="outer", indicator=True)
 
             missing = combined[combined["_merge"] == "right_only"]
             self._report_flows(refs.iloc[missing["index_y"]], PMTestCategory.MISSING)
@@ -141,8 +143,6 @@ class PreciseModel(StatisticalModel):
 
             # filter flows present in both frames and change type of saved indexes back to uint64
             combined = combined[combined["_merge"] == "both"]
-            combined["index_x"] = combined["index_x"].astype("uint64")
-            combined["index_y"] = combined["index_y"].astype("uint64")
 
             # add time difference column for later use
             combined["TIME_DIFF"] = combined.apply(self._time_diff, axis=1)
@@ -283,6 +283,8 @@ class PreciseModel(StatisticalModel):
         category : PMTestCategory
             The test category the flows should be reported to (either MISSING or UNEXPECTED).
         """
+        if hasattr(flows, "index"):
+            flows = flows.set_index("index")
 
         for _, flow in flows.iterrows():
             self._report.add_test(category, PMFlow(**(flow.to_dict())))
