@@ -253,6 +253,8 @@ def test_custom(
     probe_conf = scenario.test.get_probe_conf(
         device.get_instance_type(), scenario.default.probe
     )
+    protocols = set(device.get_supported_protocols()) & set(probe_conf["protocols"])
+    probe_conf["protocols"] = list(protocols)
     probe_instance = device.get(mtu=scenario.mtu, **probe_conf)
     objects_to_cleanup.append(probe_instance)
     active_t, inactive_t = probe_instance.get_timeouts()
@@ -264,7 +266,7 @@ def test_custom(
     ref_file = os.path.join(tmp_dir, "report.csv")
 
     # set max inter packet gap in a profile slightly below configured probe's inactive timeout
-    generator_conf.max_flow_inter_packet_gap = int(inactive_t * 0.8)
+    generator_conf.max_flow_inter_packet_gap = int(inactive_t * 2/3)
 
     # setup replicator
     flow_replicator, prefilter_conf = setup_replicator(
@@ -297,9 +299,11 @@ def test_custom(
     # method stats blocks until traffic is sent
     stats = generator_instance.stats()
 
-    time.sleep(15)
+    time.sleep(5)
 
     probe_instance.stop()
+    
+    time.sleep(5)
     collector_instance.stop()
 
     flows_file = os.path.join(tmp_dir, "flows.csv")

@@ -47,4 +47,4 @@ def pytest_configure():
     
 
     logging.getLogger("paramiko.transport").setLevel(logging.WARNING)
-    logging.getLogger().setLevel(logging.WARNING)
+    logging.getLogger().setLevel(logging.INFO)
