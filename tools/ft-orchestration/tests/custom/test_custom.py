@@ -253,8 +253,6 @@ def test_custom(
     probe_conf = scenario.test.get_probe_conf(
         device.get_instance_type(), scenario.default.probe
     )
-    protocols = set(device.get_supported_protocols()) & set(probe_conf["protocols"])
-    probe_conf["protocols"] = list(protocols)
     probe_instance = device.get(mtu=scenario.mtu, **probe_conf)
     objects_to_cleanup.append(probe_instance)
     active_t, inactive_t = probe_instance.get_timeouts()
