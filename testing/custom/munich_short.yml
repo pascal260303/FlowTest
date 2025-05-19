@@ -5,18 +5,18 @@ marks: [university, short, small_mtu]
 requirements:
   speed: 100
 profile: /home/student/2025-bsc-kuppler-flowmeter/profile_trimmed_1-10_60s_1s.csv
-mtu: 1526
+mtu: 2048
 sampling: 1
 
 # default configuration describing the setup during profile collection
 default:
   pps: 708150
   mbps: 7075
-  generator:
-    ipv4:
-      fragmentation_probability: 0.05%
-    ipv6:
-      fragmentation_probability: 0%
+  generator: []
+  #  ipv4:
+  #    fragmentation_probability: 0.05%
+  #  ipv6:
+  #    fragmentation_probability: 0%
   probe:
     protocols: [ as, eth, tcp, ipv4, ipv6, dns, http, tls, mail, mpls, vlan ]
     active_timeout: 300
