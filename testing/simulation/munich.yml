@@ -51,7 +51,7 @@ sim_general:
   - id: munich_speedup_400G
     marks: [speedup]
     mbps: 400000
-    loops: 5
+    loops: 100
     analysis:
       model: "statistical"
       metrics:
