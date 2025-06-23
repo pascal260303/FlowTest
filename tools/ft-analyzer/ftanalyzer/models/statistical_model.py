@@ -153,8 +153,8 @@ class StatisticalModel:
             self._ref["START_TIME"] = self._ref["START_TIME"] + stats.start_time
             self._ref["END_TIME"] = self._ref["END_TIME"] + stats.start_time
             
-            # filter out flows that start before the start time
-            self._flows = self._flows[self._flows["START_TIME"] >= stats.start_time]
+            # filter out flows that start before the start time with 500 ms tolerance
+            self._flows = self._flows[self._flows["START_TIME"] >= stats.start_time - 500]
             
         #if stats.end_time > 0:
         #    # filter out flows that start before the end time
@@ -215,10 +215,10 @@ class StatisticalModel:
                         reference = len(ref.index)
                     case SMMetricType.MBPS:
                         value = flows[SMMetricType.BYTES.value].sum() / duration / pow(10, 6)
-                        reference = self._generator_stats.bytes / ref_duration / pow(10, 6)
+                        reference = ref[SMMetricType.BYTES.value].sum() / ref_duration / pow(10, 6)
                     case SMMetricType.PPS:
                         value = flows[SMMetricType.PACKETS.value].sum() / duration
-                        reference = self._generator_stats.packets / ref_duration
+                        reference = ref[SMMetricType.PACKETS.value].sum() / ref_duration
                     case SMMetricType.DURATION:
                         value = duration
                         reference = ref_duration
