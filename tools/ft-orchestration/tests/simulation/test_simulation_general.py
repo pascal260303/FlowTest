@@ -11,7 +11,6 @@ Allows to modify most of the configuration options.
 import ipaddress
 import logging
 import os
-import time
 from typing import Optional
 
 import pandas as pd
@@ -323,11 +322,7 @@ def test_simulation_general(
     # method stats blocks until traffic is sent
     stats = generator_instance.stats()
 
-    time.sleep(5)
-
     probe_instance.stop()
-
-    time.sleep(5)
     collector_instance.stop()
 
     flows_file = os.path.join(tmp_dir, "flows.csv")

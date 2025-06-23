@@ -16,6 +16,7 @@ from ftanalyzer.fields import FieldDatabase
 from ftanalyzer.flow import ValidationField, ValidationStats
 from ftanalyzer.models import ValidationModel
 from ftanalyzer.normalizer import Normalizer
+from ftanalyzer.reports import ValidationReport
 
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 FLOWS_PATH = os.path.join(BASE_PATH, "flows")

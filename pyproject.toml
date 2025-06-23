@@ -32,3 +32,6 @@ addopts = "-s"
 [tool.isort]
 profile = "black"
 known_third_party = ["docker"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]

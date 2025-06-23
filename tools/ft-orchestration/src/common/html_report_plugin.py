@@ -13,8 +13,9 @@ from collections import defaultdict
 # pylint: disable=no-name-in-module
 import pytest
 import pytest_html
+from pytest_html.plugin import HTMLReport
 from ftanalyzer.reports import ValidationReportSummary
-from py.xml import html
+from py.xml import html  # type: ignore
 from src.config.scenario import ScenarioCfg
 
 
@@ -312,7 +313,7 @@ def get_logs_url(relative_logs_path: str) -> str:
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_makereport(item: pytest.Function) -> None:
+def pytest_runtest_makereport(item: pytest.Function) -> None:  # type: ignore
     """Add test name and description after each validation test finishes.
 
     Parameters

@@ -12,7 +12,7 @@ import copy
 import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from ftanalyzer.fields import FieldDirection
+from ftanalyzer.fields import FieldDirection, FieldDatabase
 from ftanalyzer.flow import FieldsDict, Flow, ValidationFlow
 
 

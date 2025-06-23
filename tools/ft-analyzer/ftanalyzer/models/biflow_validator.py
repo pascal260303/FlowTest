@@ -12,7 +12,7 @@ The validation strategy is to find best possible mapping of flows to reference f
 from itertools import permutations, product
 from typing import Dict, List, Optional, Tuple, Union
 
-from ftanalyzer.flow import ValidationFlow
+from ftanalyzer.flow import ValidationFlow, Flow, ValidationResult
 
 
 class BiflowValidator:

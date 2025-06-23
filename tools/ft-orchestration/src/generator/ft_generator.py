@@ -109,7 +109,7 @@ class FtGeneratorConfig(YAMLWizard, JSONWizard, key_transform="SNAKE"):
         min_packet_size_to_fragment: Optional[int] = None
         ip_range: Optional[Union[list[str], str]] = None
 
-        def update(self, other: "IP") -> None:
+        def update(self, other: "FtGeneratorConfig.IP") -> None:
             """
             Update values in this configuration with non-default values from the provided configuration.
 

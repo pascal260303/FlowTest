@@ -12,7 +12,13 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from ftanalyzer.flow import FieldsDict, ValidationResult, ValidationStats
+from ftanalyzer.flow import (
+    FieldsDict,
+    ValidationResult,
+    ValidationStats,
+    Flow,
+    ValidationFlow,
+)
 
 
 class ValidationReportSummary:

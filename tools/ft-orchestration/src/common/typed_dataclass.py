@@ -71,7 +71,7 @@ def typed_dataclass(cls: dataclass):
                     return any(_isinstance(value, t) for t in types)
 
                 if origin in SUPPORTED_ITERABLES:
-                    if origin == tuple and not _tuple_is_variable_len(types):
+                    if isinstance(origin, tuple) and not _tuple_is_variable_len(types):
                         # tuple of fixed length, may be heterogenous
                         return (
                             isinstance(value, tuple)
@@ -164,7 +164,7 @@ def typed_dataclass(cls: dataclass):
                     "Please specify convert function in field metadata."
                 )
 
-            if origin == tuple and not _tuple_is_variable_len(types):
+            if isinstance(origin, tuple) and not _tuple_is_variable_len(types):
                 # tuple of fixed length, may be heterogenous
                 if len(value) != len(types):
                     raise ValueError(

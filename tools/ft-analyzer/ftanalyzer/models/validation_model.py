@@ -10,6 +10,7 @@ File contains ValidationModel class for performing accurate comparison between l
 from copy import deepcopy
 from typing import Dict, List, Optional, Tuple
 
+from ftanalyzer.flow import ValidationFlow, Flow
 from ftanalyzer.models.biflow_validator import BiflowValidator
 from ftanalyzer.reports import ValidationReport
 
