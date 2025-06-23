@@ -15,9 +15,13 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-LOGGING_FORMAT = "%(asctime)-15s,%(name)s,[%(levelname)s],%(filename)s:%(funcName)s - %(message)s"
+LOGGING_FORMAT = (
+    "%(asctime)-15s,%(name)s,[%(levelname)s],%(filename)s:%(funcName)s - %(message)s"
+)
 LOGGING_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-logging.basicConfig(level=logging.DEBUG, format=LOGGING_FORMAT, datefmt=LOGGING_DATE_FORMAT)
+logging.basicConfig(
+    level=logging.DEBUG, format=LOGGING_FORMAT, datefmt=LOGGING_DATE_FORMAT
+)
 
 
 class ProfileTrimmerException(Exception):
@@ -62,7 +66,11 @@ class ProfileTrimmer:
     MILLISECONDS = 1000
 
     def __init__(
-        self, input_path: str, output_path: str, tolerance: int, main_or_window: Union[int, Tuple[int, int]]
+        self,
+        input_path: str,
+        output_path: str,
+        tolerance: int,
+        main_or_window: Union[int, Tuple[int, int]],
     ) -> None:
         """Main function of the class, which trims the profile.
 
@@ -81,16 +89,23 @@ class ProfileTrimmer:
 
         if isinstance(main_or_window, int):
             self.check_params(tolerance, main_interval=main_or_window)
-            self.calculate_intervals(tolerance * self.MILLISECONDS, main_interval=main_or_window * self.MILLISECONDS)
+            self.calculate_intervals(
+                tolerance * self.MILLISECONDS,
+                main_interval=main_or_window * self.MILLISECONDS,
+            )
         elif isinstance(main_or_window, tuple):
-            self.check_params(tolerance, main_left=main_or_window[0], main_right=main_or_window[1])
+            self.check_params(
+                tolerance, main_left=main_or_window[0], main_right=main_or_window[1]
+            )
             self.calculate_intervals(
                 tolerance * self.MILLISECONDS,
                 main_left=main_or_window[0] * self.MILLISECONDS,
                 main_right=main_or_window[1] * self.MILLISECONDS,
             )
         else:
-            raise ProfileTrimmerException("Parameter main_or_window must be int or a tuple.")
+            raise ProfileTrimmerException(
+                "Parameter main_or_window must be int or a tuple."
+            )
 
         try:
             self.df_trimmed, self.stats = self.trim()
@@ -127,7 +142,9 @@ class ProfileTrimmer:
         try:
             return pd.read_csv(csv_path, engine="pyarrow", dtype=cls.CSV_COLUMN_TYPES)
         except Exception as err:
-            raise ProfileTrimmerException(f"Unable to read CSV file: {csv_path}") from err
+            raise ProfileTrimmerException(
+                f"Unable to read CSV file: {csv_path}"
+            ) from err
 
     @classmethod
     def save_csv(cls, trimmed_df: pd.DataFrame, csv_path: str) -> None:
@@ -150,7 +167,9 @@ class ProfileTrimmer:
             with open(csv_path, "w", encoding="ascii") as csv_file:
                 trimmed_df.to_csv(csv_file, index=False)
         except Exception as err:
-            raise ProfileTrimmerException(f"Unable to save CSV file: {csv_path}") from err
+            raise ProfileTrimmerException(
+                f"Unable to save CSV file: {csv_path}"
+            ) from err
 
     def calculate_intervals(
         self,
@@ -187,11 +206,15 @@ class ProfileTrimmer:
         logging.getLogger().info("Maximal END_TIME in the profile: %d", time_end)
         logging.getLogger().info("Time range of the profile: %d", time_range)
         if time_range <= 0:
-            raise ProfileTrimmerException("Time range of the profile must be greater than 0.")
+            raise ProfileTrimmerException(
+                "Time range of the profile must be greater than 0."
+            )
 
         if main_interval:
             if (2 * tolerance) + main_interval > time_range:
-                logging.getLogger().warning("Provided main or tolerance interval is too large!")
+                logging.getLogger().warning(
+                    "Provided main or tolerance interval is too large!"
+                )
 
             time_middle = time_start + (time_end - time_start) / 2
             self.main_left = time_middle - (main_interval) / 2
@@ -202,12 +225,22 @@ class ProfileTrimmer:
 
         self.tolerance_left = self.main_left - tolerance
         self.tolerance_right = self.main_right + tolerance
-        logging.getLogger().info("Left and right main interval: %d %d", self.main_left, self.main_right)
-        logging.getLogger().info("Left and right tolerance interval: %d %d", self.tolerance_left, self.tolerance_right)
+        logging.getLogger().info(
+            "Left and right main interval: %d %d", self.main_left, self.main_right
+        )
+        logging.getLogger().info(
+            "Left and right tolerance interval: %d %d",
+            self.tolerance_left,
+            self.tolerance_right,
+        )
         if self.main_left < time_start or self.tolerance_left < time_start:
-            logging.getLogger().warning("Left main/tolerance interval is before minimal START_TIME!")
+            logging.getLogger().warning(
+                "Left main/tolerance interval is before minimal START_TIME!"
+            )
         if self.main_right > time_end or self.tolerance_right > time_end:
-            logging.getLogger().warning("Right main/tolerance interval is after maximal END_TIME!")
+            logging.getLogger().warning(
+                "Right main/tolerance interval is after maximal END_TIME!"
+            )
 
     def trim(self) -> Tuple[pd.DataFrame, "PTStatistics"]:
         """Select four subsets from original profile:
@@ -233,19 +266,28 @@ class ProfileTrimmer:
         """
         # flows with start/end timestamp inside main interval - use flow as is
         subset_nonaltered = self.df_original[
-            (self.df_original["START_TIME"] >= self.main_left) & (self.df_original["END_TIME"] <= self.main_right)
+            (self.df_original["START_TIME"] >= self.main_left)
+            & (self.df_original["END_TIME"] <= self.main_right)
         ]
 
         # flows start and end in left/right tolerance interval
         subset_tolerance = self.df_original[
             (
-                (self.df_original["START_TIME"] >= self.tolerance_left)  # flow starts inside left tolerance interval
-                & (self.df_original["END_TIME"] <= self.main_left)  # flow ends inside left tolerance interval
-                & (self.df_original["START_TIME"] != self.main_left)  # flow is not duplicate of subset_nonaltered
+                (
+                    self.df_original["START_TIME"] >= self.tolerance_left
+                )  # flow starts inside left tolerance interval
+                & (
+                    self.df_original["END_TIME"] <= self.main_left
+                )  # flow ends inside left tolerance interval
+                & (
+                    self.df_original["START_TIME"] != self.main_left
+                )  # flow is not duplicate of subset_nonaltered
             )
             | (
                 (self.df_original["START_TIME"] >= self.main_right)
-                & (self.df_original["END_TIME"] <= self.tolerance_right)  # or dtto, but for right tolerance interval
+                & (
+                    self.df_original["END_TIME"] <= self.tolerance_right
+                )  # or dtto, but for right tolerance interval
                 & (self.df_original["END_TIME"] != self.main_right)
             )
         ]
@@ -257,7 +299,10 @@ class ProfileTrimmer:
         # Flows starting before left tolerance interval ending before main interval
         # or flows starting after main interval and ending after right tolerance interval
         subset_dropped = self.df_original[
-            ((self.df_original["START_TIME"] < self.tolerance_left) & (self.df_original["END_TIME"] < self.main_left))
+            (
+                (self.df_original["START_TIME"] < self.tolerance_left)
+                & (self.df_original["END_TIME"] < self.main_left)
+            )
             | (
                 (self.df_original["START_TIME"] > self.main_right)
                 & (self.df_original["END_TIME"] > self.tolerance_right)
@@ -278,15 +323,20 @@ class ProfileTrimmer:
         subset_scaled_valid = subset_scaled.dropna()
         dropped_from_scaled = len(subset_scaled) - len(subset_scaled_valid)
         logging.getLogger().debug(
-            "Number of dropped flows with START_TIME greater or equal to END_TIME: %d", dropped_from_scaled
+            "Number of dropped flows with START_TIME greater or equal to END_TIME: %d",
+            dropped_from_scaled,
         )
 
         # calculate dropped flows for statistics
-        dropped_flows = dropped_from_tolerance + len(subset_dropped) + dropped_from_scaled
+        dropped_flows = (
+            dropped_from_tolerance + len(subset_dropped) + dropped_from_scaled
+        )
 
-        return pd.concat([subset_nonaltered, subset_tolerance_sampled, subset_scaled_valid]).astype(
-            dtype=self.CSV_COLUMN_TYPES
-        ), PTStatistics(len(subset_nonaltered), len(subset_scaled), dropped_flows)
+        return pd.concat(
+            [subset_nonaltered, subset_tolerance_sampled, subset_scaled_valid]
+        ).astype(dtype=self.CSV_COLUMN_TYPES), PTStatistics(
+            len(subset_nonaltered), len(subset_scaled), dropped_flows
+        )
 
     def _shift_and_scale(self, row: pd.core.series.Series) -> pd.core.series.Series:
         """Shift START_TIME and/or END_TIME of flow and arithmetically
@@ -311,12 +361,18 @@ class ProfileTrimmer:
         # shift START_TIME if it's before main interval
         if row["START_TIME"] < self.main_left:
             row["START_TIME"] = int(
-                np.random.uniform(np.maximum(self.tolerance_left, row["START_TIME"]), self.main_left)
+                np.random.uniform(
+                    np.maximum(self.tolerance_left, row["START_TIME"]), self.main_left
+                )
             )
 
         # shift END_TIME if it's after main interval
         if row["END_TIME"] > self.main_right:
-            row["END_TIME"] = int(np.random.uniform(self.main_right, np.minimum(self.tolerance_right, row["END_TIME"])))
+            row["END_TIME"] = int(
+                np.random.uniform(
+                    self.main_right, np.minimum(self.tolerance_right, row["END_TIME"])
+                )
+            )
 
         # flag and then drop flows with START_TIME greater or equal to END_TIME - edge case
         if row["START_TIME"] >= row["END_TIME"]:
@@ -326,7 +382,10 @@ class ProfileTrimmer:
         # scale bytes and packets in both directions
         shifted_dur = row["END_TIME"] - row["START_TIME"]
         ratio = min(round(shifted_dur / original_dur, 3), 1)
-        for flow_packets, flow_bytes in (("PACKETS", "BYTES"), ("PACKETS_REV", "BYTES_REV")):
+        for flow_packets, flow_bytes in (
+            ("PACKETS", "BYTES"),
+            ("PACKETS_REV", "BYTES_REV"),
+        ):
             if row[flow_packets] > 0 or row[flow_bytes] > 0:
                 row[flow_packets] = int(row[flow_packets] * ratio)
                 row[flow_bytes] = int(row[flow_bytes] * ratio)
@@ -366,28 +425,44 @@ class ProfileTrimmer:
             Wrongly passed parameters.
         """
         if not isinstance(tolerance, int) or tolerance < 0:
-            raise ProfileTrimmerException("Parameter -t must be integer greater or equal to 0.")
+            raise ProfileTrimmerException(
+                "Parameter -t must be integer greater or equal to 0."
+            )
 
         if main_interval is None and main_left is None:
-            raise ProfileTrimmerException("Parameter -m or parameters -s with -e must be used.")
+            raise ProfileTrimmerException(
+                "Parameter -m or parameters -s with -e must be used."
+            )
 
         if main_interval and main_left:
-            raise ProfileTrimmerException("Parameter -m cannot be used together with -s and -e.")
+            raise ProfileTrimmerException(
+                "Parameter -m cannot be used together with -s and -e."
+            )
 
-        if (main_left is not None and main_right is None) or (main_left is None and main_right is not None):
+        if (main_left is not None and main_right is None) or (
+            main_left is None and main_right is not None
+        ):
             raise ProfileTrimmerException("Parameters -s and -e must be used together.")
 
-        if main_left is not None and (not isinstance(main_left, int) or not isinstance(main_right, int)):
-            raise ProfileTrimmerException("Parameter -s or parameters -e must be integers.")
+        if main_left is not None and (
+            not isinstance(main_left, int) or not isinstance(main_right, int)
+        ):
+            raise ProfileTrimmerException(
+                "Parameter -s or parameters -e must be integers."
+            )
 
         if main_left is not None and main_left > main_right:
-            raise ProfileTrimmerException("Parameters -s cannot be after -e and vice versa.")
+            raise ProfileTrimmerException(
+                "Parameters -s cannot be after -e and vice versa."
+            )
 
         if main_interval is not None and not isinstance(main_interval, int):
             raise ProfileTrimmerException("Parameter -m must be integer.")
 
         if main_interval is not None and main_interval <= 0:
-            raise ProfileTrimmerException("Parameter -m must be positive non zero number.")
+            raise ProfileTrimmerException(
+                "Parameter -m must be positive non zero number."
+            )
 
 
 class PTStatistics:
@@ -419,7 +494,9 @@ class PTStatistics:
         self.flows_altered = flows_altered
         self.flows_dropped = flows_dropped
 
-    def prepare_data(self, df_original: pd.DataFrame, df_trimmed: pd.DataFrame) -> List[List[Union[int, int, float]]]:
+    def prepare_data(
+        self, df_original: pd.DataFrame, df_trimmed: pd.DataFrame
+    ) -> List[List[Union[int, int, float]]]:
         """Prepare data for statistics
 
         Attributes
@@ -453,16 +530,34 @@ class PTStatistics:
 
         return [
             [nr_flows_orig, nr_flows_trim, round_stats(nr_flows_orig, nr_flows_trim)],
-            [0, self.flows_nonaltered, round_stats(nr_flows_orig, self.flows_nonaltered)],
+            [
+                0,
+                self.flows_nonaltered,
+                round_stats(nr_flows_orig, self.flows_nonaltered),
+            ],
             [0, self.flows_altered, round_stats(nr_flows_orig, self.flows_altered)],
             [0, self.flows_dropped, round_stats(nr_flows_orig, self.flows_dropped)],
-            [nr_packets_orig, nr_packets_trim, round_stats(nr_packets_orig, nr_packets_trim)],
+            [
+                nr_packets_orig,
+                nr_packets_trim,
+                round_stats(nr_packets_orig, nr_packets_trim),
+            ],
             [nr_bytes_orig, nr_bytes_trim, round_stats(nr_bytes_orig, nr_bytes_trim)],
-            [nr_packets_rev_orig, nr_packets_rev_trim, round_stats(nr_packets_rev_orig, nr_packets_rev_trim)],
-            [nr_bytes_rev_orig, nr_bytes_rev_trim, round_stats(nr_bytes_rev_orig, nr_bytes_rev_trim)],
+            [
+                nr_packets_rev_orig,
+                nr_packets_rev_trim,
+                round_stats(nr_packets_rev_orig, nr_packets_rev_trim),
+            ],
+            [
+                nr_bytes_rev_orig,
+                nr_bytes_rev_trim,
+                round_stats(nr_bytes_rev_orig, nr_bytes_rev_trim),
+            ],
         ]
 
-    def statistics(self, df_original: pd.DataFrame, df_trimmed: pd.DataFrame) -> pd.DataFrame:
+    def statistics(
+        self, df_original: pd.DataFrame, df_trimmed: pd.DataFrame
+    ) -> pd.DataFrame:
         """Print statistics from original DataFrame and trimmed DataFrame.
         For each DataFrame, statistics are printed:
         * number of flows + difference
@@ -484,8 +579,12 @@ class PTStatistics:
         time_start = df_trimmed["START_TIME"].min()
         time_end = df_trimmed["END_TIME"].max()
         time_range = time_end - time_start
-        logging.getLogger().info("Minimal START_TIME in the trimmed profile: %d", time_start)
-        logging.getLogger().info("Maximal END_TIME in the trimmed profile: %d", time_end)
+        logging.getLogger().info(
+            "Minimal START_TIME in the trimmed profile: %d", time_start
+        )
+        logging.getLogger().info(
+            "Maximal END_TIME in the trimmed profile: %d", time_end
+        )
         logging.getLogger().info("Time range of the trimmed profile: %d", time_range)
 
         df_stats = pd.DataFrame(
@@ -575,7 +674,10 @@ def main() -> int:
 
     try:
         ProfileTrimmer(
-            args.input, args.output, args.tolerance, args.main if args.main is not None else (args.start, args.end)
+            args.input,
+            args.output,
+            args.tolerance,
+            args.main if args.main is not None else (args.start, args.end),
         )
     except ProfileTrimmerException as err:
         logging.getLogger().error(err)

@@ -167,7 +167,9 @@ class ValidationReportFlowGroup:
 
         self.unexpected.append(fields)
 
-    def add_comparison_result(self, fields: FieldsDict, result: ValidationResult) -> None:
+    def add_comparison_result(
+        self, fields: FieldsDict, result: ValidationResult
+    ) -> None:
         """Add flow validation to the flow group report.
 
         Parameters
@@ -255,7 +257,9 @@ class ValidationReport:
             else:
                 self.flows_stats.ok += 1
 
-            self.flow_groups[key].add_comparison_result(flow.get_non_key_fields(), result)
+            self.flow_groups[key].add_comparison_result(
+                flow.get_non_key_fields(), result
+            )
             for name, stats in result.stats.items():
                 self.fields_stats[name].update(stats)
 
@@ -269,7 +273,9 @@ class ValidationReport:
         """
         return self.passing
 
-    def get_result_by_key_and_field(self, key: Tuple[str, ...], name: str, value: Any) -> Optional[ValidationResult]:
+    def get_result_by_key_and_field(
+        self, key: Tuple[str, ...], name: str, value: Any
+    ) -> Optional[ValidationResult]:
         """Find the first flow in a flow group which contains specified flow field and value.
 
         Parameters
@@ -344,7 +350,9 @@ class ValidationReport:
                     )
                 if len(flow.result.unchecked) > 0:
                     unchecked = ", ".join(flow.result.unchecked)
-                    print(f"{self.WARN_CLR}\t\t- Unchecked fields: {unchecked}.{self.RST_CLR}")
+                    print(
+                        f"{self.WARN_CLR}\t\t- Unchecked fields: {unchecked}.{self.RST_CLR}"
+                    )
 
     def print_flows_stats(self) -> None:
         """Print statistics of the processed flows to stdout."""
@@ -352,13 +360,17 @@ class ValidationReport:
         print(f"\n{'':<25}================ FLOWS =================")
         print(f"{'':<25}{'OK':<10}{'ERROR':<10}{'MISSING':<10}{'UNEXPECTED':<10}")
         stats = self.flows_stats
-        print(f"{'':<25}{stats.ok:<10}{stats.error:<10}{stats.missing:<10}{stats.unexpected:<10}")
+        print(
+            f"{'':<25}{stats.ok:<10}{stats.error:<10}{stats.missing:<10}{stats.unexpected:<10}"
+        )
 
     def print_fields_stats(self) -> None:
         """Print statistics of the compared flow fields to stdout."""
 
         print(f"\n{'':<25}===================== FIELDS ======================")
-        print(f"{'FIELD':<25}{'OK':<10}{'ERROR':<10}{'MISSING':<10}{'UNEXPECTED':<11}{'UNCHECKED':<10}")
+        print(
+            f"{'FIELD':<25}{'OK':<10}{'ERROR':<10}{'MISSING':<10}{'UNEXPECTED':<11}{'UNCHECKED':<10}"
+        )
         for field, stats in self.fields_stats.items():
             print(
                 f"{field:<25}{stats.ok:<10}{stats.error:<10}{stats.missing:<10}"
@@ -366,7 +378,9 @@ class ValidationReport:
             )
 
         summary = self.get_fields_summary_stats()
-        print(f"{'':<25}{'----------':<10}{'----------':<10}{'----------':<10}{'-----------':<11}{'----------':<10}")
+        print(
+            f"{'':<25}{'----------':<10}{'----------':<10}{'----------':<10}{'-----------':<11}{'----------':<10}"
+        )
         print(
             f"{'':<25}{summary.ok:<10}{summary.error:<10}{summary.missing:<10}"
             f"{summary.unexpected:<11}{summary.unchecked:<10}"

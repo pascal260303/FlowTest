@@ -26,7 +26,9 @@ from src.collector.interface import (
 from src.common.tool_is_installed import assert_tool_is_installed
 
 FDSDUMP_CSV_FIELDS = "flowstart,flowend,proto,srcip,dstip,srcport,dstport,packets,bytes"
-ANALYZER_CSV_FIELDS = "START_TIME,END_TIME,PROTOCOL,SRC_IP,DST_IP,SRC_PORT,DST_PORT,PACKETS,BYTES"
+ANALYZER_CSV_FIELDS = (
+    "START_TIME,END_TIME,PROTOCOL,SRC_IP,DST_IP,SRC_PORT,DST_PORT,PACKETS,BYTES"
+)
 
 
 class Fdsdump(CollectorOutputReaderInterface):
@@ -79,7 +81,9 @@ class Fdsdump(CollectorOutputReaderInterface):
         self._executor = executor
         self._file = file
         self._cmd_json = f"fdsdump -r {file} -o json-raw:no-biflow-split"
-        self._cmd_csv = f"fdsdump -r {file} -o 'csv:{FDSDUMP_CSV_FIELDS};timestamp=unix'"
+        self._cmd_csv = (
+            f"fdsdump -r {file} -o 'csv:{FDSDUMP_CSV_FIELDS};timestamp=unix'"
+        )
         self._process = None
         self._buf = None
         self._idx = 0
@@ -120,7 +124,9 @@ class Fdsdump(CollectorOutputReaderInterface):
         try:
             self._process.run()
         except ExecutableProcessError as err:
-            logging.getLogger().error("fdsdump return code: %d, error: %s", self._process.returncode(), err)
+            logging.getLogger().error(
+                "fdsdump return code: %d, error: %s", self._process.returncode(), err
+            )
             raise CollectorOutputReaderException("fdsdump startup error") from err
 
     def _stop(self):
@@ -138,7 +144,9 @@ class Fdsdump(CollectorOutputReaderInterface):
             # stderr is redirected to stdout
             # Since stdout could be filled with normal output, print only last line
             err = stdout[-1]
-            logging.getLogger().error("fdsdump runtime error: %s, error: %s", self._process.returncode(), err)
+            logging.getLogger().error(
+                "fdsdump runtime error: %s, error: %s", self._process.returncode(), err
+            )
             raise CollectorOutputReaderException("fdsdump runtime error")
 
         self._process = None
@@ -173,7 +181,9 @@ class Fdsdump(CollectorOutputReaderInterface):
                 json_output = json.loads(output)
                 return json_output
             except json.JSONDecodeError as err:
-                logging.getLogger().error("processing line=%s error=%s", output, str(err))
+                logging.getLogger().error(
+                    "processing line=%s error=%s", output, str(err)
+                )
                 output = self._buf.readline()
                 continue
             except StopIteration:
@@ -204,13 +214,19 @@ class Fdsdump(CollectorOutputReaderInterface):
         logging.getLogger().info("Preparing CSV output by calling fdsdump command...")
         start = time.time()
         # use internal (analyzer) column names
-        Tool(f"echo '{ANALYZER_CSV_FIELDS}' > {tmp_file}", executor=self._executor).run()
+        Tool(
+            f"echo '{ANALYZER_CSV_FIELDS}' > {tmp_file}", executor=self._executor
+        ).run()
         # discard row with column names from fdsdump
-        Tool(f"{self._cmd_csv} | tail -n +2 >> {tmp_file}", executor=self._executor).run()
+        Tool(
+            f"{self._cmd_csv} | tail -n +2 >> {tmp_file}", executor=self._executor
+        ).run()
         end = time.time()
         logging.getLogger().info("CSV output saved in %.2f seconds.", (end - start))
 
         start = time.time()
         rsync.pull_path(tmp_file, path.dirname(csv_file))
         end = time.time()
-        logging.getLogger().info("CSV output downloaded in %.2f seconds.", (end - start))
+        logging.getLogger().info(
+            "CSV output downloaded in %.2f seconds.", (end - start)
+        )

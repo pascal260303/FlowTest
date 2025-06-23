@@ -81,7 +81,9 @@ class Flow:
         tuple
             normalized key of the flow
         """
-        if self.src_ip < self.dst_ip or (self.src_ip == self.dst_ip and self.src_port < self.dst_port):
+        if self.src_ip < self.dst_ip or (
+            self.src_ip == self.dst_ip and self.src_port < self.dst_port
+        ):
             return (
                 self.src_ip,
                 self.dst_ip,
@@ -252,10 +254,14 @@ class ExtendedFlow(Flow):
         """
 
         if self.vlan_id != other.vlan_id:
-            raise ValueError("Flow::aggregate(): Packets from one flow have different vlan ids.")
+            raise ValueError(
+                "Flow::aggregate(): Packets from one flow have different vlan ids."
+            )
 
         if self.mpls_label != other.mpls_label:
-            raise ValueError("Flow::aggregate(): Packets from one flow have different mpls labels.")
+            raise ValueError(
+                "Flow::aggregate(): Packets from one flow have different mpls labels."
+            )
 
         self.start_time = min(self.start_time, other.start_time)
         self.end_time = max(self.end_time, other.end_time)

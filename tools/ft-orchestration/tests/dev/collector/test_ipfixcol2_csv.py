@@ -93,8 +93,12 @@ def generate_pcap(executor: Executor, number_of_flows: int, pcap_file: str):
 
 
 @pytest.mark.dev
-@pytest.mark.parametrize("file, number_of_flows", [("ipv6-neighbor-discovery.pcap", 2), ("http_get.pcap", 2)])
-def test_save_csv(request: pytest.FixtureRequest, executor: Executor, file: str, number_of_flows: int):
+@pytest.mark.parametrize(
+    "file, number_of_flows", [("ipv6-neighbor-discovery.pcap", 2), ("http_get.pcap", 2)]
+)
+def test_save_csv(
+    request: pytest.FixtureRequest, executor: Executor, file: str, number_of_flows: int
+):
     """Test basic usage of save_csv. On host must be installed ipfixprobe with PCAP input plugin and ipfixcol2."""
 
     def finalize():
@@ -112,7 +116,8 @@ def test_save_csv(request: pytest.FixtureRequest, executor: Executor, file: str,
     # executor does not support concurrently running commands in this version of testsuite (4.15)
     executor_copy = create_executor()
     stdout, _ = Tool(
-        f"ipfixprobe -i 'pcap;file={remote_dir}/{file}' -o 'ipfix;host=localhost;port=4739'", executor=executor_copy
+        f"ipfixprobe -i 'pcap;file={remote_dir}/{file}' -o 'ipfix;host=localhost;port=4739'",
+        executor=executor_copy,
     ).run()
     print(stdout)
 
@@ -126,7 +131,9 @@ def test_save_csv(request: pytest.FixtureRequest, executor: Executor, file: str,
 
 @pytest.mark.dev
 @pytest.mark.parametrize("file, number_of_flows", [("/tmp/big.pcap", 40000000)])
-def test_save_csv_big(request: pytest.FixtureRequest, executor: Executor, file: str, number_of_flows: int):
+def test_save_csv_big(
+    request: pytest.FixtureRequest, executor: Executor, file: str, number_of_flows: int
+):
     """Test usage of save_csv with large pcap.
     On host must be installed ipfixprobe with PCAP input plugin and ipfixcol2."""
 
@@ -144,7 +151,8 @@ def test_save_csv_big(request: pytest.FixtureRequest, executor: Executor, file: 
     # executor does not support concurrently running commands in this version of testsuite (4.15)
     executor_copy = create_executor()
     stdout, _ = Tool(
-        f"ipfixprobe -i 'pcap;file={file}' -o 'ipfix;host=localhost;port=4739'", executor=executor_copy
+        f"ipfixprobe -i 'pcap;file={file}' -o 'ipfix;host=localhost;port=4739'",
+        executor=executor_copy,
     ).run()
     print(stdout)
 

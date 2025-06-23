@@ -31,7 +31,11 @@ class TestCore:
     @staticmethod
     def test_main_init_readererror():
         """Test main() - error in nffile reader - Unable to locate or execute Nfdump binary"""
-        with patch.object(sys, "argv", [None, "-o", "unittest_dummy", "nffile", "-M", "readerdir", "-R", "dummy"]):
+        with patch.object(
+            sys,
+            "argv",
+            [None, "-o", "unittest_dummy", "nffile", "-M", "readerdir", "-R", "dummy"],
+        ):
             with patch("shutil.which", side_effect=[None]):
                 assert core.main() == 1
 
@@ -45,7 +49,11 @@ class TestCore:
         monkeypatch.setattr(Nffile, "__init__", lambda *_: None)
         monkeypatch.setattr(Nffile, "__iter__", lambda *_: iter(""))
 
-        with patch.object(sys, "argv", [None, "-o", writer_outfile, "nffile", "-M", "readerdir", "-R", "dummy"]):
+        with patch.object(
+            sys,
+            "argv",
+            [None, "-o", writer_outfile, "nffile", "-M", "readerdir", "-R", "dummy"],
+        ):
             assert core.main() == 0
         assert os.path.exists(writer_outfile)
         os.remove(writer_outfile)

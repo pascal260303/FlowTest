@@ -33,7 +33,9 @@ class ValidationModel:
     """
 
     def __init__(
-        self, key_fmt: Tuple[str, ...], references: List[Tuple["ValidationFlow", Optional["ValidationFlow"]]]
+        self,
+        key_fmt: Tuple[str, ...],
+        references: List[Tuple["ValidationFlow", Optional["ValidationFlow"]]],
     ) -> None:
         """Initializes the model by creating a matrix of reference.
 
@@ -52,12 +54,17 @@ class ValidationModel:
             access_key = self._get_matrix_access_key(fwd_flow.key, fwd_flow.rev_key)
             if access_key is None:
                 access_key = fwd_flow.key
-                self._ref_matrix[access_key] = BiflowValidator(fwd_flow.key, fwd_flow.rev_key)
+                self._ref_matrix[access_key] = BiflowValidator(
+                    fwd_flow.key, fwd_flow.rev_key
+                )
 
             self._ref_matrix[access_key].add_flows(fwd_flow, rev_flow)
 
     def validate(
-        self, flows: List[Tuple["Flow", Optional["Flow"]]], supported: List[str], special: Dict[str, str]
+        self,
+        flows: List[Tuple["Flow", Optional["Flow"]]],
+        supported: List[str],
+        special: Dict[str, str],
     ) -> ValidationReport:
         """Perform the validation of provided flows against the initialized model.
 
@@ -97,7 +104,9 @@ class ValidationModel:
 
         return report
 
-    def _get_matrix_access_key(self, fwd_key: Tuple[str, ...], rev_key: Tuple[str, ...]) -> Optional[Tuple[str, ...]]:
+    def _get_matrix_access_key(
+        self, fwd_key: Tuple[str, ...], rev_key: Tuple[str, ...]
+    ) -> Optional[Tuple[str, ...]]:
         """Determine which key should be used to access the reference matrix.
 
         Parameters

@@ -38,7 +38,11 @@ class ProbeCfg(YAMLWizard):
     tests_whitelist: Optional[str] = None
     biflow_export: bool = False
 
-    def check(self, authentications: Dict[str, AuthenticationCfg], whitelists: Dict[str, WhitelistCfg]) -> None:
+    def check(
+        self,
+        authentications: Dict[str, AuthenticationCfg],
+        whitelists: Dict[str, WhitelistCfg],
+    ) -> None:
         """Check the configuration validity.
 
         Parameters
@@ -46,7 +50,13 @@ class ProbeCfg(YAMLWizard):
         authentications
             Dictionary of the AuthenticationCfg objects
         """
-        if not self.alias or not self.name or not self.type or not self.interfaces or not self.authentication:
+        if (
+            not self.alias
+            or not self.name
+            or not self.type
+            or not self.interfaces
+            or not self.authentication
+        ):
             raise ProbeCfgException("Mandatory field is empty")
 
         if not all(x.mac for x in self.interfaces):
@@ -59,4 +69,6 @@ class ProbeCfg(YAMLWizard):
             )
 
         if self.tests_whitelist and self.tests_whitelist not in whitelists:
-            raise ProbeCfgException(f"Whitelist '{self.tests_whitelist}' was not found in whitelists config")
+            raise ProbeCfgException(
+                f"Whitelist '{self.tests_whitelist}' was not found in whitelists config"
+            )

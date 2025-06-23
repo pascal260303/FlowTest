@@ -88,7 +88,9 @@ def edit_packet(packet: Packet, rules: RewriteRules) -> Packet:
     """
 
     if not isinstance(packet, Ether):
-        raise RuntimeError("Scapy rewriter supports only packets with ethernet at first layer.")
+        raise RuntimeError(
+            "Scapy rewriter supports only packets with ethernet at first layer."
+        )
 
     if rules.edit_dst_mac:
         packet[Ether].dst = rules.edit_dst_mac

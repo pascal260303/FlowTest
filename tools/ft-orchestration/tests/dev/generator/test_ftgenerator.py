@@ -73,10 +73,14 @@ class ExecutorStub(RemoteExecutor):
             rsync.push_path(self._res_pcap)
             rsync.push_path(self._res_csv)
 
-            tmp_path = os.path.join(rsync.get_data_directory(), os.path.basename(self._res_pcap))
+            tmp_path = os.path.join(
+                rsync.get_data_directory(), os.path.basename(self._res_pcap)
+            )
             Tool(f"mv -f {tmp_path} {pcap_path}", executor=self).run()
 
-            tmp_path = os.path.join(rsync.get_data_directory(), os.path.basename(self._res_csv))
+            tmp_path = os.path.join(
+                rsync.get_data_directory(), os.path.basename(self._res_csv)
+            )
             Tool(f"mv -f {tmp_path} {csv_path}", executor=self).run()
 
             return None
@@ -151,7 +155,9 @@ def test_generate_cache(executor: Executor):
             ]
         }
     )
-    pcap4, csv4 = generator.generate(os.path.join(INPUT_DIR, "csv_basic_profile.csv"), config)
+    pcap4, csv4 = generator.generate(
+        os.path.join(INPUT_DIR, "csv_basic_profile.csv"), config
+    )
 
     assert pcap1 != pcap4 and csv1 != csv4
 
@@ -166,7 +172,9 @@ def test_generate_cache(executor: Executor):
             "ipv6": {"ip_range": "0123:4567:89ab:cdef::/64"},
         }
     )
-    pcap5, csv5 = generator.generate(os.path.join(INPUT_DIR, "csv_basic_profile.csv"), config)
+    pcap5, csv5 = generator.generate(
+        os.path.join(INPUT_DIR, "csv_basic_profile.csv"), config
+    )
 
     assert pcap4 != pcap5 and csv4 != csv5
 
@@ -210,11 +218,20 @@ def test_generate_cache_changed_profile(executor: Executor):
         pcap1, csv1 = generator.generate(temp_profile)
 
         # modify profile file, delete last row in temp_profile file
-        subprocess.run(f"head -n -1 {temp_profile} > tmp.csv && mv tmp.csv {temp_profile}", check=True, shell=True)
+        subprocess.run(
+            f"head -n -1 {temp_profile} > tmp.csv && mv tmp.csv {temp_profile}",
+            check=True,
+            shell=True,
+        )
 
         pcap2, csv2 = generator.generate(temp_profile)
 
-        assert os.path.dirname(pcap1) == os.path.dirname(pcap2) == os.path.dirname(csv1) == os.path.dirname(csv2)
+        assert (
+            os.path.dirname(pcap1)
+            == os.path.dirname(pcap2)
+            == os.path.dirname(csv1)
+            == os.path.dirname(csv2)
+        )
         assert pcap1 != pcap2 and csv1 != csv2
 
 
@@ -227,7 +244,9 @@ def test_generate_cache_changed_filename(executor: Executor):
         shutil.copy(os.path.join(INPUT_DIR, "csv_basic_profile.csv"), temp_profile)
 
         generator = FtGenerator(executor)
-        pcap1, csv1 = generator.generate(os.path.join(INPUT_DIR, "csv_basic_profile.csv"))
+        pcap1, csv1 = generator.generate(
+            os.path.join(INPUT_DIR, "csv_basic_profile.csv")
+        )
         pcap2, csv2 = generator.generate(temp_profile)
 
         assert pcap1 != pcap2 and csv1 != csv2
@@ -303,14 +322,21 @@ def test_generate_cache_move_dir(request: pytest.FixtureRequest, executor: Execu
     pcap2, csv2 = generator.generate(os.path.join(INPUT_DIR, "csv_basic_profile.csv"))
 
     assert os.path.dirname(pcap2) == os.path.dirname(csv2) == temp_path2
-    assert os.path.basename(pcap1) == os.path.basename(pcap2) and os.path.basename(csv1) == os.path.basename(csv2)
+    assert os.path.basename(pcap1) == os.path.basename(pcap2) and os.path.basename(
+        csv1
+    ) == os.path.basename(csv2)
     assert host_file_exist(executor, pcap2)
     assert host_file_exist(executor, csv2)
 
 
 @pytest.mark.parametrize(
     "executor_stub",
-    [(os.path.join(INPUT_DIR, "dummy.pcap"), os.path.join(INPUT_DIR, "csv_basic_report.csv"))],
+    [
+        (
+            os.path.join(INPUT_DIR, "dummy.pcap"),
+            os.path.join(INPUT_DIR, "csv_basic_report.csv"),
+        )
+    ],
     indirect=True,
 )
 def test_process_output(request: pytest.FixtureRequest, executor_stub: ExecutorStub):
@@ -327,5 +353,6 @@ def test_process_output(request: pytest.FixtureRequest, executor_stub: ExecutorS
     Rsync(executor_stub).pull_path(csv1, FILE_DIR)
 
     assert filecmp.cmp(
-        os.path.join(FILE_DIR, os.path.basename(csv1)), os.path.join(REF_DIR, "csv_basic_report_ref.csv")
+        os.path.join(FILE_DIR, os.path.basename(csv1)),
+        os.path.join(REF_DIR, "csv_basic_report_ref.csv"),
     )

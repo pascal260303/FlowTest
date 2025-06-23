@@ -7,6 +7,7 @@ SPDX-License-Identifier: BSD-3-Clause
 
 Unit tests for ftprofiler - flow.py.
 """
+
 import copy
 import random
 import socket
@@ -37,8 +38,12 @@ class GenerateFlows:
             "t_start": st.integers(0, 1000000),
             "t_end": st.integers(0, 1000000),
             "proto": st.integers(0, 255),
-            "s_addr": st.lists(st.ip_addresses(), min_size=2, max_size=2, unique_by=lambda x: type(x)),
-            "d_addr": st.lists(st.ip_addresses(), min_size=2, max_size=2, unique_by=lambda x: type(x)),
+            "s_addr": st.lists(
+                st.ip_addresses(), min_size=2, max_size=2, unique_by=lambda x: type(x)
+            ),
+            "d_addr": st.lists(
+                st.ip_addresses(), min_size=2, max_size=2, unique_by=lambda x: type(x)
+            ),
             "s_port": st.integers(0, 65535),
             "d_port": st.integers(0, 65535),
             "pkts": st.integers(0, 1000000),
@@ -52,8 +57,12 @@ class GenerateFlows:
             "t_start": st.integers(0, 1000000),
             "t_end": st.integers(0, 1000000),
             "proto": st.integers(0, 255),
-            "s_addr": st.lists(st.ip_addresses(), min_size=2, max_size=2, unique_by=lambda x: type(x)),
-            "d_addr": st.lists(st.ip_addresses(), min_size=2, max_size=2, unique_by=lambda x: type(x)),
+            "s_addr": st.lists(
+                st.ip_addresses(), min_size=2, max_size=2, unique_by=lambda x: type(x)
+            ),
+            "d_addr": st.lists(
+                st.ip_addresses(), min_size=2, max_size=2, unique_by=lambda x: type(x)
+            ),
             "s_port": st.integers(0, 65535),
             "d_port": st.integers(0, 65535),
             "pkts": st.integers(0, 1000000),
@@ -61,8 +70,12 @@ class GenerateFlows:
             "f2_t_start": st.integers(0, 1000000),
             "f2_t_end": st.integers(0, 1000000),
             "f2_proto": st.integers(0, 255),
-            "f2_s_addr": st.lists(st.ip_addresses(), min_size=2, max_size=2, unique_by=lambda x: type(x)),
-            "f2_d_addr": st.lists(st.ip_addresses(), min_size=2, max_size=2, unique_by=lambda x: type(x)),
+            "f2_s_addr": st.lists(
+                st.ip_addresses(), min_size=2, max_size=2, unique_by=lambda x: type(x)
+            ),
+            "f2_d_addr": st.lists(
+                st.ip_addresses(), min_size=2, max_size=2, unique_by=lambda x: type(x)
+            ),
             "f2_s_port": st.integers(0, 65535),
             "f2_d_port": st.integers(0, 65535),
             "f2_pkts": st.integers(0, 1000000),
@@ -79,10 +92,13 @@ class GenerateFlows:
 
         def gen_ip(ver: int = 4) -> str:
             if ver == 4:
-                return socket.inet_ntop(socket.AF_INET, struct.pack(">I", random.randint(1, 0xFFFFFFFF)))
+                return socket.inet_ntop(
+                    socket.AF_INET, struct.pack(">I", random.randint(1, 0xFFFFFFFF))
+                )
             if ver == 6:
                 return socket.inet_ntop(
-                    socket.AF_INET6, struct.pack(">QQ", random.getrandbits(64), random.getrandbits(64))
+                    socket.AF_INET6,
+                    struct.pack(">QQ", random.getrandbits(64), random.getrandbits(64)),
                 )
             assert False, "Unsupported v param!"
 
@@ -105,7 +121,9 @@ class GenerateFlows:
         d_port = random.randint(0, 65535)
         pkts = random.randint(1, 1000000)
         bts = random.randint(64, 1000000)
-        return MockedFlow(ipver_type, t_start, t_end, proto, s_addr, d_addr, s_port, d_port, pkts, bts).flow
+        return MockedFlow(
+            ipver_type, t_start, t_end, proto, s_addr, d_addr, s_port, d_port, pkts, bts
+        ).flow
 
     @staticmethod
     def create_one_flow_and_dict(ipver, **kwargs):
@@ -143,7 +161,12 @@ class GenerateFlows:
                 kwargs["f2_pkts"],
                 kwargs["f2_bts"],
             )
-            return mocked_flow1.flow, mocked_flow1.flow_dict, mocked_flow2.flow, mocked_flow2.flow_dict
+            return (
+                mocked_flow1.flow,
+                mocked_flow1.flow_dict,
+                mocked_flow2.flow,
+                mocked_flow2.flow_dict,
+            )
         assert False, "Wrong number of kwargs parameters!"
 
 
@@ -187,11 +210,15 @@ class MockedFlow:
         if which == "s_addr":
             if isinstance(self.s_addr_list, str):
                 return self.s_addr_list
-            return str([addr for addr in self.s_addr_list if isinstance(addr, self.ipver)][0])
+            return str(
+                [addr for addr in self.s_addr_list if isinstance(addr, self.ipver)][0]
+            )
         if which == "d_addr":
             if isinstance(self.d_addr_list, str):
                 return self.d_addr_list
-            return str([addr for addr in self.d_addr_list if isinstance(addr, self.ipver)][0])
+            return str(
+                [addr for addr in self.d_addr_list if isinstance(addr, self.ipver)][0]
+            )
         assert False, "Unsupported which param!"
 
     @staticmethod
@@ -203,7 +230,10 @@ class MockedFlow:
         # proto and ports must be different => false positives in __eq__()
         assume(
             flow1_dict["proto"] != flow2_dict["proto"]
-            and (flow1_dict["s_port"] != flow2_dict["s_port"] or (flow1_dict["d_port"] != flow2_dict["d_port"]))
+            and (
+                flow1_dict["s_port"] != flow2_dict["s_port"]
+                or (flow1_dict["d_port"] != flow2_dict["d_port"])
+            )
         )
 
     @staticmethod
@@ -248,7 +278,11 @@ class TestFlow:
     settings.register_profile(
         "ci",
         max_examples=15,
-        suppress_health_check=[HealthCheck.too_slow, HealthCheck.function_scoped_fixture, HealthCheck.data_too_large],
+        suppress_health_check=[
+            HealthCheck.too_slow,
+            HealthCheck.function_scoped_fixture,
+            HealthCheck.data_too_large,
+        ],
     )
     settings.load_profile("ci")
 
@@ -303,10 +337,18 @@ class TestFlow:
             else:
                 assert False, "Unsupported op param!"
 
-        flow1, flow1_dict, flow2, flow2_dict = GenerateFlows.create_two_flows_and_dicts(ipver, **kwargs)
+        flow1, flow1_dict, flow2, flow2_dict = GenerateFlows.create_two_flows_and_dicts(
+            ipver, **kwargs
+        )
         MockedFlow.unique_dicts(flow1_dict, flow2_dict)
-        flow1_nonkey, flow1_rev = MockedFlow.create_nonkey(flow1_dict), MockedFlow.create_rev(flow1_dict)
-        flow2_nonkey, flow2_rev = MockedFlow.create_nonkey(flow2_dict), MockedFlow.create_rev(flow2_dict)
+        flow1_nonkey, flow1_rev = (
+            MockedFlow.create_nonkey(flow1_dict),
+            MockedFlow.create_rev(flow1_dict),
+        )
+        flow2_nonkey, flow2_rev = (
+            MockedFlow.create_nonkey(flow2_dict),
+            MockedFlow.create_rev(flow2_dict),
+        )
 
         assert_hash_eq(flow1, flow1_nonkey, "==")
         assert_hash_eq(flow2, flow2_nonkey, "==")
@@ -322,16 +364,29 @@ class TestFlow:
     @given(**GenerateFlows.strategy_two_flows())
     def test_update_noneq_flows(ipver, **kwargs):
         """Test update() method - using non-equal flows must return false (no update)"""
-        flow1, flow1_dict, flow2, flow2_dict = GenerateFlows.create_two_flows_and_dicts(ipver, **kwargs)
+        flow1, flow1_dict, flow2, flow2_dict = GenerateFlows.create_two_flows_and_dicts(
+            ipver, **kwargs
+        )
         MockedFlow.unique_dicts(flow1_dict, flow2_dict)
-        flow2_nonkey, flow2_rev = MockedFlow.create_nonkey(flow2_dict), MockedFlow.create_rev(flow2_dict)
+        flow2_nonkey, flow2_rev = (
+            MockedFlow.create_nonkey(flow2_dict),
+            MockedFlow.create_rev(flow2_dict),
+        )
 
         with patch("ftprofiler.flow.Flow._merge") as mocked_merge:
-            assert not flow1.update(flow2, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE)
+            assert not flow1.update(
+                flow2, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE
+            )
             mocked_merge.assert_not_called()
-            assert not flow1.update(flow2_nonkey, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE)
+            assert not flow1.update(
+                flow2_nonkey,
+                GenerateFlows.DEFAULT_INACTIVE,
+                GenerateFlows.DEFAULT_ACTIVE,
+            )
             mocked_merge.assert_not_called()
-            assert not flow1.update(flow2_rev, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE)
+            assert not flow1.update(
+                flow2_rev, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE
+            )
             mocked_merge.assert_not_called()
 
     @staticmethod
@@ -341,7 +396,9 @@ class TestFlow:
         """Test update() on first flow in opposite direction. Test that function _is_reverse() is called."""
         flow1, flow1_dict = GenerateFlows.create_one_flow_and_dict(ipver, **kwargs)
         flow1_rev = MockedFlow.create_rev(flow1_dict)
-        assert flow1.update(flow1_rev, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE)
+        assert flow1.update(
+            flow1_rev, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE
+        )
 
     @staticmethod
     @pytest.mark.parametrize("ipver", [IPv4Address, IPv6Address])
@@ -354,7 +411,9 @@ class TestFlow:
         flow1_rev = MockedFlow.create_rev(flow1_dict)
 
         with patch("ftprofiler.flow.Flow._merge") as mocked_merge:
-            assert flow1.update(flow1_rev, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE)
+            assert flow1.update(
+                flow1_rev, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE
+            )
             mocked_merge.assert_called_once()
 
     @staticmethod
@@ -369,7 +428,9 @@ class TestFlow:
         flow1_rev.start_time = flow1.end_time - GenerateFlows.DEFAULT_INACTIVE / 2
 
         with patch("ftprofiler.flow.Flow._merge") as mocked_merge:
-            assert flow1.update(flow1_rev, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE)
+            assert flow1.update(
+                flow1_rev, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE
+            )
             mocked_merge.assert_called_once()
 
     @staticmethod
@@ -382,10 +443,14 @@ class TestFlow:
         flow1_rev = MockedFlow.create_rev(flow1_dict)
         flow1_rev.packets += 2
         flow1.start_time = 0
-        flow1.end_time = GenerateFlows.DEFAULT_ACTIVE - 2 * GenerateFlows.DEFAULT_INACTIVE
+        flow1.end_time = (
+            GenerateFlows.DEFAULT_ACTIVE - 2 * GenerateFlows.DEFAULT_INACTIVE
+        )
 
         with patch("ftprofiler.flow.Flow._merge") as mocked_merge:
-            assert not flow1.update(flow1_rev, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE)
+            assert not flow1.update(
+                flow1_rev, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE
+            )
             mocked_merge.assert_not_called()
 
     @staticmethod
@@ -403,7 +468,9 @@ class TestFlow:
         flow1_rev.start_time = flow1.end_time + 2 * GenerateFlows.DEFAULT_INACTIVE
 
         with patch("ftprofiler.flow.Flow._merge") as mocked_merge:
-            assert not flow1.update(flow1_rev, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE)
+            assert not flow1.update(
+                flow1_rev, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE
+            )
             mocked_merge.assert_not_called()
 
     @staticmethod
@@ -420,7 +487,9 @@ class TestFlow:
         flow1_rev.start_time = flow1.end_time - GenerateFlows.DEFAULT_INACTIVE
 
         with patch("ftprofiler.flow.Flow._merge") as mocked_merge:
-            assert flow1.update(flow1_rev, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE)
+            assert flow1.update(
+                flow1_rev, GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE
+            )
             mocked_merge.assert_called_once()
 
     @staticmethod
@@ -469,12 +538,22 @@ class TestFlow:
 
     @staticmethod
     @pytest.mark.parametrize("ipver", [IPv4Address, IPv6Address])
-    @pytest.mark.parametrize(("f1_swap", "f2_swap"), [[True, True], [True, False], [False, True], [False, False]])
+    @pytest.mark.parametrize(
+        ("f1_swap", "f2_swap"),
+        [[True, True], [True, False], [False, True], [False, False]],
+    )
     @given(**GenerateFlows.strategy_two_flows())
     def test_merge(ipver, f1_swap, f2_swap, **kwargs):
         """Test merge()"""
 
-        def assert_flows(flow1: Flow, flow2: Flow, f1_pkts: int, f1_bytes: int, f1_revpkts: int, f1_revbytes: int):
+        def assert_flows(
+            flow1: Flow,
+            flow2: Flow,
+            f1_pkts: int,
+            f1_bytes: int,
+            f1_revpkts: int,
+            f1_revbytes: int,
+        ):
             assert flow1.start_time == min(flow1.start_time, flow2.start_time)
             assert flow1.end_time == max(flow1.end_time, flow2.end_time)
             if f1_swap == f2_swap:
@@ -505,7 +584,9 @@ class TestFlow:
         flow1_revbytes = flow1._rev_bytes
 
         flow1._merge(flow2)
-        assert_flows(flow1, flow2, flow1_packets, flow1_bytes, flow1_revpackets, flow1_revbytes)
+        assert_flows(
+            flow1, flow2, flow1_packets, flow1_bytes, flow1_revpackets, flow1_revbytes
+        )
 
         # try to merge it again
         flow1_packets = flow1.packets
@@ -514,7 +595,9 @@ class TestFlow:
         flow1_revbytes = flow1._rev_bytes
 
         flow1._merge(flow2)
-        assert_flows(flow1, flow2, flow1_packets, flow1_bytes, flow1_revpackets, flow1_revbytes)
+        assert_flows(
+            flow1, flow2, flow1_packets, flow1_bytes, flow1_revpackets, flow1_revbytes
+        )
 
         # check that flow2 has not changed
         assert flow2.start_time == f2_copy.start_time

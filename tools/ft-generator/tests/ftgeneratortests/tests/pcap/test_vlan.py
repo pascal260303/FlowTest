@@ -51,7 +51,9 @@ def create_config() -> GeneratorConfig:
     return config
 
 
-def test_vlan(ft_generator: Generator, custom_config: Optional[Path], profiles_dir: Path):
+def test_vlan(
+    ft_generator: Generator, custom_config: Optional[Path], profiles_dir: Path
+):
     """Test verifies ratio of vlan flows in pcap.
 
     Parameters
@@ -67,7 +69,9 @@ def test_vlan(ft_generator: Generator, custom_config: Optional[Path], profiles_d
     else:
         config = create_config()
 
-    pcap_file, _ = ft_generator.generate(config, profiles=profiles_dir.joinpath("profiles_1k.csv"))
+    pcap_file, _ = ft_generator.generate(
+        config, profiles=profiles_dir.joinpath("profiles_1k.csv")
+    )
 
     pcap = parse_pcap(pcap_file)
 
@@ -99,7 +103,9 @@ def test_vlan(ft_generator: Generator, custom_config: Optional[Path], profiles_d
         calculated_ratio = encapsulation_count / len(pcap)
         defined_ratio = get_prob_from_str(encapsulation.probability)
 
-        assert math.isclose(defined_ratio, calculated_ratio, abs_tol=ENCAPSULATION_ABS_TOLERANCE)
+        assert math.isclose(
+            defined_ratio, calculated_ratio, abs_tol=ENCAPSULATION_ABS_TOLERANCE
+        )
 
 
 def test_no_vlan(ft_generator: Generator):

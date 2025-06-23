@@ -75,7 +75,9 @@ def receive_flows(collector: CollectorInterface) -> List[dict]:
     return flows
 
 
-def validate_flows(scenario: ValidationScenario, probe: ProbeInterface, received_flows: List[dict]) -> ValidationReport:
+def validate_flows(
+    scenario: ValidationScenario, probe: ProbeInterface, received_flows: List[dict]
+) -> ValidationReport:
     """Validate received flows with reference flows.
 
     Parameters
@@ -114,14 +116,18 @@ def validate_flows(scenario: ValidationScenario, probe: ProbeInterface, received
         logging.error(received_flows)
         raise
 
-    HTMLReportData.validation_summary_report.update_unknown_fields(norm.pop_skipped_fields())
+    HTMLReportData.validation_summary_report.update_unknown_fields(
+        norm.pop_skipped_fields()
+    )
     val_model = ValidationModel(key, ref_flows)
     report = val_model.validate(received_flows, supported_fields, special_fields)
 
     return report
 
 
-def check_generator_stats(generator_instance: PcapPlayer, pcap_file: str, vlan: Optional[int]):
+def check_generator_stats(
+    generator_instance: PcapPlayer, pcap_file: str, vlan: Optional[int]
+):
     """Ensure generator sends expected number of packets and bytes.
 
     Parameters
@@ -177,7 +183,9 @@ def check_required_fields(at_least_one: list[str], report: ValidationReport):
             f"{WARN_CLR}None of the required fields have been checked (at least one of: {at_least_one}).\n"
             f"Test will be skipped...{RST_CLR}"
         )
-        pytest.skip(f"None of the required fields have been checked (at least one of: {at_least_one}).")
+        pytest.skip(
+            f"None of the required fields have been checked (at least one of: {at_least_one})."
+        )
 
 
 def stop_components(probe: ProbeInterface, collector: CollectorInterface):
@@ -199,7 +207,9 @@ select_topologies(["pcap_player"])
 
 
 @pytest.mark.validation
-@pytest.mark.parametrize("scenario, test_id", collect_scenarios(VALIDATION_TESTS_DIR, ValidationScenario))
+@pytest.mark.parametrize(
+    "scenario, test_id", collect_scenarios(VALIDATION_TESTS_DIR, ValidationScenario)
+)
 # pylint: disable=too-many-locals
 # pylint: disable=unused-argument
 def test_validation(
@@ -225,7 +235,12 @@ def test_validation(
     probe_instance, collector_instance, generator_instance = (None, None, None)
 
     def finalizer_download_logs():
-        download_logs(log_dir, collector=collector_instance, generator=generator_instance, probe=probe_instance)
+        download_logs(
+            log_dir,
+            collector=collector_instance,
+            generator=generator_instance,
+            probe=probe_instance,
+        )
 
     request.addfinalizer(cleanup)
     request.addfinalizer(finalizer_download_logs)

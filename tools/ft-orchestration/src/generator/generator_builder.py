@@ -72,7 +72,9 @@ class GeneratorBuilder(BuilderBase, Generator):
         super().__init__(config, disable_ansible)
 
         if alias not in self._config.generators:
-            raise BuilderError(f"Generator '{alias}' not found in generators configuration.")
+            raise BuilderError(
+                f"Generator '{alias}' not found in generators configuration."
+            )
         generator_cfg = self._config.generators[alias]
 
         self._prepare_env(generator_cfg)
@@ -83,7 +85,9 @@ class GeneratorBuilder(BuilderBase, Generator):
         self._interfaces = generator_cfg.interfaces
         self._biflow_export = biflow_export
 
-        self._connector_args = generator_cfg.connector if generator_cfg.connector else {}
+        self._connector_args = (
+            generator_cfg.connector if generator_cfg.connector else {}
+        )
         # cmd additional arguments has higher priority, update arguments from config
         self._connector_args.update(cmd_connector_args)
 
@@ -111,7 +115,12 @@ class GeneratorBuilder(BuilderBase, Generator):
         if mtu is not None:
             additional_args.update({"mtu": mtu})
 
-        instance = self._class(self._executor, self._add_vlan, biflow_export=self._biflow_export, **additional_args)
+        instance = self._class(
+            self._executor,
+            self._add_vlan,
+            biflow_export=self._biflow_export,
+            **additional_args,
+        )
         for ifc in self._interfaces:
             mac = self._probe_mac_addresses if self._edit_dst_mac else None
             instance.add_interface(ifc.name, mac)

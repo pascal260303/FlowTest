@@ -51,12 +51,24 @@ class Nffile(InputInterface):
         if nfdump_bin is None:
             raise InputException("Unable to locate or execute Nfdump binary")
 
-        self._cmd = [nfdump_bin, "-qN", "-M", args.multidir, "-R", args.read, "-o", self.NFDUMP_FORMAT, "-6"]
+        self._cmd = [
+            nfdump_bin,
+            "-qN",
+            "-M",
+            args.multidir,
+            "-R",
+            args.read,
+            "-o",
+            self.NFDUMP_FORMAT,
+            "-6",
+        ]
         if args.count > 0:
             self._cmd += ["-c", str(args.count)]
 
         # Skip ARP communication and select data from only a single exporter process.
-        self._cmd.append(f"not proto ARP and router ip {args.router} and in if {args.ifcid}")
+        self._cmd.append(
+            f"not proto ARP and router ip {args.router} and in if {args.ifcid}"
+        )
         self._process = None
         self._zero_time = None
 
@@ -112,7 +124,10 @@ class Nffile(InputInterface):
 
                 # Nfdump exited with an error.
                 if ret_code != 0:
-                    logging.getLogger().warning("nfdump process exited with code=%d, data may be incomplete", ret_code)
+                    logging.getLogger().warning(
+                        "nfdump process exited with code=%d, data may be incomplete",
+                        ret_code,
+                    )
 
                 # Nfdump exited gracefully.
                 raise StopIteration
@@ -123,7 +138,9 @@ class Nffile(InputInterface):
                     str.strip, output.decode().split(sep=",")
                 )
             except ValueError as err:
-                logging.getLogger().error("processing line=%s error=%s", output.decode(), str(err))
+                logging.getLogger().error(
+                    "processing line=%s error=%s", output.decode(), str(err)
+                )
                 stderr = self._process.stderr.readline()
                 if len(stderr) > 0:
                     logging.getLogger().error(stderr.decode())
@@ -159,7 +176,9 @@ class Nffile(InputInterface):
         """
         logging.getLogger().debug(self._cmd)
         # pylint: disable=R1732
-        self._process = subprocess.Popen(self._cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self._process = subprocess.Popen(
+            self._cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
 
         # Check if Nfdump has failed.
         try:
@@ -171,7 +190,9 @@ class Nffile(InputInterface):
             ret_code = self._process.returncode
             if ret_code != 0:
                 error = self._process.stderr.readline()
-                logging.getLogger().error("Nfdump return code: %d, error: %s", ret_code, error.decode())
+                logging.getLogger().error(
+                    "Nfdump return code: %d, error: %s", ret_code, error.decode()
+                )
                 raise InputException("Nfdump error")
 
     def terminate(self) -> None:

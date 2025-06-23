@@ -24,7 +24,9 @@ from src.collector.mapper import (
     MappingFormatException,
 )
 
-CONF_FILE = path.join(path.dirname(path.realpath(__file__)), "../../../../../conf/ipfixcol2/mapping.yaml")
+CONF_FILE = path.join(
+    path.dirname(path.realpath(__file__)), "../../../../../conf/ipfixcol2/mapping.yaml"
+)
 TESTING_TMP_DIR = path.join(path.dirname(path.realpath(__file__)), "tests_tmp")
 
 
@@ -378,7 +380,9 @@ def test_config_missing_map_attribute():
 
         reader = ReaderStub([])
 
-        with pytest.raises(MappingFormatException, match="Missing map attribute for key 'attribute2'."):
+        with pytest.raises(
+            MappingFormatException, match="Missing map attribute for key 'attribute2'."
+        ):
             CollectorOutputMapper(reader, file.name)
 
 
@@ -398,7 +402,8 @@ def test_config_bad_map_type():
         reader = ReaderStub([])
 
         with pytest.raises(
-            MappingFormatException, match="Unexpected type of value of 'map' in property 'attribute2' mapping."
+            MappingFormatException,
+            match="Unexpected type of value of 'map' in property 'attribute2' mapping.",
         ):
             CollectorOutputMapper(reader, file.name)
 
@@ -421,7 +426,8 @@ def test_config_bad_converter_type():
         reader = ReaderStub([])
 
         with pytest.raises(
-            MappingFormatException, match="Unexpected type of value of 'converter' in property 'attribute2' mapping."
+            MappingFormatException,
+            match="Unexpected type of value of 'converter' in property 'attribute2' mapping.",
         ):
             CollectorOutputMapper(reader, file.name)
 
@@ -501,7 +507,12 @@ def test_config_mismatch_between_nested_and_simple_attribute():
     next(mapper_it)
 
     with pytest.raises(
-        MappingException, match=str(re.escape("Attribute must be either dict or simple value (key: 'dst_attrib')"))
+        MappingException,
+        match=str(
+            re.escape(
+                "Attribute must be either dict or simple value (key: 'dst_attrib')"
+            )
+        ),
     ):
         next(mapper_it)
 
@@ -563,7 +574,10 @@ def test_builtin_converters():
     yaml_flow, _, _ = next(mapper_it)
     assert yaml_flow["protocol"] == 1
 
-    with pytest.raises(MappingException, match=str(re.escape("Unknown protocol with identifier 'NOTEXISTS'."))):
+    with pytest.raises(
+        MappingException,
+        match=str(re.escape("Unknown protocol with identifier 'NOTEXISTS'.")),
+    ):
         next(mapper_it)
 
     yaml_flow, _, _ = next(mapper_it)

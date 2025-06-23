@@ -154,7 +154,9 @@ class ValidationResult:
         self.stats[name].missing += 1
         self.missing.append(ValidationField(name, reference))
 
-    def report_wrong_value_field(self, name: str, value: Union[str, int], reference: Union[str, int]) -> None:
+    def report_wrong_value_field(
+        self, name: str, value: Union[str, int], reference: Union[str, int]
+    ) -> None:
         """Report wrong field value.
 
         Parameters

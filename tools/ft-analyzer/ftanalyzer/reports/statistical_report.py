@@ -63,7 +63,9 @@ class StatisticalReport:
         return [test for test in self.tests if not test.is_passing()]
 
     def get_test(
-        self, metric: SMMetricType, segment: Optional[Union[SMSubnetSegment, SMTimeSegment]] = None
+        self,
+        metric: SMMetricType,
+        segment: Optional[Union[SMSubnetSegment, SMTimeSegment]] = None,
     ) -> Optional[SMTestOutcome]:
         """Find specific test.
 

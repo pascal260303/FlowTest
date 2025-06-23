@@ -100,7 +100,12 @@ class PMTestOutcome:
         bool
             True - test passed, False - test failed
         """
-        return (len(self.missing) + len(self.unexpected) + len(self.shifted) + len(self.scaled)) == 0
+        return (
+            len(self.missing)
+            + len(self.unexpected)
+            + len(self.shifted)
+            + len(self.scaled)
+        ) == 0
 
 
 class PreciseReport:
@@ -121,7 +126,9 @@ class PreciseReport:
 
         self.tests = []
 
-    def add_segment(self, segment: Union[SMSubnetSegment, SMTimeSegment, None, str]) -> None:
+    def add_segment(
+        self, segment: Union[SMSubnetSegment, SMTimeSegment, None, str]
+    ) -> None:
         """Add new segment to the report. All following tests will be added to this segment
         until the next segment is added.
 
@@ -141,7 +148,9 @@ class PreciseReport:
 
         self.tests.append(PMTestOutcome(segment=segment))
 
-    def add_test(self, category: PMTestCategory, flow: PMFlow, ref: Optional[PMFlow] = None) -> None:
+    def add_test(
+        self, category: PMTestCategory, flow: PMFlow, ref: Optional[PMFlow] = None
+    ) -> None:
         """Add new test to a category.
 
         Parameters
@@ -183,7 +192,9 @@ class PreciseReport:
 
         return all(test.is_passing() for test in self.tests)
 
-    def get_test(self, segment: Union[SMSubnetSegment, SMTimeSegment, None, str] = None) -> Optional[PMTestOutcome]:
+    def get_test(
+        self, segment: Union[SMSubnetSegment, SMTimeSegment, None, str] = None
+    ) -> Optional[PMTestOutcome]:
         """Find specific test outcome for a segment.
 
         Parameters
@@ -220,7 +231,9 @@ class PreciseReport:
 
                 total = len(category)
                 if total > limit:
-                    print(f"\t{self.ERR_CLR}Truncated, total records: {total}{self.RST_CLR}")
+                    print(
+                        f"\t{self.ERR_CLR}Truncated, total records: {total}{self.RST_CLR}"
+                    )
 
         for test in self.tests:
             print()
@@ -232,15 +245,23 @@ class PreciseReport:
             print_category(
                 test.split,
                 "flows split unexpectedly",
-                lambda item: print(f"\t{self.WARN_CLR}({item.FLOW_COUNT}) {item}{self.RST_CLR}"),
+                lambda item: print(
+                    f"\t{self.WARN_CLR}({item.FLOW_COUNT}) {item}{self.RST_CLR}"
+                ),
             )
             if test.is_passing():
                 print(" - PASSED")
                 continue
 
-            print_category(test.missing, "missing flows", lambda item: print(f"\t{self.ERR_CLR}{item}{self.RST_CLR}"))
             print_category(
-                test.unexpected, "unexpected flows", lambda item: print(f"\t{self.ERR_CLR}{item}{self.RST_CLR}")
+                test.missing,
+                "missing flows",
+                lambda item: print(f"\t{self.ERR_CLR}{item}{self.RST_CLR}"),
+            )
+            print_category(
+                test.unexpected,
+                "unexpected flows",
+                lambda item: print(f"\t{self.ERR_CLR}{item}{self.RST_CLR}"),
             )
             print_category(
                 test.shifted,
@@ -252,5 +273,7 @@ class PreciseReport:
             print_category(
                 test.scaled,
                 "incorrect values of packets / bytes",
-                lambda item: print(f"\t{self.ERR_CLR}{item.flow} != {item.ref}{self.RST_CLR}"),
+                lambda item: print(
+                    f"\t{self.ERR_CLR}{item.flow} != {item.ref}{self.RST_CLR}"
+                ),
             )

@@ -89,7 +89,9 @@ class ProbeBuilder(BuilderBase, Device):
         self._class = self._find_class(import_paths, probe_cfg.type, ProbeInterface)
 
     # pylint: disable=arguments-differ
-    def get(self, protocols: list[str], mtu: Optional[int] = None, **kwargs) -> ProbeInterface:
+    def get(
+        self, protocols: list[str], mtu: Optional[int] = None, **kwargs
+    ) -> ProbeInterface:
         """Create probe instance from static configuration by alias identifier.
 
         Parameters
@@ -111,10 +113,12 @@ class ProbeBuilder(BuilderBase, Device):
         additional_args = {**self._connector_args, **kwargs}
         if mtu is not None:
             additional_args.update({"mtu": mtu})
-            
+
         protocols = list(set(protocols) & set(self.get_supported_protocols()))
 
-        return self._class(self._executor, self._target, protocols, self._interfaces, **additional_args)
+        return self._class(
+            self._executor, self._target, protocols, self._interfaces, **additional_args
+        )
 
     def get_enabled_interfaces(self) -> List[InterfaceCfg]:
         """Get list of enabled interfaces.
@@ -161,7 +165,9 @@ class ProbeBuilder(BuilderBase, Device):
         return self._biflow_export
 
     @staticmethod
-    def _load_interfaces(probe_cfg: ProbeCfg, enabled_interfaces: List[str]) -> List[InterfaceCfg]:
+    def _load_interfaces(
+        probe_cfg: ProbeCfg, enabled_interfaces: List[str]
+    ) -> List[InterfaceCfg]:
         """Check and convert string interfaces from cmd argument to InterfaceCfg form.
 
         Parameters
@@ -195,6 +201,8 @@ class ProbeBuilder(BuilderBase, Device):
                     break
 
             if not found:
-                raise BuilderError(f"Interface '{ifc}' is not supported by probe '{probe_cfg.alias}'.")
+                raise BuilderError(
+                    f"Interface '{ifc}' is not supported by probe '{probe_cfg.alias}'."
+                )
 
         return interfaces

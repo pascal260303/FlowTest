@@ -29,17 +29,35 @@ class GenerateCache:
 
     @staticmethod
     def given_params(
-        it: (int, int) = (1000, 5000000), at: (int, int) = (4000, 6000000), lim: (int, int) = (MEM_100M, MEM_10G)
+        it: (int, int) = (1000, 5000000),
+        at: (int, int) = (4000, 6000000),
+        lim: (int, int) = (MEM_100M, MEM_10G),
     ):
         """Helper for Hypothesis generator"""
-        return st.integers(it[0], it[1]), st.integers(at[0], at[1]), st.integers(lim[0], lim[1])
+        return (
+            st.integers(it[0], it[1]),
+            st.integers(at[0], at[1]),
+            st.integers(lim[0], lim[1]),
+        )
 
     @staticmethod
     def create_cache(
-        t_start: int, t_end: int, proto: int, s_addr: str, d_addr: str, s_port: int, d_port: int, pkts: int, bts: int
+        t_start: int,
+        t_end: int,
+        proto: int,
+        s_addr: str,
+        d_addr: str,
+        s_port: int,
+        d_port: int,
+        pkts: int,
+        bts: int,
     ) -> (str, str, Flow):
         """Helper for creating cache with addresses"""
-        return s_addr, d_addr, Flow(t_start, t_end, proto, s_addr, d_addr, s_port, d_port, pkts, bts)
+        return (
+            s_addr,
+            d_addr,
+            Flow(t_start, t_end, proto, s_addr, d_addr, s_port, d_port, pkts, bts),
+        )
 
     @staticmethod
     def gen_unique_flow(flow: Flow = None) -> Flow:
@@ -79,7 +97,11 @@ class TestCache:
 
     @staticmethod
     @given(*GenerateCache.given_params())
-    @example(GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE, GenerateCache.MEM_1G)
+    @example(
+        GenerateFlows.DEFAULT_INACTIVE,
+        GenerateFlows.DEFAULT_ACTIVE,
+        GenerateCache.MEM_1G,
+    )
     def test_init(inactive_timeout: int, active_timeout: int, lim: int):
         """Test __init__()"""
         cache = FlowCache(inactive_timeout, active_timeout, lim)
@@ -93,7 +115,11 @@ class TestCache:
     def test_addflow_endtime():
         """Test add_flow() and check that maximum end time across all processed flows is correctly set"""
         nr_items = 1000
-        cache = FlowCache(GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE, GenerateCache.MEM_1G)
+        cache = FlowCache(
+            GenerateFlows.DEFAULT_INACTIVE,
+            GenerateFlows.DEFAULT_ACTIVE,
+            GenerateCache.MEM_1G,
+        )
         max_tend = GenerateCache.fill_cache_unique(nr_items, cache)
         assert cache._now == max_tend
 
@@ -102,7 +128,11 @@ class TestCache:
         """Test add_flow() - check that Flow method update() is used when inserting
         new flow equal to already existing flow in cache."""
         monkeypatch.setattr(Flow, "update", lambda *_: True)
-        cache = FlowCache(GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE, GenerateCache.MEM_1G)
+        cache = FlowCache(
+            GenerateFlows.DEFAULT_INACTIVE,
+            GenerateFlows.DEFAULT_ACTIVE,
+            GenerateCache.MEM_1G,
+        )
         flow1 = GenerateCache.gen_unique_flow()
         assert cache.add_flow(flow1) == []
         flow2, f2_hash = GenerateCache.copy_flow_nonkey(flow1)
@@ -114,7 +144,11 @@ class TestCache:
     def test_addflow_replace_flow(monkeypatch):
         """Test add_flow() - add flow, then add second flow replacing original flow in cache."""
         monkeypatch.setattr(Flow, "update", lambda *_: False)
-        cache = FlowCache(GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE, GenerateCache.MEM_1G)
+        cache = FlowCache(
+            GenerateFlows.DEFAULT_INACTIVE,
+            GenerateFlows.DEFAULT_ACTIVE,
+            GenerateCache.MEM_1G,
+        )
         flow1 = GenerateCache.gen_unique_flow()
         assert cache.add_flow(flow1) == []
         flow2, f2_hash = GenerateCache.copy_flow_nonkey(flow1)
@@ -133,7 +167,9 @@ class TestCache:
     def test_addflow_to_full_cache():
         """Test add_flow() - add one flow to full cache and expect some flows to be removed from cache."""
         max_flows = GenerateCache.MEM_1M  # 4096
-        cache = FlowCache(GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE, max_flows)
+        cache = FlowCache(
+            GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE, max_flows
+        )
         # add flow cache up to the limit; 4095 flows
         GenerateCache.fill_cache_unique(max_flows - 1, cache)
         assert len(cache._cache) == max_flows - 1
@@ -147,7 +183,11 @@ class TestCache:
     def test_removeflows_delete_all():
         """Test remove_flows() - remove all flows from cache and get back all removed flows."""
         nr_items = 1000
-        cache = FlowCache(GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE, GenerateCache.MEM_1G)
+        cache = FlowCache(
+            GenerateFlows.DEFAULT_INACTIVE,
+            GenerateFlows.DEFAULT_ACTIVE,
+            GenerateCache.MEM_1G,
+        )
         GenerateCache.fill_cache_unique(nr_items, cache)
         allflows = cache.remove_flows(None)
 
@@ -158,12 +198,20 @@ class TestCache:
     def test_removeflows_delete_by_threshold():
         """Test remove_flows() - remove flows based on their end time threshold"""
         nr_items = 1000
-        cache = FlowCache(GenerateFlows.DEFAULT_INACTIVE, GenerateFlows.DEFAULT_ACTIVE, GenerateCache.MEM_1G)
+        cache = FlowCache(
+            GenerateFlows.DEFAULT_INACTIVE,
+            GenerateFlows.DEFAULT_ACTIVE,
+            GenerateCache.MEM_1G,
+        )
         _ = GenerateCache.fill_cache_unique(nr_items, cache)
         threshold = random.randint(600000, 1000000)
         thr_flows = cache.remove_flows(threshold)
 
-        assert len(thr_flows) > 0, "No flows have been removed. False positive case is very unlikely to happen."
+        assert len(thr_flows) > 0, (
+            "No flows have been removed. False positive case is very unlikely to happen."
+        )
         assert {k: v for k, v in cache._cache.items() if v.end_time < threshold} == {}
-        assert len({k: v for k, v in cache._cache.items() if v.end_time >= threshold}) == nr_items - len(thr_flows)
+        assert len(
+            {k: v for k, v in cache._cache.items() if v.end_time >= threshold}
+        ) == nr_items - len(thr_flows)
         assert len(cache._cache) == nr_items - len(thr_flows)

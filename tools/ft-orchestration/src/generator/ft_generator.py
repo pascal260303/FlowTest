@@ -289,7 +289,9 @@ class FtGeneratorCache:
         self._tmp_index = path.join(self._tmp_dir, self.INDEX_FILENAME)
         self._biflow_export = biflow_export
 
-    def get(self, profile_path: str, config: Optional[FtGeneratorConfig]) -> Optional[tuple[str, str]]:
+    def get(
+        self, profile_path: str, config: Optional[FtGeneratorConfig]
+    ) -> Optional[tuple[str, str]]:
         """Get PCAP path and CSV report path in cache generated with given profile and config.
         None is returned if PCAP is not found in cache.
 
@@ -487,7 +489,9 @@ class FtGeneratorCache:
             stdout, _ = Tool(["md5sum", file_path], executor=self._executor).run()
             return stdout.split()[0]
         except ExecutableProcessError as err:
-            raise FtGeneratorException(f"Cannot compute hash for file in PCAP cache: '{file_path}'.") from err
+            raise FtGeneratorException(
+                f"Cannot compute hash for file in PCAP cache: '{file_path}'."
+            ) from err
 
 
 # pylint: disable=too-few-public-methods
@@ -538,7 +542,11 @@ class FtGenerator:
     ]
 
     def __init__(
-        self, executor: Executor, cache_dir: Optional[str] = None, biflow_export: bool = False, verbose: bool = False
+        self,
+        executor: Executor,
+        cache_dir: Optional[str] = None,
+        biflow_export: bool = False,
+        verbose: bool = False,
     ) -> None:
         """Init ft-generator connector.
 
@@ -572,7 +580,9 @@ class FtGenerator:
         if cache_dir:
             self._cache = FtGeneratorCache(executor, cache_dir, biflow_export)
         else:
-            self._cache = FtGeneratorCache(executor, self._cache_rsync.get_data_directory(), biflow_export)
+            self._cache = FtGeneratorCache(
+                executor, self._cache_rsync.get_data_directory(), biflow_export
+            )
 
         assert_tool_is_installed(self._bin, executor)
 
@@ -667,9 +677,13 @@ class FtGenerator:
         local_csv_path = self._cache_rsync.pull_path(csv_path, self._local_workdir)
 
         try:
-            biflows = pd.read_csv(local_csv_path, engine="pyarrow", dtype=self.CSV_COLUMN_TYPES)
+            biflows = pd.read_csv(
+                local_csv_path, engine="pyarrow", dtype=self.CSV_COLUMN_TYPES
+            )
         except Exception as err:
-            raise FtGeneratorException("Unable to read ft-generator output CSV.") from err
+            raise FtGeneratorException(
+                "Unable to read ft-generator output CSV."
+            ) from err
 
         reverse_biflows = biflows.copy()
         reverse_biflows["SRC_IP"] = biflows["DST_IP"]
@@ -698,15 +712,21 @@ class FtGenerator:
         # Aggregated are only flows which has non-zero reverse direction (to avoid zero timestamps).
         if self._biflow_export:
             condition = biflows["PACKETS_REV"] > 0
-            biflows["START_TIME"].loc[condition] = biflows.loc[condition, ["START_TIME", "START_TIME_REV"]].min(axis=1)
-            biflows["END_TIME"].loc[condition] = biflows.loc[condition, ["END_TIME", "END_TIME_REV"]].max(axis=1)
+            biflows["START_TIME"].loc[condition] = biflows.loc[
+                condition, ["START_TIME", "START_TIME_REV"]
+            ].min(axis=1)
+            biflows["END_TIME"].loc[condition] = biflows.loc[
+                condition, ["END_TIME", "END_TIME_REV"]
+            ].max(axis=1)
 
         biflows.rename(columns=self.CSV_COLUMN_RENAME, inplace=True)
         biflows.loc[:, self.CSV_OUT_COLUMN_NAMES].to_csv(local_csv_path, index=False)
 
         self._cache_rsync.push_path(local_csv_path)
 
-    def _enhance_profile(self, profile_path: str, config: Optional[FtGeneratorConfig]) -> str:
+    def _enhance_profile(
+        self, profile_path: str, config: Optional[FtGeneratorConfig]
+    ) -> str:
         """If probabilities are given together with the IP ranges, enhance profile with
         IP addresses according to the distribution.
 
@@ -728,11 +748,19 @@ class FtGenerator:
 
         ipv4_ranges = []
         if config.ipv4 and config.ipv4.ip_range:
-            ipv4_ranges = config.ipv4.ip_range if isinstance(config.ipv4.ip_range, list) else [config.ipv4.ip_range]
+            ipv4_ranges = (
+                config.ipv4.ip_range
+                if isinstance(config.ipv4.ip_range, list)
+                else [config.ipv4.ip_range]
+            )
 
         ipv6_ranges = []
         if config.ipv6 and config.ipv6.ip_range:
-            ipv6_ranges = config.ipv6.ip_range if isinstance(config.ipv6.ip_range, list) else [config.ipv6.ip_range]
+            ipv6_ranges = (
+                config.ipv6.ip_range
+                if isinstance(config.ipv6.ip_range, list)
+                else [config.ipv6.ip_range]
+            )
 
         if any(len(s.split(maxsplit=1)) > 1 for s in ipv4_ranges) or any(
             len(s.split(maxsplit=1)) > 1 for s in ipv6_ranges

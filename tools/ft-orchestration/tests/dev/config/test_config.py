@@ -70,7 +70,10 @@ def test_generators(create_config) -> None:
     assert gen_1.alias == "sw-gen-10G"
     assert gen_1.name == "cesnet-generator-1.liberouter.org"
     assert gen_1.type == "TcpReplay"
-    assert gen_1.interfaces == [InterfaceCfg(name="eth2", speed=10), InterfaceCfg(name="eth3", speed=10)]
+    assert gen_1.interfaces == [
+        InterfaceCfg(name="eth2", speed=10),
+        InterfaceCfg(name="eth3", speed=10),
+    ]
     assert gen_1.authentication == "cesnet-general"
     assert gen_1.ansible_playbook_role == "generator-software"
 
@@ -92,7 +95,10 @@ def test_generators_invalid() -> None:
         )
         assert False
     except ConfigException as err:
-        assert "exception Failure parsing field `interfaces` in class `GeneratorCfg`" in str(err)
+        assert (
+            "exception Failure parsing field `interfaces` in class `GeneratorCfg`"
+            in str(err)
+        )
 
     try:
         Config(
@@ -104,7 +110,10 @@ def test_generators_invalid() -> None:
         )
         assert False
     except ConfigException as err:
-        assert "exception Failure parsing field `interfaces` in class `GeneratorCfg`. Expected a type" in str(err)
+        assert (
+            "exception Failure parsing field `interfaces` in class `GeneratorCfg`. Expected a type"
+            in str(err)
+        )
 
 
 def test_authentications(create_config) -> None:
@@ -122,12 +131,19 @@ def test_authentications(create_config) -> None:
     authentications: Dict[str, AuthenticationCfg] = create_config.authentications
 
     assert len(authentications) == 3
-    assert list(authentications.keys()) == ["cesnet-general", "flowmon-probes", "cesnet-agent"]
+    assert list(authentications.keys()) == [
+        "cesnet-general",
+        "flowmon-probes",
+        "cesnet-agent",
+    ]
     auth_1: AuthenticationCfg = authentications["cesnet-general"]
     auth_2: AuthenticationCfg = authentications["flowmon-probes"]
     auth_3: AuthenticationCfg = authentications["cesnet-agent"]
 
-    assert auth_1.key_path == "tools/ft-orchestration/tests/dev/config/files/cesnet-general.pem"
+    assert (
+        auth_1.key_path
+        == "tools/ft-orchestration/tests/dev/config/files/cesnet-general.pem"
+    )
     assert auth_1.username is None
     assert auth_1.password is None
 
@@ -183,7 +199,10 @@ def test_authentications_invalid() -> None:
         )
         assert False
     except ConfigException as err:
-        assert str(err) == "Validation error: Key path or password cannot be set if the ssh agent is used."
+        assert (
+            str(err)
+            == "Validation error: Key path or password cannot be set if the ssh agent is used."
+        )
 
 
 def test_collectors(create_config) -> None:
@@ -364,7 +383,10 @@ def test_probes_invalid() -> None:
         )
         assert False
     except ConfigException as err:
-        assert "Validation error: Mac address cannot be empty in probe interface" in str(err)
+        assert (
+            "Validation error: Mac address cannot be empty in probe interface"
+            in str(err)
+        )
 
     try:
         Config(
@@ -376,7 +398,10 @@ def test_probes_invalid() -> None:
         )
         assert False
     except ConfigException as err:
-        assert "Validation error: Mac address cannot be empty in probe interface" in str(err)
+        assert (
+            "Validation error: Mac address cannot be empty in probe interface"
+            in str(err)
+        )
 
     try:
         Config(
@@ -388,7 +413,10 @@ def test_probes_invalid() -> None:
         )
         assert False
     except ConfigException as err:
-        assert "Validation error: Whitelist 'not-existing-whitelist' was not found in whitelists config" in str(err)
+        assert (
+            "Validation error: Whitelist 'not-existing-whitelist' was not found in whitelists config"
+            in str(err)
+        )
 
 
 def test_file_not_found() -> None:
@@ -396,7 +424,11 @@ def test_file_not_found() -> None:
 
     try:
         Config(
-            "file_not_found.yml", "file_not_found.yml", "file_not_found.yml", "file_not_found.yml", "file_not_found.yml"
+            "file_not_found.yml",
+            "file_not_found.yml",
+            "file_not_found.yml",
+            "file_not_found.yml",
+            "file_not_found.yml",
         )
         assert False
     except ConfigException as err:
@@ -431,14 +463,22 @@ def test_whitelists(create_config) -> None:
     whitelists: Dict[str, WhitelistCfg] = create_config.whitelists
 
     assert len(whitelists) == 3
-    assert list(whitelists.keys()) == ["flowmon-whitelist", "flowmon-whitelist-via-switch", "inherited"]
+    assert list(whitelists.keys()) == [
+        "flowmon-whitelist",
+        "flowmon-whitelist-via-switch",
+        "inherited",
+    ]
     wl_1: WhitelistCfg = whitelists["flowmon-whitelist"]
     wl_2: WhitelistCfg = whitelists["flowmon-whitelist-via-switch"]
     wl_3: WhitelistCfg = whitelists["inherited"]
 
     # check wl_1
     assert wl_1.name == "flowmon-whitelist"
-    assert wl_1.get_items("validation") == {"test1.yml": None, "test2.yml": None, "test3.yml": None}
+    assert wl_1.get_items("validation") == {
+        "test1.yml": None,
+        "test2.yml": None,
+        "test3.yml": None,
+    }
 
     # check wl_2
     assert wl_2.name == "flowmon-whitelist-via-switch"
@@ -475,7 +515,10 @@ def test_whitelists_invalid() -> None:
         )
         assert False
     except ConfigException as err:
-        assert "Validation error: WhitelistCfg config error: Circular dependency in whitelist" in str(err)
+        assert (
+            "Validation error: WhitelistCfg config error: Circular dependency in whitelist"
+            in str(err)
+        )
 
     try:
         Config(

@@ -89,7 +89,9 @@ class TcpReplay(PcapPlayer):
         self._work_dir = tempfile.mkdtemp()
         self._log_file = Path(self._work_dir, "tcpreplay.log")
 
-    def add_interface(self, ifc_name: str, dst_mac: Optional[Union[str, list[str]]] = None):
+    def add_interface(
+        self, ifc_name: str, dst_mac: Optional[Union[str, list[str]]] = None
+    ):
         """Add interface on which traffic will be replayed.
 
         Parameters
@@ -109,7 +111,9 @@ class TcpReplay(PcapPlayer):
         """
 
         if self._interface:
-            raise RuntimeError("Tcpreplay generator supports only one replaying interface.")
+            raise RuntimeError(
+                "Tcpreplay generator supports only one replaying interface."
+            )
 
         self._interface = ifc_name
         if isinstance(dst_mac, list):
@@ -118,7 +122,9 @@ class TcpReplay(PcapPlayer):
             elif len(dst_mac) == 0:
                 self._dst_mac = None
             else:
-                raise RuntimeError("Tcpreplay does not support multiple destination mac addresses.")
+                raise RuntimeError(
+                    "Tcpreplay does not support multiple destination mac addresses."
+                )
         else:
             self._dst_mac = dst_mac
 
@@ -181,8 +187,14 @@ class TcpReplay(PcapPlayer):
             cmd_options += ["-v"]
         cmd_options += ["--stats=0"]
 
-        Tool(f"ip link set dev {self._interface} up", executor=self._executor, sudo=True).run()
-        Tool(f"ip link set dev {self._interface} mtu {self._mtu}", executor=self._executor, sudo=True).run()
+        Tool(
+            f"ip link set dev {self._interface} up", executor=self._executor, sudo=True
+        ).run()
+        Tool(
+            f"ip link set dev {self._interface} mtu {self._mtu}",
+            executor=self._executor,
+            sudo=True,
+        ).run()
 
         with tempfile.TemporaryDirectory() as temp_dir:
             if rewrite_rules:

@@ -48,9 +48,13 @@ def test_scapy_rewriter_edit_dst_mac():
 
     with tempfile.TemporaryDirectory() as temp_dir:
         pcap_path = rewrite_pcap(
-            path.join(PCAP_DIR, "ipv6-routing-header.pcap"), rules, path.join(temp_dir, "out.pcap")
+            path.join(PCAP_DIR, "ipv6-routing-header.pcap"),
+            rules,
+            path.join(temp_dir, "out.pcap"),
         )
-        assert compare_ref(pcap_path, path.join(PCAP_REF_DIR, "ipv6-routing-header-dst-mac.pcap"))
+        assert compare_ref(
+            pcap_path, path.join(PCAP_REF_DIR, "ipv6-routing-header-dst-mac.pcap")
+        )
     assert not path.exists(temp_dir)
 
 
@@ -61,9 +65,13 @@ def test_scapy_rewriter_edit_vlan():
 
     with tempfile.TemporaryDirectory() as temp_dir:
         pcap_path = rewrite_pcap(
-            path.join(PCAP_DIR, "ipv6-routing-header.pcap"), rules, path.join(temp_dir, "out.pcap")
+            path.join(PCAP_DIR, "ipv6-routing-header.pcap"),
+            rules,
+            path.join(temp_dir, "out.pcap"),
         )
-        assert compare_ref(pcap_path, path.join(PCAP_REF_DIR, "ipv6-routing-header-vlan.pcap"))
+        assert compare_ref(
+            pcap_path, path.join(PCAP_REF_DIR, "ipv6-routing-header-vlan.pcap")
+        )
     assert not path.exists(temp_dir)
 
 
@@ -74,7 +82,11 @@ def test_scapy_rewriter_edit_dst_mac_add_vlan():
 
     with tempfile.TemporaryDirectory() as temp_dir:
         pcap_path = rewrite_pcap(
-            path.join(PCAP_DIR, "ipv6-routing-header.pcap"), rules, path.join(temp_dir, "out.pcap")
+            path.join(PCAP_DIR, "ipv6-routing-header.pcap"),
+            rules,
+            path.join(temp_dir, "out.pcap"),
         )
-        assert compare_ref(pcap_path, path.join(PCAP_REF_DIR, "ipv6-routing-header-dst-mac-vlan.pcap"))
+        assert compare_ref(
+            pcap_path, path.join(PCAP_REF_DIR, "ipv6-routing-header-dst-mac-vlan.pcap")
+        )
     assert not path.exists(temp_dir)

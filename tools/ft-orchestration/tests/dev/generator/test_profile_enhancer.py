@@ -108,7 +108,10 @@ def test_basic():
     ipv4_ranges = ["146.102.0.0/16 40%", "147.230.0.0/16"]
     ipv6_ranges = ["2001:0718:0001:0005::/64 10%", "4001:0718:0001:0005::/64"]
     enhc.enhance(
-        os.path.join(INPUT_DIR, "csv_basic_profile.csv"), os.path.join(FILE_DIR, "tmp.csv"), ipv4_ranges, ipv6_ranges
+        os.path.join(INPUT_DIR, "csv_basic_profile.csv"),
+        os.path.join(FILE_DIR, "tmp.csv"),
+        ipv4_ranges,
+        ipv6_ranges,
     )
 
 
@@ -118,7 +121,10 @@ def test_big():
 
     enhc = ProfileEnhancer()
 
-    ipv4_ranges = [(ipaddress.IPv4Network("146.102.0.0/16"), 0.4), (ipaddress.IPv4Network("147.230.0.0/16"), 0.6)]
+    ipv4_ranges = [
+        (ipaddress.IPv4Network("146.102.0.0/16"), 0.4),
+        (ipaddress.IPv4Network("147.230.0.0/16"), 0.6),
+    ]
     ipv6_ranges = [
         (ipaddress.IPv6Network("2001:0718:0001:0005::/64"), 0.1),
         (ipaddress.IPv6Network("4001:0718:0001:0005::/64"), 0.9),
@@ -126,8 +132,8 @@ def test_big():
     enhc.enhance(
         os.path.join(INPUT_DIR, "cesnet_nix_zikova_morning.csv"),
         os.path.join(FILE_DIR, "tmp.csv"),
-        [f"{n} {int(p*100)}%" for n, p in ipv4_ranges],
-        [f"{n} {int(p*100)}%" for n, p in ipv6_ranges],
+        [f"{n} {int(p * 100)}%" for n, p in ipv4_ranges],
+        [f"{n} {int(p * 100)}%" for n, p in ipv6_ranges],
     )
 
     _analyze(os.path.join(FILE_DIR, "tmp.csv"), ipv4_ranges, ipv6_ranges)

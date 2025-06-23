@@ -76,13 +76,18 @@ def typed_dataclass(cls: dataclass):
                         return (
                             isinstance(value, tuple)
                             and len(value) == len(types)
-                            and all(_isinstance(x, types[i]) for i, x in enumerate(value))
+                            and all(
+                                _isinstance(x, types[i]) for i, x in enumerate(value)
+                            )
                         )
-                    return isinstance(value, origin) and all(_isinstance(x, types[0]) for x in value)
+                    return isinstance(value, origin) and all(
+                        _isinstance(x, types[0]) for x in value
+                    )
 
                 if origin is dict:
                     return isinstance(value, dict) and all(
-                        _isinstance(k, types[0]) and _isinstance(v, types[1]) for k, v in value.items()
+                        _isinstance(k, types[0]) and _isinstance(v, types[1])
+                        for k, v in value.items()
                     )
 
                 raise NotImplementedError
@@ -182,7 +187,9 @@ def typed_dataclass(cls: dataclass):
                     "Please specify convert function in field metadata."
                 )
 
-            return {_retype(k, types[0]): _retype(v, types[1]) for k, v in value.items()}
+            return {
+                _retype(k, types[0]): _retype(v, types[1]) for k, v in value.items()
+            }
 
         def _tuple_is_variable_len(types: list) -> bool:
             """Check if tuple generic type is variable length (Ellipsis is used: 'tuple[tp, ...]')."""
@@ -212,7 +219,9 @@ def typed_dataclass(cls: dataclass):
         super(cls, self).__setattr__(__name, __value)
 
     if not is_dataclass(cls):
-        raise TypeError("Class is not dataclass. Use 'typed_dataclass' only with dataclasses.")
+        raise TypeError(
+            "Class is not dataclass. Use 'typed_dataclass' only with dataclasses."
+        )
 
     setattr(cls, "__setattr__", __setattr__)
     return cls

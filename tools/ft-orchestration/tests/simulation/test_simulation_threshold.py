@@ -76,7 +76,9 @@ def validate(
     return stats_report.is_passing()
 
 
-def setup_replicator(generator: Replicator, conf: FtGeneratorConfig, loop_cnt: int, unit_cnt: int) -> FlowReplicator:
+def setup_replicator(
+    generator: Replicator, conf: FtGeneratorConfig, loop_cnt: int, unit_cnt: int
+) -> FlowReplicator:
     """
     Setup replicator units and loops so that there is enough bits in an IP prefix
     to perform replication in a way that IP subnets do not overlap.
@@ -101,7 +103,10 @@ def setup_replicator(generator: Replicator, conf: FtGeneratorConfig, loop_cnt: i
     assert loop_cnt > 0 and unit_cnt > 0
 
     prefix = get_replicator_prefix(
-        (loop_cnt * unit_cnt - 1).bit_length(), DEFAULT_REPLICATOR_PREFIX, conf.ipv4.ip_range, conf.ipv6.ip_range
+        (loop_cnt * unit_cnt - 1).bit_length(),
+        DEFAULT_REPLICATOR_PREFIX,
+        conf.ipv4.ip_range,
+        conf.ipv6.ip_range,
     )
     if conf.ipv4.ip_range is None:
         conf.ipv4.ip_range = f"{ipaddress.IPv4Address(2 ** (32 - prefix)):s}/{prefix}"
@@ -115,16 +120,26 @@ def setup_replicator(generator: Replicator, conf: FtGeneratorConfig, loop_cnt: i
             dstip=Replicator.AddConstant(unit_n * 2 ** (32 - prefix)),
         )
 
-    generator.set_loop_modifiers(srcip_offset=unit_cnt * 2 ** (32 - prefix), dstip_offset=unit_cnt * 2 ** (32 - prefix))
-    logging.getLogger().info("Generator - ipv4 range: %s, ipv6 range: %s", conf.ipv4.ip_range, conf.ipv6.ip_range)
-    logging.getLogger().info("Replicator - units: %d, loops: %d, prefix: %d", unit_cnt, loop_cnt, prefix)
+    generator.set_loop_modifiers(
+        srcip_offset=unit_cnt * 2 ** (32 - prefix),
+        dstip_offset=unit_cnt * 2 ** (32 - prefix),
+    )
+    logging.getLogger().info(
+        "Generator - ipv4 range: %s, ipv6 range: %s",
+        conf.ipv4.ip_range,
+        conf.ipv6.ip_range,
+    )
+    logging.getLogger().info(
+        "Replicator - units: %d, loops: %d, prefix: %d", unit_cnt, loop_cnt, prefix
+    )
 
     return FlowReplicator(generator.get_replicator_config())
 
 
 @pytest.mark.simulation
 @pytest.mark.parametrize(
-    "scenario, test_id", collect_scenarios(SIMULATION_TESTS_DIR, SimulationScenario, name="sim_threshold")
+    "scenario, test_id",
+    collect_scenarios(SIMULATION_TESTS_DIR, SimulationScenario, name="sim_threshold"),
 )
 # pylint: disable=too-many-locals
 # pylint: disable=too-many-statements
@@ -178,19 +193,32 @@ def test_simulation_threshold(
             obj.cleanup()
 
     def finalizer_download_logs():
-        download_logs(current_log_dir, collector=collector_instance, generator=generator_instance, probe=probe_instance)
+        download_logs(
+            current_log_dir,
+            collector=collector_instance,
+            generator=generator_instance,
+            probe=probe_instance,
+        )
 
     request.addfinalizer(cleanup)
     request.addfinalizer(finalizer_download_logs)
 
     def run_single_test(loops: int, speed: MbpsSpeed):
-        logging.getLogger().info("running test with speed: %s Mbps (loops: %s)", speed.speed, loops)
+        logging.getLogger().info(
+            "running test with speed: %s Mbps (loops: %s)", speed.speed, loops
+        )
         collector_instance.start()
         probe_instance.start()
 
-        flow_replicator = setup_replicator(generator_instance, generator_conf, loops, replicator_units)
+        flow_replicator = setup_replicator(
+            generator_instance, generator_conf, loops, replicator_units
+        )
         generator_instance.start_profile(
-            profile_path, ref_file, speed=speed, loop_count=loops, generator_config=generator_conf
+            profile_path,
+            ref_file,
+            speed=speed,
+            loop_count=loops,
+            generator_config=generator_conf,
         )
 
         # method stats blocks until traffic is sent
@@ -220,7 +248,9 @@ def test_simulation_threshold(
         return ret
 
     # general configuration
-    probe_conf = scenario.test.get_probe_conf(device.get_instance_type(), scenario.default.probe)
+    probe_conf = scenario.test.get_probe_conf(
+        device.get_instance_type(), scenario.default.probe
+    )
     generator_conf = scenario.test.get_generator_conf(scenario.default.generator)
     profile_path = scenario.get_profile(scenario.filename, SIMULATION_TESTS_DIR)
     replicator_units = int(1 / scenario.sampling)
@@ -229,7 +259,11 @@ def test_simulation_threshold(
 
     # first run is the original configuration
     speed_min = scenario.test.speed_min
-    speed_max = scenario.test.speed_max if scenario.test.speed_max is not None else scenario.requirements.speed * 1000
+    speed_max = (
+        scenario.test.speed_max
+        if scenario.test.speed_max is not None
+        else scenario.requirements.speed * 1000
+    )
     speed_current = speed_max
     while True:
         # setup log path
@@ -247,7 +281,9 @@ def test_simulation_threshold(
         generator_conf.timestamps.flow_max_interpacket_gap = f"{inactive_t - 1}s"
 
         # run test
-        result = run_single_test(max(1, int(speed_current / scenario.default.mbps)), MbpsSpeed(speed_current))
+        result = run_single_test(
+            max(1, int(speed_current / scenario.default.mbps)), MbpsSpeed(speed_current)
+        )
         if result:
             speed_min = speed_current
         else:
@@ -260,7 +296,10 @@ def test_simulation_threshold(
         speed_current = int((speed_max + speed_min) / 2)
         # round up to required accuracy
         if speed_current % scenario.test.mbps_accuracy > 0:
-            speed_current = speed_current + (scenario.test.mbps_accuracy - speed_current % scenario.test.mbps_accuracy)
+            speed_current = speed_current + (
+                scenario.test.mbps_accuracy
+                - speed_current % scenario.test.mbps_accuracy
+            )
 
         # cleanup devices
         finalizer_download_logs()
@@ -273,5 +312,11 @@ def test_simulation_threshold(
     passed = scenario.test.mbps_required <= speed_min
     HTMLReportData.simulation_summary_report.update_stats("sim_threshold", passed)
 
-    logging.getLogger().info("maximum throughput: %s Mbps (accuracy: %s Mbps)", speed_min, scenario.test.mbps_accuracy)
-    assert passed, f"throughput ({speed_min} Mbps) is less than required ({scenario.test.mbps_required} Mbps)"
+    logging.getLogger().info(
+        "maximum throughput: %s Mbps (accuracy: %s Mbps)",
+        speed_min,
+        scenario.test.mbps_accuracy,
+    )
+    assert passed, (
+        f"throughput ({speed_min} Mbps) is less than required ({scenario.test.mbps_required} Mbps)"
+    )

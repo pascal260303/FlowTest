@@ -63,7 +63,12 @@ class FieldDatabase:
         Field names which create the reverse flow key format.
     """
 
-    DIR_MAP = {"always": "always", "any": "any", "reverse": "forward", "forward": "reverse"}
+    DIR_MAP = {
+        "always": "always",
+        "any": "any",
+        "reverse": "forward",
+        "forward": "reverse",
+    }
     SUPPORTED_TYPES = ["int", "string", "list", "dict"]
 
     def __init__(self, fields_file: str) -> None:
@@ -86,12 +91,22 @@ class FieldDatabase:
             with open(fields_file, "r", encoding="ascii") as stream:
                 data = yaml.safe_load(stream)
                 self._fields = self._expand_fields(data["fields"])
-                self._fwd_key_fmt, self._rev_key_fmt = self._create_key_formats(data["key"])
+                self._fwd_key_fmt, self._rev_key_fmt = self._create_key_formats(
+                    data["key"]
+                )
         except (IOError, yaml.YAMLError, ValueError, KeyError) as err:
-            logging.getLogger().error("unable to process fields database file=%s, reason=%s", fields_file, str(err))
-            raise ValueError(f"Unable to process fields database file={fields_file}.") from err
+            logging.getLogger().error(
+                "unable to process fields database file=%s, reason=%s",
+                fields_file,
+                str(err),
+            )
+            raise ValueError(
+                f"Unable to process fields database file={fields_file}."
+            ) from err
 
-    def _expand_fields(self, fields: Dict[str, Dict], prefix: str = "") -> Dict[str, Dict[str, str]]:
+    def _expand_fields(
+        self, fields: Dict[str, Dict], prefix: str = ""
+    ) -> Dict[str, Dict[str, str]]:
         """Expand reverse fields and subfields present in the flow fields specification.
         Also perform basic format validation. Can be invoked recursively.
 
@@ -115,17 +130,29 @@ class FieldDatabase:
         expanded_fields = {}
         for f_name, f_value in fields.items():
             if "subfields" in f_value:
-                subfields = self._expand_fields(f_value["subfields"], prefix=f"{f_name}.")
+                subfields = self._expand_fields(
+                    f_value["subfields"], prefix=f"{f_name}."
+                )
                 expanded_fields.update(subfields)
                 del f_value["subfields"]
 
             if f_value["direction"] not in self.DIR_MAP:
-                logging.getLogger().error("invalid 'direction' value=%s of field=%s", f_value["direction"], f_name)
-                raise ValueError(f"Invalid 'direction' value={f_value['direction']} of field={f_name}.")
+                logging.getLogger().error(
+                    "invalid 'direction' value=%s of field=%s",
+                    f_value["direction"],
+                    f_name,
+                )
+                raise ValueError(
+                    f"Invalid 'direction' value={f_value['direction']} of field={f_name}."
+                )
 
             if f_value["type"] not in self.SUPPORTED_TYPES:
-                logging.getLogger().error("invalid 'type' value=%s of field=%s", f_value["type"], f_name)
-                raise ValueError(f"Invalid 'type' value={f_value['type']} of field={f_name}.")
+                logging.getLogger().error(
+                    "invalid 'type' value=%s of field=%s", f_value["type"], f_name
+                )
+                raise ValueError(
+                    f"Invalid 'type' value={f_value['type']} of field={f_name}."
+                )
 
             expanded_fields[prefix + f_name] = f_value
             if "reverse" in f_value:
@@ -137,7 +164,9 @@ class FieldDatabase:
 
         return expanded_fields
 
-    def _create_key_formats(self, key_fmt: List[str]) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
+    def _create_key_formats(
+        self, key_fmt: List[str]
+    ) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
         """Create regular and reverse flow key formats.
 
         Parameters

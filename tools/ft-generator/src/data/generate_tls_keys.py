@@ -65,8 +65,12 @@ def main():
     if OUTPUT_FILE.exists():
         OUTPUT_FILE.rename(OUTPUT_FILE.with_suffix(".cpp.bak"))
     OUTPUT_FILE.write_text(src, encoding="utf-8")
-    clang_format_file = Path(__file__).parent.joinpath("../../../../.clang-format").resolve()
-    exit_code = os.system(f'clang-format -style="file:{clang_format_file}" -i {OUTPUT_FILE.as_posix()}')
+    clang_format_file = (
+        Path(__file__).parent.joinpath("../../../../.clang-format").resolve()
+    )
+    exit_code = os.system(
+        f'clang-format -style="file:{clang_format_file}" -i {OUTPUT_FILE.as_posix()}'
+    )
     if exit_code != 0:
         print("WARNING: clang-format failed or not found, output will not be formatted")
     print(f"Output written to {OUTPUT_FILE} ({len(src)} B)")

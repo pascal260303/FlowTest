@@ -71,7 +71,9 @@ class ProfileEnhancer:
                 if prob[-1] == "%":
                     prob = int(prob[:-1]) / 100
                 else:
-                    raise ProfileEnhancerError("IP range probability must be written in form {number}%, e.q. 50%.")
+                    raise ProfileEnhancerError(
+                        "IP range probability must be written in form {number}%, e.q. 50%."
+                    )
                 res_ranges.append(ip)
                 probabilities.append(prob)
             else:
@@ -91,7 +93,7 @@ class ProfileEnhancer:
 
     @staticmethod
     def _random_ip(
-        network: Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
+        network: Union[ipaddress.IPv4Network, ipaddress.IPv6Network],
     ) -> Union[ipaddress.IPv4Address, ipaddress.IPv6Address]:
         """Generate random IP address from IP network range.
 
@@ -138,7 +140,9 @@ class ProfileEnhancer:
             Flow key
         """
 
-        if row["SRC_IP"] < row["DST_IP"] or (row["SRC_IP"] == row["DST_IP"] and row["SRC_PORT"] < row["DST_PORT"]):
+        if row["SRC_IP"] < row["DST_IP"] or (
+            row["SRC_IP"] == row["DST_IP"] and row["SRC_PORT"] < row["DST_PORT"]
+        ):
             src_ip = row["SRC_IP"]
             dst_ip = row["DST_IP"]
             src_port = row["SRC_PORT"]
@@ -218,7 +222,13 @@ class ProfileEnhancer:
         )
         flows.loc[mask] = flows.loc[mask].astype("O").apply(_generate_addresses, axis=1)
 
-    def enhance(self, profile_path: str, profile_path_out: str, ipv4_ranges: list[str], ipv6_ranges: list[str]) -> None:
+    def enhance(
+        self,
+        profile_path: str,
+        profile_path_out: str,
+        ipv4_ranges: list[str],
+        ipv6_ranges: list[str],
+    ) -> None:
         """Enhance flow records with random generated IP addresses.
 
         Parameters
@@ -241,7 +251,9 @@ class ProfileEnhancer:
         """
 
         try:
-            flows = pd.read_csv(profile_path, engine="pyarrow", dtype=self.CSV_COLUMN_TYPES)
+            flows = pd.read_csv(
+                profile_path, engine="pyarrow", dtype=self.CSV_COLUMN_TYPES
+            )
         except Exception as err:
             raise ProfileEnhancerError("Unable to read profile CSV.") from err
 

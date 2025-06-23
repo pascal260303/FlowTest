@@ -43,7 +43,9 @@ class GeneratorConfig(FtGeneratorConfig, YAMLWizard, key_transform="SNAKE"):
                 return list(map(remove_none_attrib, node))
             return node
 
-        return yaml.safe_dump(remove_none_attrib(data), stream, default_flow_style=False, **kwds)
+        return yaml.safe_dump(
+            remove_none_attrib(data), stream, default_flow_style=False, **kwds
+        )
 
     @staticmethod
     def read_from_file(file: Union[Path, str]):
@@ -68,7 +70,9 @@ class GeneratorConfig(FtGeneratorConfig, YAMLWizard, key_transform="SNAKE"):
         if not isinstance(file, Path):
             file = Path(file)
         if not file.exists():
-            raise FileNotFoundError("GeneratorConfig::read_from_file(): File not found: ", file.as_posix())
+            raise FileNotFoundError(
+                "GeneratorConfig::read_from_file(): File not found: ", file.as_posix()
+            )
         return GeneratorConfig.from_yaml_file(file.as_posix())
 
     def write_to_file(self, file: Union[Path, str]):

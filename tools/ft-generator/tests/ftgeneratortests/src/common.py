@@ -37,11 +37,15 @@ def get_prob_from_str(text: str) -> float:
     try:
         out = float(text)
     except ValueError as exc:
-        raise ValueError("common::get_prob_from_str(): Unable to convert probability to float.") from exc
+        raise ValueError(
+            "common::get_prob_from_str(): Unable to convert probability to float."
+        ) from exc
 
     if percentage:
         out /= 100
     if out < 0 or out > 1:
-        raise ValueError("common::get_prob_from_str(): Probability in configuration is out of range.(0-100)")
+        raise ValueError(
+            "common::get_prob_from_str(): Probability in configuration is out of range.(0-100)"
+        )
 
     return out

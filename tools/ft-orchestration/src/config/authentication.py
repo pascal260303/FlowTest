@@ -40,7 +40,9 @@ class AuthenticationCfg(YAMLWizard):
                 "AuthenticationCfg config file can not contain both of the key_path and the password."
             )
         if self.ssh_agent and (self.key_path or self.password):
-            raise AuthenticationCfgException("Key path or password cannot be set if the ssh agent is used.")
+            raise AuthenticationCfgException(
+                "Key path or password cannot be set if the ssh agent is used."
+            )
         if not (self.ssh_agent or self.key_path or self.password):
             raise AuthenticationCfgException(
                 "At least one authentication (SSH agent, key_path or password) must be present."

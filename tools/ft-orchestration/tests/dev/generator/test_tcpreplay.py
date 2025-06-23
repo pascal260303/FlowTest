@@ -18,7 +18,9 @@ from src.generator.tcpreplay import TcpReplay
 
 HOST = os.environ.get("PYTEST_TEST_HOST")
 HOST_INTERFACE = (
-    os.environ.get("PYTEST_TEST_HOST_INTERFACE") if os.environ.get("PYTEST_TEST_HOST_INTERFACE") else "eth0"
+    os.environ.get("PYTEST_TEST_HOST_INTERFACE")
+    if os.environ.get("PYTEST_TEST_HOST_INTERFACE")
+    else "eth0"
 )
 USERNAME = os.environ.get("PYTEST_TEST_HOST_USERNAME")
 PASSWORD = os.environ.get("PYTEST_TEST_HOST_PASSWORD")
@@ -35,7 +37,9 @@ def parametrize_remote_connection():
     combinations = []
 
     if HOST is None:
-        combinations.append(pytest.param(None, marks=pytest.mark.skip(reason="host not defined")))
+        combinations.append(
+            pytest.param(None, marks=pytest.mark.skip(reason="host not defined"))
+        )
     else:
         if USERNAME is not None:
             user_args = {"user": USERNAME}
@@ -43,19 +47,29 @@ def parametrize_remote_connection():
             user_args = {}
 
         if KEY is None:
-            combinations.append(pytest.param(None, marks=pytest.mark.skip(reason="ssh key not defined")))
+            combinations.append(
+                pytest.param(None, marks=pytest.mark.skip(reason="ssh key not defined"))
+            )
         else:
             executor = RemoteExecutor(HOST, key_filename=KEY, **user_args)
             combinations.append({"executor": executor})
 
         if PASSWORD is None:
-            combinations.append(pytest.param(None, marks=pytest.mark.skip(reason="password not defined")))
+            combinations.append(
+                pytest.param(
+                    None, marks=pytest.mark.skip(reason="password not defined")
+                )
+            )
         else:
             executor = RemoteExecutor(HOST, password=PASSWORD, **user_args)
             combinations.append({"executor": executor})
 
         if not ssh_agent_enabled():
-            combinations.append(pytest.param(None, marks=pytest.mark.skip(reason="ssh agent not defined")))
+            combinations.append(
+                pytest.param(
+                    None, marks=pytest.mark.skip(reason="ssh agent not defined")
+                )
+            )
         else:
             executor = RemoteExecutor(HOST, **user_args)
             combinations.append({"executor": executor})
@@ -95,7 +109,9 @@ def test_tcpreplay_local(require_root):
 
 
 @pytest.mark.dev
-@pytest.mark.parametrize("connection_parameters", parametrize_remote_connection(), ids=connection_ids())
+@pytest.mark.parametrize(
+    "connection_parameters", parametrize_remote_connection(), ids=connection_ids()
+)
 def test_tcpreplay_remote(connection_parameters, require_root):
     """Test tcpreplay on remote machine."""
 
@@ -108,7 +124,9 @@ def test_tcpreplay_remote(connection_parameters, require_root):
 
 
 @pytest.mark.dev
-@pytest.mark.parametrize("connection_parameters", parametrize_remote_connection(), ids=connection_ids())
+@pytest.mark.parametrize(
+    "connection_parameters", parametrize_remote_connection(), ids=connection_ids()
+)
 def test_tcpreplay_remote_stop(connection_parameters, require_root):
     """Test tcpreplay on remote machine with stop."""
 
@@ -135,7 +153,9 @@ def test_tcpreplay_local_timeout(require_root):
 
 
 @pytest.mark.dev
-@pytest.mark.parametrize("connection_parameters", parametrize_remote_connection(), ids=connection_ids())
+@pytest.mark.parametrize(
+    "connection_parameters", parametrize_remote_connection(), ids=connection_ids()
+)
 def test_tcpreplay_remote_timeout(connection_parameters, require_root):
     """Test termination of remote tcpreplay via timeout."""
 
@@ -156,11 +176,15 @@ def test_tcpreplay_edit_local(require_root):
     tcpreplay.start(PCAP_FILE)
     stats = tcpreplay.stats()
     assert stats.packets == 32
-    assert stats.bytes == 3315 + stats.packets * 4  # include 4B VLAN header for every packet
+    assert (
+        stats.bytes == 3315 + stats.packets * 4
+    )  # include 4B VLAN header for every packet
 
 
 @pytest.mark.dev
-@pytest.mark.parametrize("connection_parameters", parametrize_remote_connection(), ids=connection_ids())
+@pytest.mark.parametrize(
+    "connection_parameters", parametrize_remote_connection(), ids=connection_ids()
+)
 def test_tcpreplay_edit_remote(connection_parameters, require_root):
     """Test tcpreplay-edit on remote machine."""
 
@@ -169,7 +193,9 @@ def test_tcpreplay_edit_remote(connection_parameters, require_root):
     tcpreplay.start(PCAP_FILE)
     stats = tcpreplay.stats()
     assert stats.packets == 32
-    assert stats.bytes == 3315 + stats.packets * 4  # include 4B VLAN header for every packet
+    assert (
+        stats.bytes == 3315 + stats.packets * 4
+    )  # include 4B VLAN header for every packet
 
 
 @pytest.mark.dev
@@ -185,7 +211,9 @@ def test_tcpreplay_edit_local_dst_mac(require_root):
 
 
 @pytest.mark.dev
-@pytest.mark.parametrize("connection_parameters", parametrize_remote_connection(), ids=connection_ids())
+@pytest.mark.parametrize(
+    "connection_parameters", parametrize_remote_connection(), ids=connection_ids()
+)
 def test_tcpreplay_edit_remote_dst_mac(connection_parameters, require_root):
     """Test tcpreplay-edit on remote machine."""
 

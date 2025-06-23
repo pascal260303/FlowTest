@@ -169,13 +169,17 @@ class FlowmonProbe(ProbeInterface):
         """
 
         if len(interfaces) != 1:
-            raise ProbeException("Exporting process should be initiated on exactly one input interface.")
+            raise ProbeException(
+                "Exporting process should be initiated on exactly one input interface."
+            )
         interface = interfaces[0].name
 
         self._executor = executor
 
         dpdk_is_active = Tool(
-            "systemctl -q is-active dpdk-controller.service", executor=self._executor, failure_verbosity="silent"
+            "systemctl -q is-active dpdk-controller.service",
+            executor=self._executor,
+            failure_verbosity="silent",
         )
         dpdk_is_active.run()
         if dpdk_is_active.returncode() == 0:
@@ -183,7 +187,9 @@ class FlowmonProbe(ProbeInterface):
         else:
             input_plugin = "rawnetcap"
 
-        self._plugins = list({PROTOCOLS_TO_PLUGINS[p] for p in protocols if p in PROTOCOLS_TO_PLUGINS})
+        self._plugins = list(
+            {PROTOCOLS_TO_PLUGINS[p] for p in protocols if p in PROTOCOLS_TO_PLUGINS}
+        )
 
         self._interface = interface
         self._pidfile = f"/tmp/tmp_probe_{interface}.pidfile"
@@ -215,11 +221,19 @@ class FlowmonProbe(ProbeInterface):
             with open(local_conf_file, "w", encoding="utf=8") as file:
                 json.dump(self._settings, file, indent=4, separators=(",", ": "))
         except IOError as err:
-            logging.getLogger().error("Unable to save probe configuration locally %s", err)
-            raise ProbeException(f"Unable to save probe configuration locally : {err}") from err
+            logging.getLogger().error(
+                "Unable to save probe configuration locally %s", err
+            )
+            raise ProbeException(
+                f"Unable to save probe configuration locally : {err}"
+            ) from err
         except TypeError as err:
-            logging.getLogger().error("Unable to create json configuration file %s", err)
-            raise ProbeException(f"Unable to create json configuration file : {err}") from err
+            logging.getLogger().error(
+                "Unable to create json configuration file %s", err
+            )
+            raise ProbeException(
+                f"Unable to create json configuration file : {err}"
+            ) from err
 
         Rsync(executor).push_path(str(local_conf_file))
         shutil.rmtree(local_temp_dir)
@@ -231,14 +245,25 @@ class FlowmonProbe(ProbeInterface):
         if input_plugin == "rawnetcap":
             cmd = f"cat /sys/class/net/{self._interface}/device/numa_node"
             try:
-                attributes["numa_node"] = int(Tool(cmd, executor=self._executor).run()[0])
+                attributes["numa_node"] = int(
+                    Tool(cmd, executor=self._executor).run()[0]
+                )
             except ExecutableProcessError as err:
-                logging.getLogger().error("Interface %s is not present on target host, err : %d", self._interface, err)
-                raise ProbeException(f"{self._interface} is not present on target host.") from err
+                logging.getLogger().error(
+                    "Interface %s is not present on target host, err : %d",
+                    self._interface,
+                    err,
+                )
+                raise ProbeException(
+                    f"{self._interface} is not present on target host."
+                ) from err
             if attributes["numa_node"] == -1:
                 attributes["numa_node"] = 0
             attributes["ifindex"] = int(
-                Tool(f"cat /sys/class/net/{self._interface}/ifindex", executor=self._executor).run()[0]
+                Tool(
+                    f"cat /sys/class/net/{self._interface}/ifindex",
+                    executor=self._executor,
+                ).run()[0]
             )
         elif input_plugin == "dpdk":
             attributes = self._read_dpdk_info_file()
@@ -248,7 +273,11 @@ class FlowmonProbe(ProbeInterface):
         """Read configuration details for the dpdk"""
 
         ifc_map = (
-            Tool(f"cat {DPDK_INFO_FILE} | grep {self._interface}", executor=self._executor, failure_verbosity="silent")
+            Tool(
+                f"cat {DPDK_INFO_FILE} | grep {self._interface}",
+                executor=self._executor,
+                failure_verbosity="silent",
+            )
             .run()[0]
             .split()
         )
@@ -262,8 +291,12 @@ class FlowmonProbe(ProbeInterface):
                 "ifindex": int(ifc_map[11]),
             }
             return dpdk_info
-        logging.getLogger().error("Unable to find interface %s in %d", self._interface, DPDK_INFO_FILE)
-        raise ProbeException(f"Unable to find interface {self._interface} in {DPDK_INFO_FILE}.")
+        logging.getLogger().error(
+            "Unable to find interface %s in %d", self._interface, DPDK_INFO_FILE
+        )
+        raise ProbeException(
+            f"Unable to find interface {self._interface} in {DPDK_INFO_FILE}."
+        )
 
     def _set_config(self, queue_size, active_timeout, inactive_timeout, attributes):
         """Setup basic parameters for probe configuration"""
@@ -286,12 +319,14 @@ class FlowmonProbe(ProbeInterface):
         """Setup input part of flowmon probe configuration."""
 
         if input_plugin == "rawnetcap":
-            input_parameters = f"device={self._interface},sampling=0,cache-size=32768,mtu={self._mtu}"
+            input_parameters = (
+                f"device={self._interface},sampling=0,cache-size=32768,mtu={self._mtu}"
+            )
             self._settings["INPUT"] = {"NAME": input_plugin, "PARAMS": input_parameters}
         elif input_plugin == "dpdk":
             input_parameters = (
-                f'name={attributes["driver_name"]},device={attributes["device"]},'
-                + f'cores={attributes["cores"]},pmd={attributes["pmd"]},'
+                f"name={attributes['driver_name']},device={attributes['device']},"
+                + f"cores={attributes['cores']},pmd={attributes['pmd']},"
                 + f"stats=/data/components/dpdk-tools/stats/{self._interface},sampling=0,mtu={self._mtu}"
             )
             self._settings["INPUT"] = {"NAME": input_plugin, "PARAMS": input_parameters}
@@ -300,13 +335,18 @@ class FlowmonProbe(ProbeInterface):
         """Responsible for compiling part of the probe
         configuration consisting of used export plugins"""
 
-        self._settings["PROCESS"] = [{"NAME": item, "PARAMS": PLUGIN_PARAMS.get(item, "")} for item in self._plugins]
+        self._settings["PROCESS"] = [
+            {"NAME": item, "PARAMS": PLUGIN_PARAMS.get(item, "")}
+            for item in self._plugins
+        ]
 
     def _set_filters(self, attributes):
         """Compiles probe configuration regarding used filters."""
 
         ifindex = attributes["ifindex"]
-        self._settings["FILTERS"] = [{"NAME": "interface-id", "PARAMS": f"input-id={ifindex},output-id=0"}]
+        self._settings["FILTERS"] = [
+            {"NAME": "interface-id", "PARAMS": f"input-id={ifindex},output-id=0"}
+        ]
 
     def _set_output(self, target):
         """Setup the output part of the flowmon probe configuration."""
@@ -344,7 +384,10 @@ class FlowmonProbe(ProbeInterface):
             "flowmonexp_init.log",
         ]
 
-        Tool(f"cp {FLOWMONEXP_LOG / 'flowmonexp.log'} {self._remote_dir}", executor=self._executor).run()
+        Tool(
+            f"cp {FLOWMONEXP_LOG / 'flowmonexp.log'} {self._remote_dir}",
+            executor=self._executor,
+        ).run()
 
         # flowmonexp_init.log is not readable by flowmon, need to use this workaround
         # The sudo parameter of the Tool class cannot be used because of selective permission
@@ -358,14 +401,18 @@ class FlowmonProbe(ProbeInterface):
         if self._verbose:
             log_files.extend([self._remote_json_output, "flowmonexp_debug.log"])
             # json output is already present in the working directory
-            Tool(f"cp {FLOWMONEXP_LOG / 'flowmonexp_debug.log'} {self._remote_dir}", executor=self._executor).run()
+            Tool(
+                f"cp {FLOWMONEXP_LOG / 'flowmonexp_debug.log'} {self._remote_dir}",
+                executor=self._executor,
+            ).run()
 
         # get interface statistics in the INPUT plugin is DPDK
         if self._settings["INPUT"]["NAME"] == "dpdk":
             stats_file = f"{self._interface}_stats.json"
             log_files.append(stats_file)
             Tool(
-                f"cp {DPDK_STATS_DIR / self._interface} {self._remote_dir / stats_file}", executor=self._executor
+                f"cp {DPDK_STATS_DIR / self._interface} {self._remote_dir / stats_file}",
+                executor=self._executor,
             ).run()
 
         return log_files
@@ -403,7 +450,9 @@ class FlowmonProbe(ProbeInterface):
         logging.getLogger().info("Starting exporter on %s", self._interface)
         cmd = f"{FLOWMONEXP_BIN} {self._probe_json_conf}"
         check_running_cmd = f"ps aux | grep -Ei '[f]lowmonexp5.*{self._interface}'"
-        running_processes = Tool(check_running_cmd, executor=self._executor, failure_verbosity="silent").run()[0]
+        running_processes = Tool(
+            check_running_cmd, executor=self._executor, failure_verbosity="silent"
+        ).run()[0]
         if len(running_processes) > 0:
             running_pid = int(running_processes.split()[1])
             self._stop_process(running_pid)
@@ -414,10 +463,14 @@ class FlowmonProbe(ProbeInterface):
             # User cannot run 'sh' under sudo.
             Tool(f"sudo {cmd}", executor=self._executor).run()
             time.sleep(3)
-            self._pid = int(Tool(f"cat {self._pidfile}", executor=self._executor).run()[0])
+            self._pid = int(
+                Tool(f"cat {self._pidfile}", executor=self._executor).run()[0]
+            )
         except (ExecutableProcessError, ValueError) as err:
             logging.getLogger().error("Unable to start probe on %s.", self._interface)
-            raise ProbeException(f"Unable to start probe on {self._interface}.") from err
+            raise ProbeException(
+                f"Unable to start probe on {self._interface}."
+            ) from err
 
     def stop(self):
         """Stop the flowmonexp5 process"""
@@ -433,25 +486,35 @@ class FlowmonProbe(ProbeInterface):
     def _stop_process(self, pid):
         """Stop exporter process"""
 
-        Tool(f"kill -2 {pid}", executor=self._executor, failure_verbosity="silent").run()
-        ps_cmd = Tool(f"ps -p {pid}", executor=self._executor, failure_verbosity="silent")
+        Tool(
+            f"kill -2 {pid}", executor=self._executor, failure_verbosity="silent"
+        ).run()
+        ps_cmd = Tool(
+            f"ps -p {pid}", executor=self._executor, failure_verbosity="silent"
+        )
         for _ in range(5):
             ps_cmd.run()
             if ps_cmd.returncode() > 0:
                 return
             time.sleep(1)
-        logging.getLogger().warning("Unable to stop exporter process with SIGINT, using SIGKILL.")
+        logging.getLogger().warning(
+            "Unable to stop exporter process with SIGINT, using SIGKILL."
+        )
         Tool(f"kill -9 {pid}", executable=self._executor, failure_verbosity="silent")
 
     def cleanup(self):
         """Clean any artifacts which were created by the connector or the active probe itself."""
 
-        logging.getLogger().info("Cleaning up remote temporary directory %s", self._remote_dir)
+        logging.getLogger().info(
+            "Cleaning up remote temporary directory %s", self._remote_dir
+        )
         try:
             Rsync(self._executor).wipe_data_directory()
         except ExecutableProcessError as err:
             logging.getLogger().error("Unable to remove files in %s", self._remote_dir)
-            raise ProbeException(f"Unable to remove files in {self._remote_dir}.") from err
+            raise ProbeException(
+                f"Unable to remove files in {self._remote_dir}."
+            ) from err
 
     def download_logs(self, directory: str):
         """Download logs from flowmon probe.

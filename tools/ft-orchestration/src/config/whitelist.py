@@ -60,7 +60,9 @@ class WhitelistCfg(YAMLWizard):
         tmp_include = self.include
         while tmp_include is not None:
             if tmp_include == self.name:
-                raise WhitelistCfgException("WhitelistCfg config error: Circular dependency in whitelist")
+                raise WhitelistCfgException(
+                    "WhitelistCfg config error: Circular dependency in whitelist"
+                )
             try:
                 tmp_include = whitelists[tmp_include].include
             except KeyError:
@@ -91,7 +93,9 @@ class WhitelistCfg(YAMLWizard):
         return res
 
     @staticmethod
-    def _preprocess_items(items: List[Union[str, Dict[str, str]]]) -> Dict[str, Optional[str]]:
+    def _preprocess_items(
+        items: List[Union[str, Dict[str, str]]],
+    ) -> Dict[str, Optional[str]]:
         res_items = {}
         for item in items:
             if isinstance(item, dict):

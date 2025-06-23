@@ -18,7 +18,14 @@ from fabric import Connection
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from lbr_testsuite.executable import Daemon, Executor, Rsync, Tool, RemoteExecutor, LocalExecutor
+from lbr_testsuite.executable import (
+    Daemon,
+    Executor,
+    Rsync,
+    Tool,
+    RemoteExecutor,
+    LocalExecutor,
+)
 from src.common.required_field import required_field
 from src.common.tool_is_installed import assert_tool_is_installed
 from src.common.typed_dataclass import bool_convertor, typed_dataclass
@@ -178,7 +185,9 @@ class IpfixprobeRawSettings(IpfixprobeSettings):
     interfaces: List[str] = required_field()
 
     # for simplicity, same values of following params are used for each enabled interface
-    fanout: Optional[bool] = field(default=None, metadata={"convert_func": bool_convertor})
+    fanout: Optional[bool] = field(
+        default=None, metadata={"convert_func": bool_convertor}
+    )
     fanout_id: Optional[int] = None
     blocks: Optional[int] = None
     packets: Optional[int] = None
@@ -280,7 +289,7 @@ class IpfixprobeStats:
 
         active_part = self.input
         active_columns = []
-        for line in [l.strip() for l in stdout]: # noqa
+        for line in [l.strip() for l in stdout]:  # noqa
             if "Input stats" in line:
                 active_part = self.input
                 continue
@@ -368,7 +377,9 @@ class Ipfixprobe(ProbeInterface, ABC):
         self._executor = executor
         if isinstance(executor, RemoteExecutor):
             connection: Connection = executor.get_connection()
-            self._fallback_executor = RemoteExecutor(executor.get_host(), **connection.connect_kwargs)
+            self._fallback_executor = RemoteExecutor(
+                executor.get_host(), **connection.connect_kwargs
+            )
         else:
             self._fallback_executor = LocalExecutor()
         self._process = None
@@ -420,7 +431,9 @@ class Ipfixprobe(ProbeInterface, ABC):
 
         # check and stop running ipfixprobe instance
         check_running_cmd = "pidof 'ipfixprobe' 'ipfixprobed'"
-        running_processes = Tool(check_running_cmd, executor=self._executor, failure_verbosity="silent").run()[0]
+        running_processes = Tool(
+            check_running_cmd, executor=self._executor, failure_verbosity="silent"
+        ).run()[0]
         if len(running_processes) > 0:
             running_pid = int(running_processes.split()[0])
             self._stop_process(running_pid)
@@ -455,10 +468,14 @@ class Ipfixprobe(ProbeInterface, ABC):
             return
 
         logging.getLogger().info("Stopping ipfixprobe exporter.")
-               
-        command = self._cmd.split(" ",1)[0]
-        Tool(f"kill $(pidof -s {command})", executor=self._fallback_executor, failure_verbosity="silent").run()
-        
+
+        command = self._cmd.split(" ", 1)[0]
+        Tool(
+            f"kill $(pidof -s {command})",
+            executor=self._fallback_executor,
+            failure_verbosity="silent",
+        ).run()
+
         stdout = []
         try:
             stdout, _ = self._process.stop()
@@ -469,7 +486,11 @@ class Ipfixprobe(ProbeInterface, ABC):
             # stderr is redirected to stdout
             # Since stdout could be filled with normal output, print only last 1 line#
             err = stdout[-1]
-            logging.getLogger().error("ipfixprobe runtime error: %s, error: %s", self._process.returncode(), err)
+            logging.getLogger().error(
+                "ipfixprobe runtime error: %s, error: %s",
+                self._process.returncode(),
+                err,
+            )
             self._last_run_stats = None
             raise ProbeException("ipfixprobe runtime error")
 
@@ -535,13 +556,19 @@ class Ipfixprobe(ProbeInterface, ABC):
             If plugin is not found.
         """
 
-        check = Tool(f"ipfixprobe -h {name}", executor=self._executor, failure_verbosity="silent").run()
+        check = Tool(
+            f"ipfixprobe -h {name}", executor=self._executor, failure_verbosity="silent"
+        ).run()
         if check[0].strip() == f"No help available for {name}":
-            logging.getLogger().error("Plugin '%s' not found by ipfixprobe binary.", name)
+            logging.getLogger().error(
+                "Plugin '%s' not found by ipfixprobe binary.", name
+            )
             raise ProbeException(f"Plugin '{name}' not found by ipfixprobe binary.")
 
     @abstractmethod
-    def _prepare_cmd(self, target: ProbeTarget, protocols: List[str], settings: IpfixprobeSettings) -> str:
+    def _prepare_cmd(
+        self, target: ProbeTarget, protocols: List[str], settings: IpfixprobeSettings
+    ) -> str:
         """Prepare command to run ipfixprobe process with required settings.
 
         Parameters
@@ -575,7 +602,9 @@ class Ipfixprobe(ProbeInterface, ABC):
         raise NotImplementedError
 
     @staticmethod
-    def _get_plugin_arg(plugin_type: IpfixprobePluginType, plugin_name: str, plugin_args: List[str]) -> Tuple[str, str]:
+    def _get_plugin_arg(
+        plugin_type: IpfixprobePluginType, plugin_name: str, plugin_args: List[str]
+    ) -> Tuple[str, str]:
         """Prepare single plugin argument.
 
         Parameters
@@ -630,7 +659,9 @@ class Ipfixprobe(ProbeInterface, ABC):
 
         args = []
 
-        plugins = list({PROTOCOLS_TO_PLUGINS[p] for p in protocols if p in PROTOCOLS_TO_PLUGINS})
+        plugins = list(
+            {PROTOCOLS_TO_PLUGINS[p] for p in protocols if p in PROTOCOLS_TO_PLUGINS}
+        )
 
         for plugin in sorted(plugins):
             if plugin == "basic":
@@ -642,7 +673,9 @@ class Ipfixprobe(ProbeInterface, ABC):
         return args
 
     # pylint: disable=too-many-branches
-    def _get_common_args(self, target: ProbeTarget, protocols: List[str], settings: IpfixprobeSettings) -> List[str]:
+    def _get_common_args(
+        self, target: ProbeTarget, protocols: List[str], settings: IpfixprobeSettings
+    ) -> List[str]:
         """Prepare args list with common settings - cache size, buffer sizes, queue sizes, timeouts, etc.
 
         Parameters
@@ -677,7 +710,9 @@ class Ipfixprobe(ProbeInterface, ABC):
             cache_params.append("split")
 
         if len(cache_params) > 0:
-            args += self._get_plugin_arg(IpfixprobePluginType.STORAGE, "cache", cache_params)
+            args += self._get_plugin_arg(
+                IpfixprobePluginType.STORAGE, "cache", cache_params
+            )
 
         # output plugin argument
         output_params = [f"h={target.host}", f"p={target.port}"]
@@ -691,7 +726,9 @@ class Ipfixprobe(ProbeInterface, ABC):
         if self._verbose:
             output_params.append("v")
 
-        args += self._get_plugin_arg(IpfixprobePluginType.OUTPUT, "ipfix", output_params)
+        args += self._get_plugin_arg(
+            IpfixprobePluginType.OUTPUT, "ipfix", output_params
+        )
 
         # process plugins arguments
         args += self._get_process_plugins_args(protocols)
@@ -704,9 +741,9 @@ class Ipfixprobe(ProbeInterface, ABC):
             args += ["-Q", str(settings.output_queue_size)]
         if settings.packet_buffer_size:
             args += ["-B", str(settings.packet_buffer_size)]
-            
+
         # telemetry args
-        
+
         args += ["-t", "/tmp/telemetry"]
 
         return args
@@ -714,15 +751,29 @@ class Ipfixprobe(ProbeInterface, ABC):
     def _stop_process(self, pid):
         """Stop exporter process"""
 
-        Tool(f"kill -2 {pid}", executor=self._executor, failure_verbosity="silent", sudo=True).run()
-        ps_ec = Tool(f"ps -p {pid}", executor=self._executor, failure_verbosity="silent")
+        Tool(
+            f"kill -2 {pid}",
+            executor=self._executor,
+            failure_verbosity="silent",
+            sudo=True,
+        ).run()
+        ps_ec = Tool(
+            f"ps -p {pid}", executor=self._executor, failure_verbosity="silent"
+        )
         for _ in range(5):
             ps_ec.run()
             if ps_ec.returncode() == 1:
                 return
             time.sleep(1)
-        logging.getLogger().warning("Unable to stop exporter process with SIGINT, using SIGKILL.")
-        Tool(f"kill -9 {pid}", executor=self._executor, failure_verbosity="silent", sudo=True).run()
+        logging.getLogger().warning(
+            "Unable to stop exporter process with SIGINT, using SIGKILL."
+        )
+        Tool(
+            f"kill -9 {pid}",
+            executor=self._executor,
+            failure_verbosity="silent",
+            sudo=True,
+        ).run()
 
     def _before_start(self):
         """Do preparations before the probe start. Override this function in derived class."""
@@ -744,14 +795,20 @@ class IpfixprobeRaw(Ipfixprobe):
     ):
         interfaces_names = [ifc.name for ifc in interfaces]
         settings = IpfixprobeRawSettings(interfaces=interfaces_names, **kwargs)
-        super().__init__(executor, target, protocols, interfaces, verbose, settings, sudo)
+        super().__init__(
+            executor, target, protocols, interfaces, verbose, settings, sudo
+        )
         self._mtu = mtu
 
-    def _prepare_cmd(self, target: ProbeTarget, protocols: List[str], settings: IpfixprobeSettings) -> str:
+    def _prepare_cmd(
+        self, target: ProbeTarget, protocols: List[str], settings: IpfixprobeSettings
+    ) -> str:
         self._check_plugin("raw")
 
         if not isinstance(settings, IpfixprobeRawSettings):
-            raise TypeError("In IpfixprobeRaw settings should be IpfixprobeRawSettings.")
+            raise TypeError(
+                "In IpfixprobeRaw settings should be IpfixprobeRawSettings."
+            )
 
         args = ["ipfixprobe"]
 
@@ -775,7 +832,11 @@ class IpfixprobeRaw(Ipfixprobe):
     def _before_start(self):
         for ifc in self._ifc_names.split(","):
             Tool(f"ip link set dev {ifc} up", executor=self._executor, sudo=True).run()
-            Tool(f"ip link set dev {ifc} mtu {self._mtu}", executor=self._executor, sudo=True).run()
+            Tool(
+                f"ip link set dev {ifc} mtu {self._mtu}",
+                executor=self._executor,
+                sudo=True,
+            ).run()
 
 
 class IpfixprobeDpdk(Ipfixprobe):
@@ -795,13 +856,19 @@ class IpfixprobeDpdk(Ipfixprobe):
         interfaces_names = [ifc.name for ifc in interfaces]
         settings = IpfixprobeDpdkSettings(devices=interfaces_names, **kwargs)
         self._mtu = mtu
-        super().__init__(executor, target, protocols, interfaces, verbose, settings, sudo)
+        super().__init__(
+            executor, target, protocols, interfaces, verbose, settings, sudo
+        )
 
-    def _prepare_cmd(self, target: ProbeTarget, protocols: List[str], settings: IpfixprobeSettings) -> str:
+    def _prepare_cmd(
+        self, target: ProbeTarget, protocols: List[str], settings: IpfixprobeSettings
+    ) -> str:
         self._check_plugin("dpdk")
 
         if not isinstance(settings, IpfixprobeDpdkSettings):
-            raise TypeError("In IpfixprobeDpdk settings should be IpfixprobeDpdkSettings.")
+            raise TypeError(
+                "In IpfixprobeDpdk settings should be IpfixprobeDpdkSettings."
+            )
 
         args = ["ipfixprobe"]
 
@@ -852,23 +919,33 @@ class IpfixprobeNdp(Ipfixprobe):
     ):
         interfaces_names = [ifc.name for ifc in interfaces]
         settings = IpfixprobeNdpSettings(devices=interfaces_names, **kwargs)
-        super().__init__(executor, target, protocols, interfaces, verbose, settings, sudo)
+        super().__init__(
+            executor, target, protocols, interfaces, verbose, settings, sudo
+        )
         self._mtu = mtu
 
-    def _prepare_cmd(self, target: ProbeTarget, protocols: List[str], settings: IpfixprobeSettings) -> str:
+    def _prepare_cmd(
+        self, target: ProbeTarget, protocols: List[str], settings: IpfixprobeSettings
+    ) -> str:
         self._check_plugin("ndp")
 
         if not isinstance(settings, IpfixprobeNdpSettings):
-            raise TypeError("In IpfixprobeNdp settings should be IpfixprobeNdpSettings.")
+            raise TypeError(
+                "In IpfixprobeNdp settings should be IpfixprobeNdpSettings."
+            )
 
         args = ["ipfixprobe"]
 
         for dev_index, dev in enumerate(settings.devices):
-            mask = [int(bit) for bit in f"{settings.dma_channels_map[dev_index]:b}"[::-1]]
+            mask = [
+                int(bit) for bit in f"{settings.dma_channels_map[dev_index]:b}"[::-1]
+            ]
             for i, bit in enumerate(mask):
                 if bit == 1:
                     ndp_params = [f"dev={dev}:{i}"]
-                    args += self._get_plugin_arg(IpfixprobePluginType.INPUT, "ndp", ndp_params)
+                    args += self._get_plugin_arg(
+                        IpfixprobePluginType.INPUT, "ndp", ndp_params
+                    )
 
         args += self._get_common_args(target, protocols, settings)
         return " ".join(args)

@@ -162,7 +162,12 @@ class TestWithFakeHost:
     def test_prepare_cmd_minimal(fake_host):
         """Test command format with minimal config."""
 
-        probe = IpfixprobeRaw(fake_host, ProbeTarget("127.0.0.1", 4739, "tcp"), [], [InterfaceCfg("eno1", 10)])
+        probe = IpfixprobeRaw(
+            fake_host,
+            ProbeTarget("127.0.0.1", 4739, "tcp"),
+            [],
+            [InterfaceCfg("eno1", 10)],
+        )
 
         probe.start()
         probe.stop()
@@ -178,7 +183,14 @@ class TestWithFakeHost:
             IpfixprobeRaw(fake_host, ProbeTarget("127.0.0.1", 4739, "tcp"), [], [])
 
         with pytest.raises(AssertionError):
-            IpfixprobeDpdk(fake_host, ProbeTarget("127.0.0.1", 4739, "tcp"), [], [], False, lcores="1@1")
+            IpfixprobeDpdk(
+                fake_host,
+                ProbeTarget("127.0.0.1", 4739, "tcp"),
+                [],
+                [],
+                False,
+                lcores="1@1",
+            )
 
     @staticmethod
     def test_prepare_cmd_plugins(fake_host):
@@ -207,7 +219,12 @@ class TestWithFakeHost:
         kwargs = {"fanout": True, "fanout_id": 242, "blocks": 2048, "packets": 64}
 
         probe = IpfixprobeRaw(
-            fake_host, ProbeTarget("127.0.0.1", 4739, "tcp"), [], [InterfaceCfg("eno1", 10)], False, **kwargs
+            fake_host,
+            ProbeTarget("127.0.0.1", 4739, "tcp"),
+            [],
+            [InterfaceCfg("eno1", 10)],
+            False,
+            **kwargs,
         )
 
         probe.start()
@@ -220,7 +237,11 @@ class TestWithFakeHost:
             fake_host,
             ProbeTarget("127.0.0.1", 4739, "tcp"),
             [],
-            [InterfaceCfg("eno1", 10), InterfaceCfg("eno2", 10), InterfaceCfg("eno3", 10)],
+            [
+                InterfaceCfg("eno1", 10),
+                InterfaceCfg("eno2", 10),
+                InterfaceCfg("eno3", 10),
+            ],
             False,
             **kwargs,
         )
@@ -248,7 +269,12 @@ class TestWithFakeHost:
         }
 
         probe = IpfixprobeDpdk(
-            fake_host, ProbeTarget("127.0.0.1", 4739, "tcp"), [], [InterfaceCfg("0000:01:00.0", 10)], False, **kwargs
+            fake_host,
+            ProbeTarget("127.0.0.1", 4739, "tcp"),
+            [],
+            [InterfaceCfg("0000:01:00.0", 10)],
+            False,
+            **kwargs,
         )
 
         probe.start()
@@ -264,7 +290,11 @@ class TestWithFakeHost:
             fake_host,
             ProbeTarget("127.0.0.1", 4739, "tcp"),
             [],
-            [InterfaceCfg("0000:01:00.0", 10), InterfaceCfg("0000:01:00.1", 10), InterfaceCfg("0000:01:00.2", 10)],
+            [
+                InterfaceCfg("0000:01:00.0", 10),
+                InterfaceCfg("0000:01:00.1", 10),
+                InterfaceCfg("0000:01:00.2", 10),
+            ],
             False,
             **kwargs,
         )
@@ -282,7 +312,12 @@ class TestWithFakeHost:
     def test_prepare_cmd_ndp_plugin(fake_host):
         """Test command format with ndp input plugin parameters."""
 
-        probe = IpfixprobeNdp(fake_host, ProbeTarget("127.0.0.1", 4739, "tcp"), [], [InterfaceCfg("/dev/nfb0", 10)])
+        probe = IpfixprobeNdp(
+            fake_host,
+            ProbeTarget("127.0.0.1", 4739, "tcp"),
+            [],
+            [InterfaceCfg("/dev/nfb0", 10)],
+        )
 
         probe.start()
         probe.stop()
@@ -313,7 +348,10 @@ class TestWithFakeHost:
 def get_ipfixprobe_pid():
     """Get pid of running ipfixprobe instance."""
 
-    ps_aux = Tool("ps aux | grep -i '[i]pfixprobe'", executor=RemoteExecutor("127.0.0.1", user="test")).run()[0]
+    ps_aux = Tool(
+        "ps aux | grep -i '[i]pfixprobe'",
+        executor=RemoteExecutor("127.0.0.1", user="test"),
+    ).run()[0]
     return int(ps_aux.split()[1])
 
 
@@ -326,7 +364,12 @@ class TestWithDockerIpfixprobe:
         """Run ipfixprobe with connector in docker."""
 
         probe = IpfixprobeRaw(
-            docker_ipfixprobe.host, ProbeTarget("127.0.0.1", 4739, "tcp"), [], [InterfaceCfg("eth0", 10)], False, True
+            docker_ipfixprobe.host,
+            ProbeTarget("127.0.0.1", 4739, "tcp"),
+            [],
+            [InterfaceCfg("eth0", 10)],
+            False,
+            True,
         )
 
         probe.start()
@@ -338,12 +381,19 @@ class TestWithDockerIpfixprobe:
         """Run ipfixprobe with connector in docker."""
 
         probe = IpfixprobeRaw(
-            docker_ipfixprobe.host, ProbeTarget("127.0.0.1", 4739, "tcp"), [], [InterfaceCfg("eth0", 10)], False, True
+            docker_ipfixprobe.host,
+            ProbeTarget("127.0.0.1", 4739, "tcp"),
+            [],
+            [InterfaceCfg("eth0", 10)],
+            False,
+            True,
         )
 
         probe.start()
         ping_res = docker_pinger.context.exec_run(f"ping {docker_ipfixprobe.ip} -c 30")
-        logging.getLogger().info("Ping res: %s", ping_res.output.decode(encoding="ascii").strip())
+        logging.getLogger().info(
+            "Ping res: %s", ping_res.output.decode(encoding="ascii").strip()
+        )
         time.sleep(2)
         probe.stop()
 
@@ -356,7 +406,9 @@ class TestWithDockerIpfixprobe:
     def test_check_plugin(docker_ipfixprobe):
         """Test raise of ProbeException when input plugin not compiled in ipfixprobe binary."""
 
-        with pytest.raises(ProbeException, match="Plugin 'dpdk' not found by ipfixprobe binary."):
+        with pytest.raises(
+            ProbeException, match="Plugin 'dpdk' not found by ipfixprobe binary."
+        ):
             IpfixprobeDpdk(
                 docker_ipfixprobe.host,
                 ProbeTarget("127.0.0.1", 4739, "tcp"),
@@ -380,7 +432,12 @@ class TestWithDockerIpfixprobe:
         old_pid = get_ipfixprobe_pid()
 
         probe = IpfixprobeRaw(
-            docker_ipfixprobe.host, ProbeTarget("127.0.0.1", 4739, "tcp"), [], [InterfaceCfg("eth0", 10)], False, True
+            docker_ipfixprobe.host,
+            ProbeTarget("127.0.0.1", 4739, "tcp"),
+            [],
+            [InterfaceCfg("eth0", 10)],
+            False,
+            True,
         )
 
         probe.start()
@@ -400,7 +457,9 @@ class TestWithDockerSsh:
     def test_check_binary(docker_ssh):
         """Test raise of ProbeException when ipfixprobe not installed on remote host."""
 
-        with pytest.raises(ProbeException, match="Unable to locate or execute ipfixprobe binary."):
+        with pytest.raises(
+            ProbeException, match="Unable to locate or execute ipfixprobe binary."
+        ):
             IpfixprobeRaw(
                 docker_ssh.host,
                 ProbeTarget("127.0.0.1", 4739, "tcp"),

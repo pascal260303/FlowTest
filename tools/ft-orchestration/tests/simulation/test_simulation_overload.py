@@ -72,14 +72,24 @@ def create_evaluation_segments(
     # only first and third loops with normal traffic are evaluated
     for loop_index in [0, 2]:
         for unit_n in range(unit_cnt):
-            ipv4_offset = unit_n * 2 ** (32 - prefix) + loop_index * loop_step * 2 ** (32 - prefix)
-            ipv6_offset = unit_n * 2 ** (128 - prefix) + loop_index * loop_step * 2 ** (128 - prefix)
+            ipv4_offset = unit_n * 2 ** (32 - prefix) + loop_index * loop_step * 2 ** (
+                32 - prefix
+            )
+            ipv6_offset = unit_n * 2 ** (128 - prefix) + loop_index * loop_step * 2 ** (
+                128 - prefix
+            )
 
             segments.append(
-                SMSubnetSegment(f"{ipv4_addr + ipv4_offset}/{prefix}", f"{ipv4_addr + ipv4_offset}/{prefix}")
+                SMSubnetSegment(
+                    f"{ipv4_addr + ipv4_offset}/{prefix}",
+                    f"{ipv4_addr + ipv4_offset}/{prefix}",
+                )
             )
             segments.append(
-                SMSubnetSegment(f"{ipv6_addr + ipv6_offset}/{prefix}", f"{ipv6_addr + ipv6_offset}/{prefix}")
+                SMSubnetSegment(
+                    f"{ipv6_addr + ipv6_offset}/{prefix}",
+                    f"{ipv6_addr + ipv6_offset}/{prefix}",
+                )
             )
 
     return segments
@@ -115,7 +125,10 @@ def setup_replicator(
     # maximum of replication units running in parallel across all loops (which is the second loop)
     loop_units = int(multiplier * unit_cnt)
     prefix = get_replicator_prefix(
-        (loop_units * LOOPS).bit_length(), DEFAULT_REPLICATOR_PREFIX, conf.ipv4.ip_range, conf.ipv6.ip_range
+        (loop_units * LOOPS).bit_length(),
+        DEFAULT_REPLICATOR_PREFIX,
+        conf.ipv4.ip_range,
+        conf.ipv6.ip_range,
     )
     if conf.ipv4.ip_range is None:
         conf.ipv4.ip_range = f"{ipaddress.IPv4Address(2 ** (32 - prefix)):s}/{prefix}"
@@ -141,18 +154,31 @@ def setup_replicator(
 
     # loop offset
     generator.set_loop_modifiers(
-        srcip_offset=loop_units * 2 ** (32 - prefix), dstip_offset=loop_units * 2 ** (32 - prefix)
+        srcip_offset=loop_units * 2 ** (32 - prefix),
+        dstip_offset=loop_units * 2 ** (32 - prefix),
     )
-    segments = create_evaluation_segments(conf.ipv4.ip_range, conf.ipv6.ip_range, prefix, unit_cnt, loop_units)
-    logging.getLogger().info("Generator - ipv4 range: %s, ipv6 range: %s", conf.ipv4.ip_range, conf.ipv6.ip_range)
-    logging.getLogger().info("Replicator - units: %d, overload units: %d, prefix: %d", unit_cnt, loop_units, prefix)
+    segments = create_evaluation_segments(
+        conf.ipv4.ip_range, conf.ipv6.ip_range, prefix, unit_cnt, loop_units
+    )
+    logging.getLogger().info(
+        "Generator - ipv4 range: %s, ipv6 range: %s",
+        conf.ipv4.ip_range,
+        conf.ipv6.ip_range,
+    )
+    logging.getLogger().info(
+        "Replicator - units: %d, overload units: %d, prefix: %d",
+        unit_cnt,
+        loop_units,
+        prefix,
+    )
 
     return FlowReplicator(generator.get_replicator_config(), ignore_loops=[1]), segments
 
 
 @pytest.mark.simulation
 @pytest.mark.parametrize(
-    "scenario, test_id", collect_scenarios(SIMULATION_TESTS_DIR, SimulationScenario, name="sim_overload")
+    "scenario, test_id",
+    collect_scenarios(SIMULATION_TESTS_DIR, SimulationScenario, name="sim_overload"),
 )
 # pylint: disable=too-many-locals
 # pylint: disable=unused-argument
@@ -209,7 +235,12 @@ def test_simulation_overload(
     probe_instance, collector_instance, generator_instance = (None, None, None)
 
     def finalizer_download_logs():
-        download_logs(log_dir, collector=collector_instance, generator=generator_instance, probe=probe_instance)
+        download_logs(
+            log_dir,
+            collector=collector_instance,
+            generator=generator_instance,
+            probe=probe_instance,
+        )
 
     request.addfinalizer(cleanup)
     request.addfinalizer(finalizer_download_logs)
@@ -218,7 +249,9 @@ def test_simulation_overload(
     objects_to_cleanup.append(collector_instance)
     collector_instance.start()
 
-    probe_conf = scenario.test.get_probe_conf(device.get_instance_type(), scenario.default.probe)
+    probe_conf = scenario.test.get_probe_conf(
+        device.get_instance_type(), scenario.default.probe
+    )
     probe_instance = device.get(mtu=scenario.mtu, **probe_conf)
     objects_to_cleanup.append(probe_instance)
     _, inactive_t = probe_instance.get_timeouts()
@@ -234,9 +267,16 @@ def test_simulation_overload(
     generator_conf.timestamps.flow_max_interpacket_gap = f"{inactive_t - 1}s"
 
     flow_replicator, segments = setup_replicator(
-        generator_instance, generator_conf, scenario.test.multiplier, int(1 / scenario.sampling)
+        generator_instance,
+        generator_conf,
+        scenario.test.multiplier,
+        int(1 / scenario.sampling),
     )
-    speed = scenario.test.speed_multiplier if scenario.test.speed_multiplier is not None else MultiplierSpeed(1.0)
+    speed = (
+        scenario.test.speed_multiplier
+        if scenario.test.speed_multiplier is not None
+        else MultiplierSpeed(1.0)
+    )
     assert scenario.test.analysis.model == "statistical"
 
     generator_instance.start_profile(
@@ -263,10 +303,16 @@ def test_simulation_overload(
     )
 
     model = StatisticalModel(flows_file, replicated_ref, stats)
-    report = model.validate([SMRule(scenario.test.analysis.metrics, segment) for segment in segments])
+    report = model.validate(
+        [SMRule(scenario.test.analysis.metrics, segment) for segment in segments]
+    )
     report.print_results()
 
-    HTMLReportData.simulation_summary_report.update_stats("sim_overload", report.is_passing())
+    HTMLReportData.simulation_summary_report.update_stats(
+        "sim_overload", report.is_passing()
+    )
 
     if not report.is_passing():
-        assert False, f"evaluation of test: {request.function.__name__}[{test_id}] failed"
+        assert False, (
+            f"evaluation of test: {request.function.__name__}[{test_id}] failed"
+        )

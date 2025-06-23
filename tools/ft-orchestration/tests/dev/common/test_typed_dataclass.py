@@ -83,10 +83,16 @@ def test_complex_type():
         my_dict: dict[str, list[Optional[dict[int, str]]]]
 
     instance = _DC(my_dict={"first": [None, {1: "a", 11: "b"}, None, {3: "f", 6: "s"}]})
-    assert instance.my_dict == {"first": [None, {1: "a", 11: "b"}, None, {3: "f", 6: "s"}]}
+    assert instance.my_dict == {
+        "first": [None, {1: "a", 11: "b"}, None, {3: "f", 6: "s"}]
+    }
 
-    instance.my_dict = {"first": (None, {"1": 4.2, "11": 5.21}, None, {3.2: 98, 6.6: 89})}
-    assert instance.my_dict == {"first": [None, {1: "4.2", 11: "5.21"}, None, {3: "98", 6: "89"}]}
+    instance.my_dict = {
+        "first": (None, {"1": 4.2, "11": 5.21}, None, {3.2: 98, 6.6: 89})
+    }
+    assert instance.my_dict == {
+        "first": [None, {1: "4.2", 11: "5.21"}, None, {3: "98", 6: "89"}]
+    }
 
 
 def test_bool_convertor():

@@ -41,7 +41,13 @@ class GeneratorCfg(YAMLWizard):
         authentications
             Dictionary of the AuthenticationCfg objects
         """
-        if not self.alias or not self.name or not self.type or not self.interfaces or not self.authentication:
+        if (
+            not self.alias
+            or not self.name
+            or not self.type
+            or not self.interfaces
+            or not self.authentication
+        ):
             raise GeneratorCfgException("Mandatory field is empty")
 
         if self.authentication not in authentications:

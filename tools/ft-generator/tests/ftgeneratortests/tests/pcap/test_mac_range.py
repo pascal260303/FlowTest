@@ -66,7 +66,9 @@ def get_mac_range_from_config(config: GeneratorConfig) -> list[str]:
             return [config.mac.mac_range]
         if isinstance(config.mac.mac_range, list):
             return config.mac.mac_range
-        raise ValueError("test_mac_range::get_mac_range_from_config: Unexpected mac_range data type.")
+        raise ValueError(
+            "test_mac_range::get_mac_range_from_config: Unexpected mac_range data type."
+        )
 
     return []
 

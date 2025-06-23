@@ -45,7 +45,9 @@ class PandasMultiprocessingHelper:
             self._pool.close()
             self._pool.join()
 
-    def apply(self, df: pd.DataFrame, mappings: list[tuple[str, Callable, list]]) -> None:
+    def apply(
+        self, df: pd.DataFrame, mappings: list[tuple[str, Callable, list]]
+    ) -> None:
         """Apply functions on a DataFrame columns.
 
         Parameters
@@ -59,7 +61,9 @@ class PandasMultiprocessingHelper:
         """
 
         if self._pool is None:
-            raise RuntimeError("Multiprocessing method called outside of with statement.")
+            raise RuntimeError(
+                "Multiprocessing method called outside of with statement."
+            )
 
         for column_name, func, args in mappings:
             logging.getLogger().debug("Multiprocess apply...")
@@ -76,9 +80,13 @@ class PandasMultiprocessingHelper:
             df[column_name] = pd.Series(data=res, index=df[column_name].index)
 
             end = time.time()
-            logging.getLogger().debug("Processes applied in %.2f seconds.", (end - start))
+            logging.getLogger().debug(
+                "Processes applied in %.2f seconds.", (end - start)
+            )
 
-    def binary(self, df: pd.DataFrame, mappings: list[tuple[str, Callable, str, str, list]]) -> None:
+    def binary(
+        self, df: pd.DataFrame, mappings: list[tuple[str, Callable, str, str, list]]
+    ) -> None:
         """Apply binary functions on a DataFrame columns.
 
         Parameters
@@ -94,7 +102,9 @@ class PandasMultiprocessingHelper:
         """
 
         if self._pool is None:
-            raise RuntimeError("Multiprocessing method called outside of with statement.")
+            raise RuntimeError(
+                "Multiprocessing method called outside of with statement."
+            )
 
         for column_target, func, column1, column2, args in mappings:
             logging.getLogger().debug("Multiprocess apply...")
@@ -106,4 +116,6 @@ class PandasMultiprocessingHelper:
             df[column_target] = pd.Series(data=res.get(), index=df[column_target].index)
 
             end = time.time()
-            logging.getLogger().debug("Processes applied in %.2f seconds.", (end - start))
+            logging.getLogger().debug(
+                "Processes applied in %.2f seconds.", (end - start)
+            )

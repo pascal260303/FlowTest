@@ -22,7 +22,9 @@ def assert_reference_output(output_csv: str, reference_csv: str):
     if not filecmp.cmp(output_csv, reference_csv, shallow=False):
         with open(output_csv, "r", encoding="ascii") as output_file:
             content = output_file.readlines()
-        assert False, f"Output profile is different from reference. Content of output profile:\n{content}"
+        assert False, (
+            f"Output profile is different from reference. Content of output profile:\n{content}"
+        )
 
 
 def test_integration_csv_basic():
@@ -31,6 +33,8 @@ def test_integration_csv_basic():
     input_csv = os.path.join(INTEGRATION_BASE, "csv_basic_input.csv")
     output_csv = os.path.join(INTEGRATION_BASE, "csv_basic_output.csv")
     reference_csv = os.path.join(INTEGRATION_BASE, "csv_basic_profile.csv")
-    with patch.object(sys, "argv", [None, "-o", output_csv, "csvfile", "-f", input_csv]):
+    with patch.object(
+        sys, "argv", [None, "-o", output_csv, "csvfile", "-f", input_csv]
+    ):
         assert core.main() == 0
         assert_reference_output(output_csv, reference_csv)

@@ -87,31 +87,57 @@ class FtReplayOutputPluginSettings:
     """
 
     output_plugin: str = "raw"
-    queue_count: int = field(default=1, metadata={"plugins": ["pcapFile", "xdp", "nfb", "packet"]})
-    burst_size: Optional[int] = field(default=None, metadata={"plugins": ["pcapFile", "raw", "xdp", "nfb", "packet"]})
+    queue_count: int = field(
+        default=1, metadata={"plugins": ["pcapFile", "xdp", "nfb", "packet"]}
+    )
+    burst_size: Optional[int] = field(
+        default=None, metadata={"plugins": ["pcapFile", "raw", "xdp", "nfb", "packet"]}
+    )
     super_packet: Optional[str] = field(default=None, metadata={"plugins": ["nfb"]})
     umem_size: Optional[int] = field(default=None, metadata={"plugins": ["xdp"]})
     xsk_queue_size: Optional[int] = field(default=None, metadata={"plugins": ["xdp"]})
-    zero_copy: Optional[bool] = field(default=None, metadata={"convert_func": bool_convertor, "plugins": ["xdp"]})
-    native_mode: Optional[bool] = field(default=None, metadata={"convert_func": bool_convertor, "plugins": ["xdp"]})
-    mlx_legacy: Optional[bool] = field(default=None, metadata={"convert_func": bool_convertor, "plugins": ["xdp"]})
+    zero_copy: Optional[bool] = field(
+        default=None, metadata={"convert_func": bool_convertor, "plugins": ["xdp"]}
+    )
+    native_mode: Optional[bool] = field(
+        default=None, metadata={"convert_func": bool_convertor, "plugins": ["xdp"]}
+    )
+    mlx_legacy: Optional[bool] = field(
+        default=None, metadata={"convert_func": bool_convertor, "plugins": ["xdp"]}
+    )
     block_size: Optional[int] = field(default=None, metadata={"plugins": ["packet"]})
     frame_count: Optional[int] = field(default=None, metadata={"plugins": ["packet"]})
-    qdisk_bypass: Optional[bool] = field(default=None, metadata={"convert_func": bool_convertor, "plugins": ["packet"]})
-    packet_loss: Optional[bool] = field(default=None, metadata={"convert_func": bool_convertor, "plugins": ["packet"]})
+    qdisk_bypass: Optional[bool] = field(
+        default=None, metadata={"convert_func": bool_convertor, "plugins": ["packet"]}
+    )
+    packet_loss: Optional[bool] = field(
+        default=None, metadata={"convert_func": bool_convertor, "plugins": ["packet"]}
+    )
 
     def __post_init__(self) -> None:
         """Check combination of input plugin and parameters."""
 
         if self.output_plugin not in ["pcapFile", "raw", "xdp", "nfb", "packet"]:
-            logging.getLogger().error("FtReplay: Used unknown output plugin '%s'", self.output_plugin)
-            raise RuntimeError(f"FtReplay: Used unknown output plugin '{self.output_plugin}'")
+            logging.getLogger().error(
+                "FtReplay: Used unknown output plugin '%s'", self.output_plugin
+            )
+            raise RuntimeError(
+                f"FtReplay: Used unknown output plugin '{self.output_plugin}'"
+            )
 
         params = [field for field in fields(self) if "plugins" in field.metadata]
         for param in params:
-            if getattr(self, param.name) != param.default and self.output_plugin not in param.metadata["plugins"]:
-                logging.getLogger().error("FtReplay: Used unsupported %s output plugin parameters.", self.output_plugin)
-                raise RuntimeError(f"FtReplay: Used unsupported {self.output_plugin} output plugin parameters.")
+            if (
+                getattr(self, param.name) != param.default
+                and self.output_plugin not in param.metadata["plugins"]
+            ):
+                logging.getLogger().error(
+                    "FtReplay: Used unsupported %s output plugin parameters.",
+                    self.output_plugin,
+                )
+                raise RuntimeError(
+                    f"FtReplay: Used unsupported {self.output_plugin} output plugin parameters."
+                )
 
     # pylint: disable=too-many-branches
     def get_cmd_args(self, interface: str, mtu: int) -> str:
@@ -283,10 +309,12 @@ class FtReplay(Replicator):
 
         if self._output_plugin.output_plugin == "xdp":
             if not math.log2(mtu).is_integer():
-                logging.getLogger().warning("Xdp output plugin supports only MTU that is a power of 2")
+                logging.getLogger().warning(
+                    "Xdp output plugin supports only MTU that is a power of 2"
+                )
                 mtu = pow(2, math.ceil(math.log2(mtu)))
                 logging.getLogger().warning(f"Using MTU of {mtu} for ft-replay")
-            #if self._output_plugin.zero_copy and mtu > 2048:
+            # if self._output_plugin.zero_copy and mtu > 2048:
             #    logging.getLogger().warning("Xdp output plugin supports only MTU of value <= 2048. Parameter is ignored.")
             #    mtu = 2048
         self._mtu = mtu
@@ -306,7 +334,9 @@ class FtReplay(Replicator):
         self._log_file = path.join(self._work_dir, "ft-replay.log")
         self._generator_log_file = path.join(self._work_dir, "ft-generator.log")
 
-    def add_interface(self, ifc_name: str, dst_mac: Optional[Union[str, list[str]]] = None) -> None:
+    def add_interface(
+        self, ifc_name: str, dst_mac: Optional[Union[str, list[str]]] = None
+    ) -> None:
         """Add interface on which traffic will be replayed.
 
         Parameters
@@ -364,9 +394,13 @@ class FtReplay(Replicator):
             Index of loop or list of indices.
         """
 
-        self._replication_units.append(_ReplicationUnit(srcip, dstip, srcmac, dstmac, loop_only))
+        self._replication_units.append(
+            _ReplicationUnit(srcip, dstip, srcmac, dstmac, loop_only)
+        )
 
-    def set_loop_modifiers(self, srcip_offset: Optional[int] = None, dstip_offset: Optional[int] = None) -> None:
+    def set_loop_modifiers(
+        self, srcip_offset: Optional[int] = None, dstip_offset: Optional[int] = None
+    ) -> None:
         """Define how to rewrite IP addresses in each loop. Used to distinguish flows in individual loops.
 
         Parameters
@@ -460,14 +494,29 @@ class FtReplay(Replicator):
 
         # negative values mean infinite loop
         loop_count = max(loop_count, 0)
-        
-        if self._output_plugin.output_plugin == 'xdp' and not self._output_plugin.zero_copy:
-            Tool(f"ip link set dev {self._interface} xdp off", executor=self._executor, sudo=True).run()
+
+        if (
+            self._output_plugin.output_plugin == "xdp"
+            and not self._output_plugin.zero_copy
+        ):
+            Tool(
+                f"ip link set dev {self._interface} xdp off",
+                executor=self._executor,
+                sudo=True,
+            ).run()
 
         if self._output_plugin.output_plugin in ["raw", "xdp", "packet"]:
-            Tool(f"ip link set dev {self._interface} up", executor=self._executor, sudo=True).run()
+            Tool(
+                f"ip link set dev {self._interface} up",
+                executor=self._executor,
+                sudo=True,
+            ).run()
             # find maxmtu and use that instead
-            stdout,_ = Tool(f"ip -d link show dev {self._interface}", executor=self._executor, sudo=True).run()
+            stdout, _ = Tool(
+                f"ip -d link show dev {self._interface}",
+                executor=self._executor,
+                sudo=True,
+            ).run()
             maxmtu = 0
             next = False
             for field in stdout.split(" "):
@@ -475,13 +524,19 @@ class FtReplay(Replicator):
                     next = True
                     continue
                 if next:
-                    maxmtu=int(field)
+                    maxmtu = int(field)
                     break
             if maxmtu != 0 and self._mtu > maxmtu:
-                self._mtu = pow(2,math.floor(math.log2(maxmtu)))
-                logging.getLogger().warning(f"MTU larger than max MTU using {self._mtu} instead")
-            
-            Tool(f"ip link set dev {self._interface} mtu {self._mtu}", executor=self._executor, sudo=True).run()
+                self._mtu = pow(2, math.floor(math.log2(maxmtu)))
+                logging.getLogger().warning(
+                    f"MTU larger than max MTU using {self._mtu} instead"
+                )
+
+            Tool(
+                f"ip link set dev {self._interface} mtu {self._mtu}",
+                executor=self._executor,
+                sudo=True,
+            ).run()
 
         self._save_config()
 
@@ -494,9 +549,9 @@ class FtReplay(Replicator):
 
         pcap_path = pcap_path if remote_pcap else self._rsync.push_path(pcap_path)
         cmd_args += ["-i", pcap_path]
-        
-        #disable ram check:
-        #cmd_args += ["--no-freeram-check"]                            
+
+        # disable ram check:
+        # cmd_args += ["--no-freeram-check"]
 
         self._process = AsyncTool(
             f"{self._bin} {' '.join(cmd_args)}",
@@ -544,7 +599,9 @@ class FtReplay(Replicator):
 
         logging.getLogger().info("PCAP generator started, profile: %s", profile_path)
         start = time.time()
-        pcap, self._report = self._ft_generator.generate(profile_path, generator_config, self._generator_log_file)
+        pcap, self._report = self._ft_generator.generate(
+            profile_path, generator_config, self._generator_log_file
+        )
         end = time.time()
         logging.getLogger().info("PCAP generated in %.2f seconds.", (end - start))
 
@@ -555,7 +612,7 @@ class FtReplay(Replicator):
             report = cache_rsync.pull_path(self._report, self._work_dir)
             shutil.copy(report, report_path)
             self._report_pull_failed = False
-        except AssertionError: 
+        except AssertionError:
             self._report_path = report_path
             self._report_pull_failed = True
 
@@ -619,9 +676,11 @@ class FtReplay(Replicator):
         pkts = int(re.findall(r"(\d+) packets", output)[-1])
         bts = int(re.findall(r"(\d+) bytes", output)[-1])
 
-        start_time = int(re.findall(r"Start time:.*\[ms since epoch: (\d+)\]", output)[0])
+        start_time = int(
+            re.findall(r"Start time:.*\[ms since epoch: (\d+)\]", output)[0]
+        )
         end_time = int(re.findall(r"End time:.*\[ms since epoch: (\d+)\]", output)[0])
-        
+
         if self._report_pull_failed:
             cache_rsync = Rsync(self._executor, data_dir=path.dirname(self._report))
             report = cache_rsync.pull_path(self._report, self._work_dir)

@@ -66,7 +66,11 @@ def test_merging_across_loops():
         "loop": {},
     }
     replicator = FlowReplicator(config)
-    res = replicator.replicate(os.path.join(SOURCE_PATH, "merge_across_simple.csv"), loops=4, merge_across_loops=True)
+    res = replicator.replicate(
+        os.path.join(SOURCE_PATH, "merge_across_simple.csv"),
+        loops=4,
+        merge_across_loops=True,
+    )
     res.to_csv(TMP_CSV, index=False)
 
     assert filecmp.cmp(TMP_CSV, os.path.join(REF_PATH, "merge_across_simple.csv"))
@@ -77,7 +81,10 @@ def test_merging_across_loops():
     config = {"units": [{}]}
     replicator = FlowReplicator(config)
     res = replicator.replicate(
-        os.path.join(SOURCE_PATH, "merge_across_timeout.csv"), 4, merge_across_loops=True, inactive_timeout=30
+        os.path.join(SOURCE_PATH, "merge_across_timeout.csv"),
+        4,
+        merge_across_loops=True,
+        inactive_timeout=30,
     )
     res.to_csv(TMP_CSV, index=False)
 
@@ -107,7 +114,10 @@ def test_merging_across_loops_headache():
     }
     replicator = FlowReplicator(config)
     res = replicator.replicate(
-        os.path.join(SOURCE_PATH, "merge_across_headache.csv"), 3, merge_across_loops=True, inactive_timeout=29
+        os.path.join(SOURCE_PATH, "merge_across_headache.csv"),
+        3,
+        merge_across_loops=True,
+        inactive_timeout=29,
     )
     res.to_csv(TMP_CSV, index=False)
 
@@ -194,7 +204,9 @@ def test_speed_multiplier_2():
         "units": [{"srcip": "addConstant(10)"}, {"dstip": "addConstant(256)"}],
     }
     replicator = FlowReplicator(config)
-    res = replicator.replicate(os.path.join(SOURCE_PATH, "basic.csv"), loops=3, speed_multiplier=2.0)
+    res = replicator.replicate(
+        os.path.join(SOURCE_PATH, "basic.csv"), loops=3, speed_multiplier=2.0
+    )
     res.to_csv(TMP_CSV, index=False)
 
     assert filecmp.cmp(TMP_CSV, os.path.join(REF_PATH, "basic_time_2.0.csv"))
@@ -207,7 +219,9 @@ def test_speed_multiplier_0_8():
         "units": [{"srcip": "addConstant(10)"}, {"dstip": "addConstant(256)"}],
     }
     replicator = FlowReplicator(config)
-    res = replicator.replicate(os.path.join(SOURCE_PATH, "basic.csv"), loops=2, speed_multiplier=0.8)
+    res = replicator.replicate(
+        os.path.join(SOURCE_PATH, "basic.csv"), loops=2, speed_multiplier=0.8
+    )
     res.to_csv(TMP_CSV, index=False)
 
     assert filecmp.cmp(TMP_CSV, os.path.join(REF_PATH, "basic_time_0.8.csv"))

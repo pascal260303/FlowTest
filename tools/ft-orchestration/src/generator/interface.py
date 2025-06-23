@@ -141,7 +141,9 @@ class PcapPlayer(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def add_interface(self, ifc_name: str, dst_mac: Optional[Union[str, list[str]]] = None):
+    def add_interface(
+        self, ifc_name: str, dst_mac: Optional[Union[str, list[str]]] = None
+    ):
         """Add interface on which traffic will be replayed.
 
         Parameters
@@ -156,7 +158,13 @@ class PcapPlayer(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def start(self, pcap_path: str, speed: ReplaySpeed = MultiplierSpeed(1.0), loop_count: int = 1, **kwargs):
+    def start(
+        self,
+        pcap_path: str,
+        speed: ReplaySpeed = MultiplierSpeed(1.0),
+        loop_count: int = 1,
+        **kwargs,
+    ):
         """Start network traffic replaying.
 
         Parameters
@@ -314,7 +322,9 @@ class Replicator(PcapPlayer):
         raise NotImplementedError
 
     @abstractmethod
-    def set_loop_modifiers(self, srcip_offset: Optional[int] = None, dstip_offset: Optional[int] = None) -> None:
+    def set_loop_modifiers(
+        self, srcip_offset: Optional[int] = None, dstip_offset: Optional[int] = None
+    ) -> None:
         """Define how to rewrite IP addresses in each loop. Used to distinguish flows in individual loops.
 
         Parameters

@@ -114,7 +114,9 @@ class BuilderBase(ABC):
 
         timestamp_str, _ = self._timestamp_process.wait_or_kill()
         timestamp = int(timestamp_str.strip())
-        timestamp_datetime = datetime.datetime.fromtimestamp(timestamp / 1000.0, tz=datetime.timezone.utc)
+        timestamp_datetime = datetime.datetime.fromtimestamp(
+            timestamp / 1000.0, tz=datetime.timezone.utc
+        )
 
         logging.getLogger().info(
             "Timestamp on host '%s': %d (%s)",
@@ -124,7 +126,9 @@ class BuilderBase(ABC):
         )
         return timestamp
 
-    def _prepare_env(self, object_cfg: Union[ProbeCfg, GeneratorCfg, CollectorCfg]) -> None:
+    def _prepare_env(
+        self, object_cfg: Union[ProbeCfg, GeneratorCfg, CollectorCfg]
+    ) -> None:
         """Connect to host and prepare environment with ansible playbook.
 
         Parameters
@@ -137,13 +141,19 @@ class BuilderBase(ABC):
         if object_cfg.name in ["localhost", "127.0.0.1"]:
             self._executor = LocalExecutor()
         else:
-            self._executor = RemoteExecutor(object_cfg.name, auth.username, auth.password, auth.key_path)
+            self._executor = RemoteExecutor(
+                object_cfg.name, auth.username, auth.password, auth.key_path
+            )
 
         if object_cfg.ansible_playbook_role and not self._disable_ansible:
             self._run_ansible(object_cfg, auth)
 
     # pylint: disable=too-many-locals
-    def _run_ansible(self, object_cfg: Union[ProbeCfg, GeneratorCfg, CollectorCfg], auth: AuthenticationCfg):
+    def _run_ansible(
+        self,
+        object_cfg: Union[ProbeCfg, GeneratorCfg, CollectorCfg],
+        auth: AuthenticationCfg,
+    ):
         """Run ansible playbook on REMOTE which required by constructed object. E.g. install probe/generator software.
 
         Parameters
@@ -157,7 +167,11 @@ class BuilderBase(ABC):
         user = auth.username if auth.username else lbr_testsuite.get_real_user()
         remote_tmp = f"/tmp/ansible-{user}/tmp"
 
-        host_group = shlex.quote(object_cfg.ansible_host_group) if object_cfg.ansible_host_group else "all"
+        host_group = (
+            shlex.quote(object_cfg.ansible_host_group)
+            if object_cfg.ansible_host_group
+            else "all"
+        )
 
         host_vars = {"ansible_user": user}
         if auth.password:
@@ -167,10 +181,14 @@ class BuilderBase(ABC):
         inventory_data = {host_group: {"hosts": {self._executor.get_host(): host_vars}}}
 
         extra_vars = (
-            "--extra-vars=" + shlex.quote(str(object_cfg.ansible_extra_vars)) if object_cfg.ansible_extra_vars else ""
+            "--extra-vars=" + shlex.quote(str(object_cfg.ansible_extra_vars))
+            if object_cfg.ansible_extra_vars
+            else ""
         )
         skip_tags = (
-            "--skip-tags=" + shlex.quote(",".join(object_cfg.ansible_skip_tags)) if object_cfg.ansible_skip_tags else ""
+            "--skip-tags=" + shlex.quote(",".join(object_cfg.ansible_skip_tags))
+            if object_cfg.ansible_skip_tags
+            else ""
         )
 
         with tempfile.TemporaryDirectory(prefix="flowtest-ansible-") as local_tmp:
@@ -181,7 +199,8 @@ class BuilderBase(ABC):
                 yaml.safe_dump(inventory_data, inventory_file)
 
             logging.getLogger().info(
-                "Running environment setup - ansible playbook '%s'...", object_cfg.ansible_playbook_role
+                "Running environment setup - ansible playbook '%s'...",
+                object_cfg.ansible_playbook_role,
             )
 
             cmd = (
@@ -199,7 +218,9 @@ class BuilderBase(ABC):
                 logging.getLogger().error("Ansible failed!")
                 logging.getLogger().error("Stdout: %s", stdout)
                 logging.getLogger().error("Stderr: %s", stderr)
-                raise BuilderError(f"Ansible playbook '{object_cfg.ansible_playbook_role}' failed.")
+                raise BuilderError(
+                    f"Ansible playbook '{object_cfg.ansible_playbook_role}' failed."
+                )
 
         logging.getLogger().info("Ansible output: %s", stdout)
 
@@ -239,4 +260,6 @@ class BuilderBase(ABC):
                 if issubclass(searched_class, interface):
                     return searched_class
 
-        raise BuilderError(f"Class '{class_name}' which implements '{interface.__name__}' not found.")
+        raise BuilderError(
+            f"Class '{class_name}' which implements '{interface.__name__}' not found."
+        )

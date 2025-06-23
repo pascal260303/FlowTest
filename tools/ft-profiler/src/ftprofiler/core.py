@@ -16,12 +16,18 @@ from ftprofiler.flow import Flow
 from ftprofiler.readers import InputException, InputInterface, flow_readers, init_reader
 from ftprofiler.writer import OutputException, ProfileWriter
 
-LOGGING_FORMAT = "%(asctime)-15s,%(name)s,[%(levelname)s],%(filename)s:%(funcName)s - %(message)s"
+LOGGING_FORMAT = (
+    "%(asctime)-15s,%(name)s,[%(levelname)s],%(filename)s:%(funcName)s - %(message)s"
+)
 LOGGING_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-logging.basicConfig(level=logging.DEBUG, format=LOGGING_FORMAT, datefmt=LOGGING_DATE_FORMAT)
+logging.basicConfig(
+    level=logging.DEBUG, format=LOGGING_FORMAT, datefmt=LOGGING_DATE_FORMAT
+)
 
 
-def process_flows(reader: InputInterface, writer: ProfileWriter, inact: int, act: int, limit: int) -> None:
+def process_flows(
+    reader: InputInterface, writer: ProfileWriter, inact: int, act: int, limit: int
+) -> None:
     """Acquire new flows from the reader. Put flows into a flow cache. Pass flows from flow cache to the writer.
 
     Parameters
@@ -114,8 +120,16 @@ def main() -> int:
 
     try:
         reader = init_reader(args.reader, args)
-        with ProfileWriter(args.output, Flow.FLOW_CSV_FORMAT, compress=args.gzip) as writer:
-            process_flows(reader, writer, args.inactive * 1000, args.active * 1000, args.memory * 1048576 // Flow.SIZE)
+        with ProfileWriter(
+            args.output, Flow.FLOW_CSV_FORMAT, compress=args.gzip
+        ) as writer:
+            process_flows(
+                reader,
+                writer,
+                args.inactive * 1000,
+                args.active * 1000,
+                args.memory * 1048576 // Flow.SIZE,
+            )
     except (InputException, FlowCacheException, OutputException) as err:
         logging.getLogger().error(err)
         return 1

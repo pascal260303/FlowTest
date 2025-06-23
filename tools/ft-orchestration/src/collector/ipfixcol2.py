@@ -23,7 +23,7 @@ from lbr_testsuite.executable import (
     Rsync,
     Tool,
     RemoteExecutor,
-    LocalExecutor
+    LocalExecutor,
 )
 from lbr_testsuite.executable.rsync import RsyncException
 from src.collector.fdsdump import Fdsdump
@@ -87,7 +87,9 @@ class Ipfixcol2(CollectorInterface):
         assert_tool_is_installed("ipfixcol2", executor)
 
         if input_plugin not in ("udp", "tcp"):
-            raise CollectorException(f"Only 'tcp' and 'udp' input plugins are supported, not '{input_plugin}'")
+            raise CollectorException(
+                f"Only 'tcp' and 'udp' input plugins are supported, not '{input_plugin}'"
+            )
 
         if not isinstance(port, int) or not 0 <= port <= 65535:
             raise CollectorException("Bad port")
@@ -104,7 +106,9 @@ class Ipfixcol2(CollectorInterface):
         self._executor = executor
         if isinstance(executor, RemoteExecutor):
             connection: Connection = executor.get_connection()
-            self._fallback_executor = RemoteExecutor(executor.get_host(), **connection.connect_kwargs)
+            self._fallback_executor = RemoteExecutor(
+                executor.get_host(), **connection.connect_kwargs
+            )
         else:
             self._fallback_executor = LocalExecutor()
         self._rsync = Rsync(executor)
@@ -115,7 +119,9 @@ class Ipfixcol2(CollectorInterface):
 
         self._log_file = Path(self._work_dir, "ipfixcol2.log")
 
-        self._cmd = f"ipfixcol2 {self._verbosity} -c {Path(self._conf_dir, self.CONFIG_FILE)}"
+        self._cmd = (
+            f"ipfixcol2 {self._verbosity} -c {Path(self._conf_dir, self.CONFIG_FILE)}"
+        )
         self._process = None
         self._fdsdump = None
         self._input_plugin = input_plugin
@@ -146,7 +152,9 @@ class Ipfixcol2(CollectorInterface):
         ET.SubElement(outpt_logs_params, "detailedInfo").text = "true"
         ET.SubElement(outpt_logs_params, "templateInfo").text = "true"
         outpt_logs_params_outputs = ET.SubElement(outpt_logs_params, "outputs")
-        outpt_logs_params_outputs_file = ET.SubElement(outpt_logs_params_outputs, "file")
+        outpt_logs_params_outputs_file = ET.SubElement(
+            outpt_logs_params_outputs, "file"
+        )
         ET.SubElement(outpt_logs_params_outputs_file, "name").text = "Store json output"
         ET.SubElement(outpt_logs_params_outputs_file, "path").text = str(self._log_dir)
         ET.SubElement(outpt_logs_params_outputs_file, "prefix").text = "json."
@@ -198,8 +206,12 @@ class Ipfixcol2(CollectorInterface):
         outpt_params_storage = ET.SubElement(outpt_params, "storagePath")
         outpt_params_compression = ET.SubElement(outpt_params, "compression")
         outpt_params_dump_interval = ET.SubElement(outpt_params, "dumpInterval")
-        outpt_params_dump_interval_time_window = ET.SubElement(outpt_params_dump_interval, "timeWindow")
-        outpt_params_dump_interval_align = ET.SubElement(outpt_params_dump_interval, "align")
+        outpt_params_dump_interval_time_window = ET.SubElement(
+            outpt_params_dump_interval, "timeWindow"
+        )
+        outpt_params_dump_interval_align = ET.SubElement(
+            outpt_params_dump_interval, "align"
+        )
 
         inpt_name.text = f"{self._input_plugin} input plugin"
         inpt_plugin.text = f"{self._input_plugin}"
@@ -252,8 +264,12 @@ class Ipfixcol2(CollectorInterface):
         if self._process is None:
             return
 
-        command = self._cmd.split(" ",1)[0]
-        Tool(f"kill $(pidof -s {command})", executor=self._fallback_executor, failure_verbosity="silent").run()
+        command = self._cmd.split(" ", 1)[0]
+        Tool(
+            f"kill $(pidof -s {command})",
+            executor=self._fallback_executor,
+            failure_verbosity="silent",
+        ).run()
 
         stdout = []
         try:
@@ -265,7 +281,11 @@ class Ipfixcol2(CollectorInterface):
             # stderr is redirected to stdout
             # Since stdout could be filled with normal output, print only last 1 line
             err = stdout[-1]
-            logging.getLogger().error("ipfixcol2 runtime error: %s, error: %s", self._process.returncode(), err)
+            logging.getLogger().error(
+                "ipfixcol2 runtime error: %s, error: %s",
+                self._process.returncode(),
+                err,
+            )
             raise CollectorException("ipfixcol2 runtime error")
 
         self._process = None
@@ -318,6 +338,8 @@ class Ipfixcol2(CollectorInterface):
             self._fdsdump._stop()
         self._fdsdump = None
 
-        self._fdsdump = Fdsdump(self._executor, str(Path(self._rsync.get_data_directory(), self.FDS_FILE)))
+        self._fdsdump = Fdsdump(
+            self._executor, str(Path(self._rsync.get_data_directory(), self.FDS_FILE))
+        )
 
         return self._fdsdump

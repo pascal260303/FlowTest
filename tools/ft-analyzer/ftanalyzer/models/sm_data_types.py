@@ -112,7 +112,11 @@ class SMTimeSegment(YAMLWizard):
             True if equal, False otherwise.
         """
 
-        return isinstance(self, type(other)) and self.start == other.start and self.end == other.end
+        return (
+            isinstance(self, type(other))
+            and self.start == other.start
+            and self.end == other.end
+        )
 
     def __str__(self) -> str:
         src_str = self.start or "ANY"

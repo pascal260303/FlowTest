@@ -7,6 +7,7 @@ SPDX-License-Identifier: BSD-3-Clause
 
 Unit tests for ftprofiler/reader - nffile.py.
 """
+
 import argparse
 import subprocess
 from unittest.mock import MagicMock, patch
@@ -48,7 +49,10 @@ class NffileHelper:
             f"not proto ARP and router ip {mock_argparse.router} and in if {mock_argparse.ifcid}",
         ]
         if count > 0:
-            cmd[-1:-1] = ["-c", str(mock_argparse.count)]  # add to last but one position
+            cmd[-1:-1] = [
+                "-c",
+                str(mock_argparse.count),
+            ]  # add to last but one position
         return mock_argparse, cmd
 
     @staticmethod
@@ -118,7 +122,9 @@ class TestNffile:
         """Test __iter__() when called first time (_process attribute is None)"""
         nffile = NffileHelper.mock_nffile()
         with patch("ftprofiler.readers.nffile.Nffile.terminate") as mocked_term:
-            with patch("ftprofiler.readers.nffile.Nffile._start_nfdump_process") as mocked_start:
+            with patch(
+                "ftprofiler.readers.nffile.Nffile._start_nfdump_process"
+            ) as mocked_start:
                 assert iter(nffile) == nffile
                 mocked_term.assert_not_called()
                 mocked_start.assert_called_once()
@@ -128,7 +134,9 @@ class TestNffile:
         """Test __iter__() when called second time (_process attribute is not None)"""
         nffile = NffileHelper.mock_nffile()
         with patch("ftprofiler.readers.nffile.Nffile.terminate") as mocked_term:
-            with patch("ftprofiler.readers.nffile.Nffile._start_nfdump_process") as mocked_start:
+            with patch(
+                "ftprofiler.readers.nffile.Nffile._start_nfdump_process"
+            ) as mocked_start:
                 nffile._process = True
                 assert iter(nffile) == nffile
                 mocked_term.assert_called_once()
@@ -279,7 +287,9 @@ class TestNffile:
         nffile = NffileHelper.mock_nffile()
         nffile._zero_time = 1000
         with patch("subprocess.Popen") as mocked_popen:
-            mocked_popen.wait = MagicMock(spec=subprocess.Popen.wait, side_effect=TimeoutError())
+            mocked_popen.wait = MagicMock(
+                spec=subprocess.Popen.wait, side_effect=TimeoutError()
+            )
             mocked_kill = MagicMock(spec=subprocess.Popen.kill)
             mocked_popen.kill = mocked_kill
             nffile._process = mocked_popen

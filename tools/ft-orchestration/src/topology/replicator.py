@@ -137,7 +137,9 @@ def topology_replicator(
 
     check_time_synchronization(collector_builder, probe_builder, generator_builder)
 
-    return Topology(device=probe_builder, generator=generator_builder, analyzer=collector_builder)
+    return Topology(
+        device=probe_builder, generator=generator_builder, analyzer=collector_builder
+    )
 
 
 registration.topology_option_register("replicator")

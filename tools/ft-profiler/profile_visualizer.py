@@ -92,8 +92,12 @@ axes[1, 0].set_title("Flow Cache Utilization")
 hist1, bins = np.histogram(df["START_TIME"], bins=len(indices))
 hist2, _ = np.histogram(df["END_TIME"], bins=bins)
 
-axes[1, 1].bar(bins[:-1], hist1, width=bins[1] - bins[0], label="Flow Start", color="blue")
-axes[1, 1].bar(bins[:-1], -hist2, width=bins[1] - bins[0], label="Flow End", color="red")
+axes[1, 1].bar(
+    bins[:-1], hist1, width=bins[1] - bins[0], label="Flow Start", color="blue"
+)
+axes[1, 1].bar(
+    bins[:-1], -hist2, width=bins[1] - bins[0], label="Flow End", color="red"
+)
 axes[1, 1].set_title("Flow Start and End Times")
 
 fig.suptitle("Profile Attributes")

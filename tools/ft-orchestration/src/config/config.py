@@ -69,27 +69,51 @@ class Config:
         self.authentications: Dict[str, AuthenticationCfg] = self._load(
             authentications_path, AuthenticationCfg.from_yaml_file
         )
-        self.whitelists: Dict[str, WhitelistCfg] = self._load(whitelists_path, WhitelistCfg.from_yaml_file)
-        self.generators: Dict[str, GeneratorCfg] = self._load(generators_path, GeneratorCfg.from_yaml_file)
-        self.collectors: Dict[str, CollectorCfg] = self._load(collectors_path, CollectorCfg.from_yaml_file)
-        self.probes: Dict[str, ProbeCfg] = self._load(probes_path, ProbeCfg.from_yaml_file)
+        self.whitelists: Dict[str, WhitelistCfg] = self._load(
+            whitelists_path, WhitelistCfg.from_yaml_file
+        )
+        self.generators: Dict[str, GeneratorCfg] = self._load(
+            generators_path, GeneratorCfg.from_yaml_file
+        )
+        self.collectors: Dict[str, CollectorCfg] = self._load(
+            collectors_path, CollectorCfg.from_yaml_file
+        )
+        self.probes: Dict[str, ProbeCfg] = self._load(
+            probes_path, ProbeCfg.from_yaml_file
+        )
         self._check()
         logging.getLogger().debug("Orchestration config loaded")
 
     @staticmethod
     def _load(
         path: str, reader
-    ) -> Union[Dict[str, AuthenticationCfg], Dict[str, GeneratorCfg], Dict[str, CollectorCfg], Dict[str, ProbeCfg]]:
+    ) -> Union[
+        Dict[str, AuthenticationCfg],
+        Dict[str, GeneratorCfg],
+        Dict[str, CollectorCfg],
+        Dict[str, ProbeCfg],
+    ]:
         try:
             logging.getLogger().info("Loading configuration from %s", path)
             res = reader(path)
             return {(x.alias if hasattr(x, "alias") else x.name): x for x in res}
         except (OSError, FileNotFoundError) as err:
-            logging.getLogger().error("Error reading config file %s, code %i, exception %s", path, err.errno, err)
-            raise ConfigException(f"Error reading config file {path}, code {err.errno}, exception {err}") from err
+            logging.getLogger().error(
+                "Error reading config file %s, code %i, exception %s",
+                path,
+                err.errno,
+                err,
+            )
+            raise ConfigException(
+                f"Error reading config file {path}, code {err.errno}, exception {err}"
+            ) from err
         except (TypeError, AttributeError, ParseError, MissingFields) as err:
-            logging.getLogger().error("Parsing error of config file %s, exception %s", path, err)
-            raise ConfigException(f"Parsing error of config file {path}, exception {err}") from err
+            logging.getLogger().error(
+                "Parsing error of config file %s, exception %s", path, err
+            )
+            raise ConfigException(
+                f"Parsing error of config file {path}, exception {err}"
+            ) from err
 
     def _check(self) -> None:
         try:

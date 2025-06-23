@@ -172,7 +172,9 @@ class FlowReplicator:
             return False
 
     @staticmethod
-    def ip_address(address: Any) -> Union[FlowReplicator.IPv6Address, FlowReplicator.IPv4Address]:
+    def ip_address(
+        address: Any,
+    ) -> Union[FlowReplicator.IPv6Address, FlowReplicator.IPv4Address]:
         """Custom IP address parser. Custom IPv6Adress or IPv4Address object is returned."""
 
         obj = ipaddress.ip_address(address)
@@ -240,12 +242,17 @@ class FlowReplicator:
         """
 
         try:
-            self._flows = pd.read_csv(input_file, engine="pyarrow", dtype=self.CSV_COLUMN_TYPES)
+            self._flows = pd.read_csv(
+                input_file, engine="pyarrow", dtype=self.CSV_COLUMN_TYPES
+            )
         except Exception as err:
             raise FlowReplicatorException("Unable to read file with flows.") from err
 
         with PandasMultiprocessingHelper() as pool:
-            pool.apply(self._flows, [("SRC_IP", self.ip_address, []), ("DST_IP", self.ip_address, [])])
+            pool.apply(
+                self._flows,
+                [("SRC_IP", self.ip_address, []), ("DST_IP", self.ip_address, [])],
+            )
 
             # index of source flow is used when merging flows within single loop
             self._flows["ORIG_INDEX"] = self._flows.index
@@ -268,7 +275,9 @@ class FlowReplicator:
             )
 
         if merge_across_loops:
-            self._inactive_timeout = inactive_timeout * 1000 if inactive_timeout > -1 else None
+            self._inactive_timeout = (
+                inactive_timeout * 1000 if inactive_timeout > -1 else None
+            )
             result = self._merge_across_loop(result)
 
         return result.loc[:, self.CSV_COLUMN_TYPES.keys()]
@@ -329,7 +338,9 @@ class FlowReplicator:
         """
 
         if not set(config.keys()).issubset({"units", "loop"}):
-            raise FlowReplicatorException("Only 'units' and 'loop' keys are allowed in replicator configuration.")
+            raise FlowReplicatorException(
+                "Only 'units' and 'loop' keys are allowed in replicator configuration."
+            )
 
         units = []
         for unit in config.get("units", []):
@@ -354,7 +365,8 @@ class FlowReplicator:
 
         loop_config = config.get("loop", {})
         loop = ReplicatorUnit(
-            self._parse_config_item("srcip", loop_config), self._parse_config_item("dstip", loop_config)
+            self._parse_config_item("srcip", loop_config),
+            self._parse_config_item("dstip", loop_config),
         )
 
         return ReplicatorConfig(units, loop)
@@ -379,10 +391,12 @@ class FlowReplicator:
         loop_end = int(self._flows.loc[:, "END_TIME"].max())
         loop_length = int((loop_end - loop_start) * time_multiplier)
 
-        self._flows["_FLOW_LEN"] = ((self._flows["END_TIME"] - self._flows["START_TIME"]) * time_multiplier).astype(
-            np.uint64
-        )
-        self._flows["_START_OFFSET"] = ((self._flows["START_TIME"] - loop_start) * time_multiplier).astype(np.uint64)
+        self._flows["_FLOW_LEN"] = (
+            (self._flows["END_TIME"] - self._flows["START_TIME"]) * time_multiplier
+        ).astype(np.uint64)
+        self._flows["_START_OFFSET"] = (
+            (self._flows["START_TIME"] - loop_start) * time_multiplier
+        ).astype(np.uint64)
 
         self._flows["_SRC_IP_OFFSET"] = 0
         self._flows["_DST_IP_OFFSET"] = 0
@@ -392,12 +406,16 @@ class FlowReplicator:
             logging.getLogger().debug("Processing %d loop...", loop_n)
             if loop_n in self._ignore_loops:
                 continue
-            tmp_dataframes.append(self._process_single_loop(loop_n, loop_start, loop_length))
+            tmp_dataframes.append(
+                self._process_single_loop(loop_n, loop_start, loop_length)
+            )
 
         res = pd.concat(tmp_dataframes, axis=0)
         return res
 
-    def _process_single_loop(self, loop_n: int, global_start: int, loop_length: int) -> pd.DataFrame:
+    def _process_single_loop(
+        self, loop_n: int, global_start: int, loop_length: int
+    ) -> pd.DataFrame:
         """Replicate flows for single loop. Copy, add time offset to timestamps and replicate with units.
 
         Parameters
@@ -449,7 +467,9 @@ class FlowReplicator:
 
         return res
 
-    def _process_replication_unit(self, unit: ReplicatorUnit, orig_flows: pd.DataFrame) -> pd.DataFrame:
+    def _process_replication_unit(
+        self, unit: ReplicatorUnit, orig_flows: pd.DataFrame
+    ) -> pd.DataFrame:
         """Replicate flows by single replication unit within single loop.
 
         Parameters
@@ -508,7 +528,11 @@ class FlowReplicator:
                     if row["GAP"] >= self._inactive_timeout:
                         aggr_no += 1
 
-            res_group = group.groupby(self.FLOW_KEY + ["AGGR_NO"]).aggregate(self.AGGREGATE_SPLIT_FLOWS).reset_index()
+            res_group = (
+                group.groupby(self.FLOW_KEY + ["AGGR_NO"])
+                .aggregate(self.AGGREGATE_SPLIT_FLOWS)
+                .reset_index()
+            )
             res_group.reindex()
             return res_group
         return group

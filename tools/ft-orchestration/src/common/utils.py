@@ -27,7 +27,9 @@ def get_project_root() -> str:
         Project root directory.
     """
 
-    return os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../../../"))
+    return os.path.abspath(
+        os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../../../")
+    )
 
 
 def download_logs(dest: str, **kwargs) -> None:
@@ -103,7 +105,9 @@ def get_replicator_prefix(
     return min_prefix
 
 
-def collect_scenarios(path: str, target: ScenarioCfg, name: Optional[str] = None) -> list["ParameterSet"]: # noqa
+def collect_scenarios(
+    path: str, target: ScenarioCfg, name: Optional[str] = None
+) -> list["ParameterSet"]:  # noqa
     """
     Collect all scenario files in the provided directory.
     The function provides created configuration object and name of the respective scenario file.
@@ -131,7 +135,9 @@ def collect_scenarios(path: str, target: ScenarioCfg, name: Optional[str] = None
     try:
         files = [f for f in os.listdir(path) if ".yml" in f]
     except OSError as err:
-        logging.getLogger().error("Unable to read directory content: %s, error: %s", path, err)
+        logging.getLogger().error(
+            "Unable to read directory content: %s, error: %s", path, err
+        )
         return []
 
     tests = []
@@ -153,15 +159,21 @@ def collect_scenarios(path: str, target: ScenarioCfg, name: Optional[str] = None
             ScenarioCfgException,
             ScannerError,
         ) as err:
-            logging.getLogger().error("Loading test scenario from file: %s, error: %s", abspath, err)
+            logging.getLogger().error(
+                "Loading test scenario from file: %s, error: %s", abspath, err
+            )
             # We cannot mark test as failed at this point, therefore use skip.
             marks = pytest.mark.skip(reason=f"ERROR: {err}, file: {abspath}")
-            tests.append(pytest.param(None, file, marks=marks, id=file.removesuffix(".yml")))
+            tests.append(
+                pytest.param(None, file, marks=marks, id=file.removesuffix(".yml"))
+            )
 
     return tests
 
 
-def ip_network_add_offset(address: Union[ipaddress.IPv4Network, ipaddress.IPv6Network, str], offset: int):
+def ip_network_add_offset(
+    address: Union[ipaddress.IPv4Network, ipaddress.IPv6Network, str], offset: int
+):
     """Add offset to IP network.
     Respect ft-replay rules of replication. For IPv6 network constant is added to first 32 bits.
 

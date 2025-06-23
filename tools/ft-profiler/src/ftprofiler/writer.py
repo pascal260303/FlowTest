@@ -105,7 +105,9 @@ class ProfileWriter:
             else:
                 self._fd.write(str(flow) + "\n")
         except (OSError, IOError) as err:
-            logging.getLogger().error("Unable to write to file: %s. Reason: %s", self._name, str(err))
+            logging.getLogger().error(
+                "Unable to write to file: %s. Reason: %s", self._name, str(err)
+            )
             raise OutputException(str(err)) from err
 
         self._written_cnt += 1
@@ -140,5 +142,7 @@ class ProfileWriter:
         if self._fd is not None:
             self._fd.close()
 
-        logging.getLogger().info("%d lines written to %s", self._written_cnt, self._name)
+        logging.getLogger().info(
+            "%d lines written to %s", self._written_cnt, self._name
+        )
         return ex_type is None

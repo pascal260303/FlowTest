@@ -84,14 +84,20 @@ class CSVFile(InputInterface):
             self._descriptor = open(self._file, mode="r", newline="", encoding="ascii")
             # Filter returns generator since python 3.6, therefore it can be used to skip commented lines
             # without loading the whole file.
-            self._reader = csv.DictReader(filter(lambda row: row[0] != "#", self._descriptor))
+            self._reader = csv.DictReader(
+                filter(lambda row: row[0] != "#", self._descriptor)
+            )
             for field in self.FIELDS:
                 if field not in self._reader.fieldnames:
-                    logging.getLogger().error("field '%s' not present in the CSV file", field)
+                    logging.getLogger().error(
+                        "field '%s' not present in the CSV file", field
+                    )
                     raise InputException(f"field '{field}' not present in the CSV file")
 
         except IOError as err:
-            logging.getLogger().error("unable to read file=%s, reason=%s", self._file, str(err))
+            logging.getLogger().error(
+                "unable to read file=%s, reason=%s", self._file, str(err)
+            )
             raise InputException(str(err)) from err
 
         return self

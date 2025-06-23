@@ -64,12 +64,18 @@ class ValidationFlow(Flow):
 
         super().__init__(key_fmt, rev_key_fmt, fields, biflow)
         self._any_dir_fields = [
-            field for field in fields_db.get_fields_in_direction(FieldDirection.ANY) if field in self.fields
+            field
+            for field in fields_db.get_fields_in_direction(FieldDirection.ANY)
+            if field in self.fields
         ]
         self._rev_fixed_fields = rev_fixed_fields
 
     def validate(
-        self, flow: Flow, rev_flow: Optional[Flow], supported: List[str], special: Dict[str, str]
+        self,
+        flow: Flow,
+        rev_flow: Optional[Flow],
+        supported: List[str],
+        special: Dict[str, str],
     ) -> ValidationResult:
         """Compare fields of this reference flow with fields of provided Flow object.
 
@@ -95,8 +101,16 @@ class ValidationFlow(Flow):
             Object containing comparison statistics and reported errors.
         """
         ret = ValidationResult()
-        expected = {k: v for k, v in self.fields.items() if k in supported and k not in self.key_fmt}
-        unchecked = {k for k in flow.fields.keys() if k not in expected.keys() and k not in self.key_fmt}
+        expected = {
+            k: v
+            for k, v in self.fields.items()
+            if k in supported and k not in self.key_fmt
+        }
+        unchecked = {
+            k
+            for k in flow.fields.keys()
+            if k not in expected.keys() and k not in self.key_fmt
+        }
         if flow.biflow:
             # Remove fields which are expected to be in the opposite direction, if the flow originates from a biflow.
             unchecked = unchecked.difference(self._rev_fixed_fields)
@@ -105,7 +119,11 @@ class ValidationFlow(Flow):
         for f_exp_name, f_exp_value in expected.items():
             if f_exp_name not in flow.fields:
                 # Flows with direction "any" can be in the flow from the opposite direction.
-                if f_exp_name in self._any_dir_fields and rev_flow is not None and f_exp_name in rev_flow.fields:
+                if (
+                    f_exp_name in self._any_dir_fields
+                    and rev_flow is not None
+                    and f_exp_name in rev_flow.fields
+                ):
                     f_value = rev_flow.fields[f_exp_name]
                 else:
                     ret.report_missing_field(f_exp_name, f_exp_value)
@@ -113,7 +131,9 @@ class ValidationFlow(Flow):
             else:
                 f_value = flow.fields[f_exp_name]
 
-            result = self._validate_field(f_exp_name, f_value, f_exp_value, supported, special)
+            result = self._validate_field(
+                f_exp_name, f_value, f_exp_value, supported, special
+            )
             ret.update(result)
 
         return ret
@@ -194,7 +214,9 @@ class ValidationFlow(Flow):
                 return val == ref_val
             if strategy == "StartsWith":
                 return len(val) > 0 and ref_val.startswith(val)
-            raise ValueError(f"Unknown compare strategy '{strategy}' of field '{name}'.")
+            raise ValueError(
+                f"Unknown compare strategy '{strategy}' of field '{name}'."
+            )
 
         strategy = special.get(name, None)
         ret = ValidationResult()
@@ -213,7 +235,12 @@ class ValidationFlow(Flow):
         return ret
 
     def _validate_list(
-        self, name: str, values: List[Any], references: List[Any], supported: List[str], special: Dict[str, str]
+        self,
+        name: str,
+        values: List[Any],
+        references: List[Any],
+        supported: List[str],
+        special: Dict[str, str],
     ) -> ValidationResult:
         """Compare flow field of type list with its reference field. All fields in the list are compared recursively.
 
@@ -261,7 +288,9 @@ class ValidationFlow(Flow):
         # Find the best possible mapping of fields to the reference fields.
         best_perm = self._find_best_mapping(len(values), len(references), results)
 
-        return self._validate_list_full_result(name, values, references, best_perm, results)
+        return self._validate_list_full_result(
+            name, values, references, best_perm, results
+        )
 
     @staticmethod
     def _validate_list_full_result(
@@ -312,7 +341,11 @@ class ValidationFlow(Flow):
         return ret
 
     def _validate_dict(
-        self, values: Dict[str, Any], references: Dict[str, Any], supported: List[str], special: Dict[str, str]
+        self,
+        values: Dict[str, Any],
+        references: Dict[str, Any],
+        supported: List[str],
+        special: Dict[str, str],
     ) -> ValidationResult:
         """Compare flow field of type dictionary with its reference field.
         All fields in the dictionary are compared recursively.
@@ -343,13 +376,17 @@ class ValidationFlow(Flow):
 
                 continue
 
-            result = self._validate_field(f_exp_name, values[f_exp_name], f_exp_value, supported, special)
+            result = self._validate_field(
+                f_exp_name, values[f_exp_name], f_exp_value, supported, special
+            )
             ret.update(result)
 
         return ret
 
     @staticmethod
-    def _find_best_mapping(flow_cnt: int, ref_cnt: int, results: Dict[int, Dict[int, ValidationResult]]) -> List[int]:
+    def _find_best_mapping(
+        flow_cnt: int, ref_cnt: int, results: Dict[int, Dict[int, ValidationResult]]
+    ) -> List[int]:
         """Find the best possible mapping of a list of evaluated field groups to
         a list of reference field groups based on precomputed results.
 

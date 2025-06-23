@@ -126,7 +126,9 @@ class FlowCache:
         if key not in self:
             self._cache[key] = flow
         else:
-            raise KeyError("FlowCache::add(): Unable to add element, key already in FlowCache.")
+            raise KeyError(
+                "FlowCache::add(): Unable to add element, key already in FlowCache."
+            )
 
     def update(self, flow: ExtendedFlow, key: Optional[int] = -1):
         """Functions adds or updates element.

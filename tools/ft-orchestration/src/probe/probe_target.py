@@ -44,8 +44,12 @@ class ProbeTarget:
             try:
                 self.host = socket.gethostbyname(host)
             except socket.gaierror as err:
-                logging.getLogger().error("%s is not valid ip address or hostname", self.host)
-                raise ValueError(f"{host} is not a valid ip address or hostname. {err}") from err
+                logging.getLogger().error(
+                    "%s is not valid ip address or hostname", self.host
+                )
+                raise ValueError(
+                    f"{host} is not a valid ip address or hostname. {err}"
+                ) from err
 
         if not isinstance(port, int) or not 0 <= port <= 65535:
             logging.getLogger().error("%s is not a valid port number.", port)
@@ -57,7 +61,9 @@ class ProbeTarget:
                 allowed options are udp or tcp",
                 protocol,
             )
-            raise ValueError(f"Only 'tcp' and 'udp' protocols are supported, not '{protocol}'")
+            raise ValueError(
+                f"Only 'tcp' and 'udp' protocols are supported, not '{protocol}'"
+            )
 
         self.port = port
         self.protocol = protocol

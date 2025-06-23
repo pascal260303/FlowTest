@@ -76,7 +76,13 @@ class PreciseModel(StatisticalModel):
             Unable to process provided files.
         """
 
-        super().__init__(flows, reference, stats, merge=True, biflows_ts_correction=biflows_ts_correction)
+        super().__init__(
+            flows,
+            reference,
+            stats,
+            merge=True,
+            biflows_ts_correction=biflows_ts_correction,
+        )
         self._report = None
         self._active_timeout = active_timeout * 1000
 
@@ -133,13 +139,17 @@ class PreciseModel(StatisticalModel):
             # integer values are cast to float because of the introduction of NaN values
             flows = flows.reset_index().convert_dtypes(convert_integer=True)
             refs = refs.reset_index().convert_dtypes(convert_integer=True)
-            combined = pd.merge(flows, refs, on=self.FLOW_KEY, how="outer", indicator=True)
+            combined = pd.merge(
+                flows, refs, on=self.FLOW_KEY, how="outer", indicator=True
+            )
 
             missing = combined[combined["_merge"] == "right_only"]
             self._report_flows(refs.iloc[missing["index_y"]], PMTestCategory.MISSING)
 
             unexpected = combined[combined["_merge"] == "left_only"]
-            self._report_flows(flows.iloc[unexpected["index_x"]], PMTestCategory.UNEXPECTED)
+            self._report_flows(
+                flows.iloc[unexpected["index_x"]], PMTestCategory.UNEXPECTED
+            )
 
             # filter flows present in both frames and change type of saved indexes back to uint64
             combined = combined[combined["_merge"] == "both"]
@@ -151,13 +161,18 @@ class PreciseModel(StatisticalModel):
             combined = self._report_scaled_flows(flows, refs, combined)
             combined = self._report_shifted_flows(flows, refs, combined, ok_time_diff)
             self._report_flows(
-                flows.iloc[combined["index_x"]].sort_values(by=["FLOW_COUNT"], ascending=False), PMTestCategory.SPLIT
+                flows.iloc[combined["index_x"]].sort_values(
+                    by=["FLOW_COUNT"], ascending=False
+                ),
+                PMTestCategory.SPLIT,
             )
 
         if check_complement:
             self._report.add_segment("COMPLEMENT OF SEGMENTS")
             # pylint: disable=invalid-unary-operand-type
-            flows = self._flows[~(reduce(operator.or_, all_flow_masks))].reset_index(drop=True)
+            flows = self._flows[~(reduce(operator.or_, all_flow_masks))].reset_index(
+                drop=True
+            )
             self._report_flows(flows, PMTestCategory.UNEXPECTED)
 
         return self._report
@@ -181,7 +196,9 @@ class PreciseModel(StatisticalModel):
         end_time_diff = abs(flow["END_TIME_x"] - flow["END_TIME_y"])
         return max(start_time_diff, end_time_diff)
 
-    def _discard_correct_flows(self, frame: pd.DataFrame, ok_time_diff: int) -> pd.DataFrame:
+    def _discard_correct_flows(
+        self, frame: pd.DataFrame, ok_time_diff: int
+    ) -> pd.DataFrame:
         """Get dataframe containing only flows with errors.
 
         Parameters
@@ -197,7 +214,9 @@ class PreciseModel(StatisticalModel):
             Dataframe with only error flows.
         """
 
-        frame["FLOW_COUNT_ORIG"] = 1 + ((frame["END_TIME_y"] - frame["START_TIME_y"]) // (self._active_timeout + 1))
+        frame["FLOW_COUNT_ORIG"] = 1 + (
+            (frame["END_TIME_y"] - frame["START_TIME_y"]) // (self._active_timeout + 1)
+        )
 
         correct = frame[
             (frame["TIME_DIFF"] <= ok_time_diff)
@@ -208,7 +227,9 @@ class PreciseModel(StatisticalModel):
 
         return frame.drop(correct.index)
 
-    def _report_scaled_flows(self, flows: pd.DataFrame, refs: pd.DataFrame, combined: pd.DataFrame) -> pd.DataFrame:
+    def _report_scaled_flows(
+        self, flows: pd.DataFrame, refs: pd.DataFrame, combined: pd.DataFrame
+    ) -> pd.DataFrame:
         """Report flows containing incorrect number of packets or bytes.
 
         Parameters
@@ -227,7 +248,8 @@ class PreciseModel(StatisticalModel):
         """
 
         scaled = combined[
-            (combined["PACKETS_x"] != combined["PACKETS_y"]) | (combined["BYTES_x"] != combined["BYTES_y"])
+            (combined["PACKETS_x"] != combined["PACKETS_y"])
+            | (combined["BYTES_x"] != combined["BYTES_y"])
         ]
         for _, row in scaled.iterrows():
             self._report.add_test(
@@ -239,7 +261,11 @@ class PreciseModel(StatisticalModel):
         return combined.drop(scaled.index)
 
     def _report_shifted_flows(
-        self, flows: pd.DataFrame, refs: pd.DataFrame, combined: pd.DataFrame, ok_time_diff: int
+        self,
+        flows: pd.DataFrame,
+        refs: pd.DataFrame,
+        combined: pd.DataFrame,
+        ok_time_diff: int,
     ) -> pd.DataFrame:
         """Report flows which timestamps differ from the reference.
 

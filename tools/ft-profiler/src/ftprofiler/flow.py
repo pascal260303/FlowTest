@@ -184,7 +184,10 @@ class Flow:
             return True
 
         # Was the flow exported due to hash collision (even before inactive timeout and has 1 packet)
-        if flow.packets == 1 and abs(flow.start_time - self.end_time) < inactive_timeout:
+        if (
+            flow.packets == 1
+            and abs(flow.start_time - self.end_time) < inactive_timeout
+        ):
             self._merge(flow)
             return True
 
@@ -221,7 +224,10 @@ class Flow:
 
         # The delay between the end of the first flow and start of the new flow is higher than inactive timeout.
         # We do not know which direction started first, so we need to test both options.
-        if self.end_time + inactive_timeout < flow.start_time or flow.end_time + inactive_timeout < self.start_time:
+        if (
+            self.end_time + inactive_timeout < flow.start_time
+            or flow.end_time + inactive_timeout < self.start_time
+        ):
             return False
 
         return True

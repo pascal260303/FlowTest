@@ -10,7 +10,9 @@ Pytest conftest file.
 import os
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "tools/ft-orchestration"))
+sys.path.append(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "tools/ft-orchestration")
+)
 sys.setrecursionlimit(5000)
 
 # Include fixtures from components. Plugin registration must be defined in the top-level conftest.

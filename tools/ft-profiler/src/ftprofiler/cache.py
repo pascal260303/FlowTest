@@ -106,7 +106,9 @@ class FlowCache:
             # extending flow could still arrive.
             flows = self.remove_flows(self._now - 1.5 * self._at)
             if not flows:
-                raise FlowCacheException("Flow cache is full and cannot hold all active flows! Increase memory limit.")
+                raise FlowCacheException(
+                    "Flow cache is full and cannot hold all active flows! Increase memory limit."
+                )
             return flows
 
         return []

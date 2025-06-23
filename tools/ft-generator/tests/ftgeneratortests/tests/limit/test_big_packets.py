@@ -97,7 +97,9 @@ def create_profiles() -> FlowCache:
     return flow_cache
 
 
-@pytest.mark.parametrize("config", [GeneratorConfig(), create_vlan_config(), create_mpls_config()])
+@pytest.mark.parametrize(
+    "config", [GeneratorConfig(), create_vlan_config(), create_mpls_config()]
+)
 def test_big_packets(ft_generator: Generator, config: GeneratorConfig):
     """Test verifies if too big packets can be generated.
     Ft-generator should fail or modify packet size.

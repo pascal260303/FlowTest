@@ -27,7 +27,10 @@ REF_PATH = os.path.join(BASE_PATH, "references")
 
 def test_basic():
     """Test basic functionality on the same data but shuffled."""
-    model = SMod(os.path.join(FLOWS_PATH, "shuffled_basic.csv"), os.path.join(REF_PATH, "basic.csv"))
+    model = SMod(
+        os.path.join(FLOWS_PATH, "shuffled_basic.csv"),
+        os.path.join(REF_PATH, "basic.csv"),
+    )
     metrics = [
         SMMetric(SMMetricType.PACKETS, 0),
         SMMetric(SMMetricType.BYTES, 0),
@@ -41,7 +44,11 @@ def test_basic():
 
 def test_long_flows():
     """Test the ability to merge flows which were divided by active timeout."""
-    model = SMod(os.path.join(FLOWS_PATH, "long_flows_split.csv"), os.path.join(REF_PATH, "long_flows.csv"), merge=True)
+    model = SMod(
+        os.path.join(FLOWS_PATH, "long_flows_split.csv"),
+        os.path.join(REF_PATH, "long_flows.csv"),
+        merge=True,
+    )
     metrics = [
         SMMetric(SMMetricType.PACKETS, 0),
         SMMetric(SMMetricType.BYTES, 0),
@@ -55,7 +62,10 @@ def test_long_flows():
 
 def test_incomplete():
     """Test different acceptable relative differences when some data is missing."""
-    model = SMod(os.path.join(FLOWS_PATH, "basic_missing.csv"), os.path.join(REF_PATH, "basic.csv"))
+    model = SMod(
+        os.path.join(FLOWS_PATH, "basic_missing.csv"),
+        os.path.join(REF_PATH, "basic.csv"),
+    )
     metrics = [
         SMMetric(SMMetricType.PACKETS, 0.1),
         SMMetric(SMMetricType.BYTES, 0.1),
@@ -79,14 +89,20 @@ def test_incomplete():
 
 def test_subnet_segment():
     """Test dividing input data into segments by subnets."""
-    model = SMod(os.path.join(FLOWS_PATH, "long_flows_split.csv"), os.path.join(REF_PATH, "long_flows.csv"), merge=True)
+    model = SMod(
+        os.path.join(FLOWS_PATH, "long_flows_split.csv"),
+        os.path.join(REF_PATH, "long_flows.csv"),
+        merge=True,
+    )
     metrics = [
         SMMetric(SMMetricType.PACKETS, 0),
         SMMetric(SMMetricType.BYTES, 0),
         SMMetric(SMMetricType.FLOWS, 0),
     ]
 
-    segment = SMSubnetSegment(source="192.168.187.0/24", dest="212.24.128.0/24", bidir=True)
+    segment = SMSubnetSegment(
+        source="192.168.187.0/24", dest="212.24.128.0/24", bidir=True
+    )
     report = model.validate([SMRule(metrics, segment), SMRule(metrics)])
     report.print_results()
     assert report.is_passing() is True
@@ -97,7 +113,9 @@ def test_single_subnet():
     can have tons of missing data.
     """
     model = SMod(
-        os.path.join(FLOWS_PATH, "long_flows_missing.csv"), os.path.join(REF_PATH, "long_flows.csv"), merge=True
+        os.path.join(FLOWS_PATH, "long_flows_missing.csv"),
+        os.path.join(REF_PATH, "long_flows.csv"),
+        merge=True,
     )
     metrics = [
         SMMetric(SMMetricType.PACKETS, 0),
@@ -118,7 +136,9 @@ def test_single_subnet():
         SMMetric(SMMetricType.FLOWS, 0),
     ]
 
-    segment = SMSubnetSegment(source="192.168.187.0/24", dest="212.24.128.0/24", bidir=True)
+    segment = SMSubnetSegment(
+        source="192.168.187.0/24", dest="212.24.128.0/24", bidir=True
+    )
     report = model.validate([SMRule(metrics, segment)])
     report.print_results()
     assert report.is_passing() is True
@@ -126,7 +146,10 @@ def test_single_subnet():
 
 def test_time_segment():
     """Test dividing input data into segments by time intervals."""
-    model = SMod(os.path.join(FLOWS_PATH, "basic_missing.csv"), os.path.join(REF_PATH, "basic.csv"))
+    model = SMod(
+        os.path.join(FLOWS_PATH, "basic_missing.csv"),
+        os.path.join(REF_PATH, "basic.csv"),
+    )
     metrics = [
         SMMetric(SMMetricType.PACKETS, 0),
         SMMetric(SMMetricType.BYTES, 0),
@@ -148,18 +171,30 @@ def test_time_segment():
 def test_source_file_error():
     """Test using multiple same metrics in a single rule."""
     with pytest.raises(SMException):
-        SMod(os.path.join(FLOWS_PATH, "non-existent.csv"), os.path.join(REF_PATH, "basic.csv"))
+        SMod(
+            os.path.join(FLOWS_PATH, "non-existent.csv"),
+            os.path.join(REF_PATH, "basic.csv"),
+        )
 
     with pytest.raises(SMException):
-        SMod(os.path.join(FLOWS_PATH, "basic_missing.csv"), os.path.join(REF_PATH, "non-existent.csv"))
+        SMod(
+            os.path.join(FLOWS_PATH, "basic_missing.csv"),
+            os.path.join(REF_PATH, "non-existent.csv"),
+        )
 
     with pytest.raises(SMException):
-        SMod(os.path.join(FLOWS_PATH, "malformed.csv"), os.path.join(REF_PATH, "basic.csv"))
+        SMod(
+            os.path.join(FLOWS_PATH, "malformed.csv"),
+            os.path.join(REF_PATH, "basic.csv"),
+        )
 
 
 def test_multiple_same_metrics():
     """Test using multiple same metrics in a single rule."""
-    model = SMod(os.path.join(FLOWS_PATH, "basic_missing.csv"), os.path.join(REF_PATH, "basic.csv"))
+    model = SMod(
+        os.path.join(FLOWS_PATH, "basic_missing.csv"),
+        os.path.join(REF_PATH, "basic.csv"),
+    )
     metrics = [
         SMMetric(SMMetricType.PACKETS, 0),
         SMMetric(SMMetricType.BYTES, 0),
@@ -215,16 +250,24 @@ def test_relative_time():
 def test_subnet_check_complement():
     """Test dividing input data into segments by subnets. Check that complement is empty."""
 
-    model = SMod(os.path.join(FLOWS_PATH, "long_flows_split.csv"), os.path.join(REF_PATH, "long_flows.csv"), merge=True)
+    model = SMod(
+        os.path.join(FLOWS_PATH, "long_flows_split.csv"),
+        os.path.join(REF_PATH, "long_flows.csv"),
+        merge=True,
+    )
     metrics = [
         SMMetric(SMMetricType.PACKETS, 0),
         SMMetric(SMMetricType.BYTES, 0),
         SMMetric(SMMetricType.FLOWS, 0),
     ]
 
-    segment1 = SMSubnetSegment(source="192.168.187.0/24", dest="212.24.128.0/24", bidir=True)
+    segment1 = SMSubnetSegment(
+        source="192.168.187.0/24", dest="212.24.128.0/24", bidir=True
+    )
     segment2 = SMSubnetSegment(source="5.180.196.0/24", bidir=True)
-    report = model.validate([SMRule(metrics, segment1), SMRule(metrics, segment2)], check_complement=True)
+    report = model.validate(
+        [SMRule(metrics, segment1), SMRule(metrics, segment2)], check_complement=True
+    )
     report.print_results()
     assert report.is_passing() is True
 
@@ -232,14 +275,20 @@ def test_subnet_check_complement():
 def test_subnet_check_complement_failure():
     """Test dividing input data into segments by subnets. Complement is not empty."""
 
-    model = SMod(os.path.join(FLOWS_PATH, "long_flows_split.csv"), os.path.join(REF_PATH, "long_flows.csv"), merge=True)
+    model = SMod(
+        os.path.join(FLOWS_PATH, "long_flows_split.csv"),
+        os.path.join(REF_PATH, "long_flows.csv"),
+        merge=True,
+    )
     metrics = [
         SMMetric(SMMetricType.PACKETS, 0),
         SMMetric(SMMetricType.BYTES, 0),
         SMMetric(SMMetricType.FLOWS, 0),
     ]
 
-    segment = SMSubnetSegment(source="192.168.187.0/24", dest="212.24.128.0/24", bidir=True)
+    segment = SMSubnetSegment(
+        source="192.168.187.0/24", dest="212.24.128.0/24", bidir=True
+    )
     report = model.validate([SMRule(metrics, segment)], check_complement=True)
     report.print_results()
     assert report.is_passing() is False
@@ -248,7 +297,9 @@ def test_subnet_check_complement_failure():
 def test_time_segment_check_complement():
     """Test dividing input data into segments by time intervals. Check that complement is empty."""
 
-    model = SMod(os.path.join(REF_PATH, "basic.csv"), os.path.join(REF_PATH, "basic.csv"))
+    model = SMod(
+        os.path.join(REF_PATH, "basic.csv"), os.path.join(REF_PATH, "basic.csv")
+    )
     metrics = [
         SMMetric(SMMetricType.PACKETS, 0),
         SMMetric(SMMetricType.BYTES, 0),
@@ -261,7 +312,9 @@ def test_time_segment_check_complement():
     tstart = datetime(2023, 3, 8, 21, 45, 13, 0, timezone.utc)
     tend = datetime(2023, 3, 8, 21, 51, 20, 0, timezone.utc)
     segment2 = SMTimeSegment(start=tstart, end=tend)
-    report = model.validate([SMRule(metrics, segment1), SMRule(metrics, segment2)], check_complement=True)
+    report = model.validate(
+        [SMRule(metrics, segment1), SMRule(metrics, segment2)], check_complement=True
+    )
     report.print_results()
     assert report.is_passing()
 
@@ -269,7 +322,9 @@ def test_time_segment_check_complement():
 def test_time_segment_check_complement_failure():
     """Test dividing input data into segments by time intervals. Complement is not empty."""
 
-    model = SMod(os.path.join(REF_PATH, "basic.csv"), os.path.join(REF_PATH, "basic.csv"))
+    model = SMod(
+        os.path.join(REF_PATH, "basic.csv"), os.path.join(REF_PATH, "basic.csv")
+    )
     metrics = [
         SMMetric(SMMetricType.PACKETS, 0),
         SMMetric(SMMetricType.BYTES, 0),
@@ -289,7 +344,10 @@ def test_check_complement_all_data():
     Complement of ALL DATA is always empty.
     """
 
-    model = SMod(os.path.join(FLOWS_PATH, "shuffled_basic.csv"), os.path.join(REF_PATH, "basic.csv"))
+    model = SMod(
+        os.path.join(FLOWS_PATH, "shuffled_basic.csv"),
+        os.path.join(REF_PATH, "basic.csv"),
+    )
     metrics = [
         SMMetric(SMMetricType.PACKETS, 0),
         SMMetric(SMMetricType.BYTES, 0),

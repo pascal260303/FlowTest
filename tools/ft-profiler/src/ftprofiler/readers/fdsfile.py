@@ -120,7 +120,10 @@ class Fdsfile(InputInterface):
 
                 # Fdsdump exited with an error.
                 if ret_code != 0:
-                    logging.getLogger().warning("fdsdump process exited with code=%d, data may be incomplete", ret_code)
+                    logging.getLogger().warning(
+                        "fdsdump process exited with code=%d, data may be incomplete",
+                        ret_code,
+                    )
 
                 # Fdsdump exited gracefully.
                 raise StopIteration
@@ -153,7 +156,9 @@ class Fdsfile(InputInterface):
                     raise ValueError("missing dstip")
 
             except (json.decoder.JSONDecodeError, KeyError, ValueError) as err:
-                logging.getLogger().error("processing line=%s error=%s", output.decode("utf-8"), str(err))
+                logging.getLogger().error(
+                    "processing line=%s error=%s", output.decode("utf-8"), str(err)
+                )
                 stderr = self._process.stderr.readline()
                 if len(stderr) > 0:
                     logging.getLogger().error(stderr.decode())
@@ -193,7 +198,9 @@ class Fdsfile(InputInterface):
         """
         logging.getLogger().debug(self._cmd)
         # pylint: disable=R1732
-        self._process = subprocess.Popen(self._cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self._process = subprocess.Popen(
+            self._cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
 
         # Check if Fdsdump has failed.
         try:
@@ -205,7 +212,9 @@ class Fdsfile(InputInterface):
             ret_code = self._process.returncode
             if ret_code != 0:
                 error = self._process.stderr.readline()
-                logging.getLogger().error("Fdsdump return code: %d, error: %s", ret_code, error.decode())
+                logging.getLogger().error(
+                    "Fdsdump return code: %d, error: %s", ret_code, error.decode()
+                )
                 raise InputException("Fdsdump error")
 
     def terminate(self) -> None:

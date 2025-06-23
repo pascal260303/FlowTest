@@ -74,7 +74,9 @@ class Generator:
         else:
             self._generator_file = Path(generator_file).absolute()
             if not generator_file.exists():
-                raise FileNotFoundError("Ft-generator executable not found, path:", self._generator_file)
+                raise FileNotFoundError(
+                    "Ft-generator executable not found, path:", self._generator_file
+                )
             if not self.validate_executable(self._generator_file.as_posix()):
                 raise RuntimeError(
                     "Generator::__init__(): Ft-generator file cannot be executed. Maybe insufficient privilege."
@@ -146,17 +148,25 @@ class Generator:
         self._profiles_file.unlink(True)
 
         if provided_profiles is None:
-            self._profiles_file.write_text(self._default_profiles.read_text(encoding="utf-8"))
+            self._profiles_file.write_text(
+                self._default_profiles.read_text(encoding="utf-8")
+            )
         elif isinstance(provided_profiles, str):
             self._profiles_file.write_text(provided_profiles)
         elif isinstance(provided_profiles, Path):
-            self._profiles_file.write_text(provided_profiles.read_text(encoding="utf-8"))
+            self._profiles_file.write_text(
+                provided_profiles.read_text(encoding="utf-8")
+            )
         elif isinstance(provided_profiles, FlowCache):
             provided_profiles.to_csv_profile(self._profiles_file)
         else:
-            raise TypeError("Generator::prepare_profiles(): Type of provided profiles not supported.")
+            raise TypeError(
+                "Generator::prepare_profiles(): Type of provided profiles not supported."
+            )
 
-    def prepare_config(self, provided_config: Union[GeneratorConfig, Path, None] = None):
+    def prepare_config(
+        self, provided_config: Union[GeneratorConfig, Path, None] = None
+    ):
         """Function prepares configuration for ft-generator.
         Configuration can be path to configuration file, GeneratorConfig or None if default configuration is requested.
         In all cases, function created new temporary configuration file, which will be used by generator.
@@ -185,12 +195,16 @@ class Generator:
             config.write_to_file(self._config_file)
         elif isinstance(provided_config, PurePath):
             if not provided_config.exists():
-                raise FileNotFoundError("Generator::prepare_config(): Provided config file not found.")
+                raise FileNotFoundError(
+                    "Generator::prepare_config(): Provided config file not found."
+                )
             self._config_file.write_text(provided_config.read_text())
         elif isinstance(provided_config, GeneratorConfig):
             provided_config.write_to_file(self._config_file)
         else:
-            raise TypeError("Generator::prepare_config(): Type of provided config not supported.")
+            raise TypeError(
+                "Generator::prepare_config(): Type of provided config not supported."
+            )
 
     def get_cmd_args(self) -> str:
         """Function prepares command arguments to execute generator.
@@ -246,7 +260,10 @@ class Generator:
         cmdline = self.get_cmd_args()
         self._cmdline_file.write_text(shlex.join(cmdline))
 
-        with open(self._stdout_file, "wb") as stdout, open(self._stderr_file, "wb") as stderr:
+        with (
+            open(self._stdout_file, "wb") as stdout,
+            open(self._stderr_file, "wb") as stderr,
+        ):
             subprocess.run(cmdline, stdout=stdout, stderr=stderr, check=True)
 
         return [self._pcap_file, self._report_file]

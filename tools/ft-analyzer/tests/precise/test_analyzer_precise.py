@@ -27,7 +27,11 @@ REF_PATH = os.path.join(BASE_PATH, "references")
 def test_shuffled():
     """Test basic functionality on the same data but shuffled."""
 
-    model = PMod(os.path.join(FLOWS_PATH, "base_shuffle.csv"), os.path.join(REF_PATH, "base.csv"), 300)
+    model = PMod(
+        os.path.join(FLOWS_PATH, "base_shuffle.csv"),
+        os.path.join(REF_PATH, "base.csv"),
+        300,
+    )
     report = model.validate_precise()
     report.print_results()
 
@@ -37,8 +41,14 @@ def test_shuffled():
 def test_subnet_segment():
     """Test basic functionality in a specified subnet segment on the same data but shuffled."""
 
-    model = PMod(os.path.join(FLOWS_PATH, "base_shuffle.csv"), os.path.join(REF_PATH, "base.csv"), 300)
-    segment1 = SMSubnetSegment(source="192.168.51.0/24", dest="81.2.248.0/24", bidir=True)
+    model = PMod(
+        os.path.join(FLOWS_PATH, "base_shuffle.csv"),
+        os.path.join(REF_PATH, "base.csv"),
+        300,
+    )
+    segment1 = SMSubnetSegment(
+        source="192.168.51.0/24", dest="81.2.248.0/24", bidir=True
+    )
     segment2 = SMSubnetSegment(dest="ff02::2")
     segment3 = SMSubnetSegment(source="10.100.56.132", dest="37.187.104.44", bidir=True)
     report = model.validate_precise([None, segment1, segment2, segment3])
@@ -50,7 +60,11 @@ def test_subnet_segment():
 def test_time_segment():
     """Test basic functionality in a specified time segment on the same data but shuffled."""
 
-    model = PMod(os.path.join(FLOWS_PATH, "base_shuffle.csv"), os.path.join(REF_PATH, "base.csv"), 300)
+    model = PMod(
+        os.path.join(FLOWS_PATH, "base_shuffle.csv"),
+        os.path.join(REF_PATH, "base.csv"),
+        300,
+    )
 
     tstart = datetime(2023, 3, 8, 21, 50, 00, 0, timezone.utc)
     tend = datetime(2023, 3, 8, 21, 55, 0, 0, timezone.utc)
@@ -67,7 +81,11 @@ def test_time_segment():
 def test_missing():
     """Test that missing flows are correctly reported."""
 
-    model = PMod(os.path.join(FLOWS_PATH, "small_missing.csv"), os.path.join(REF_PATH, "small.csv"), 300)
+    model = PMod(
+        os.path.join(FLOWS_PATH, "small_missing.csv"),
+        os.path.join(REF_PATH, "small.csv"),
+        300,
+    )
 
     segment1 = SMSubnetSegment(source="10.100.40.0/24", dest="37.186.104.0/24")
     segment2 = SMSubnetSegment(source="10.100.40.0/24", dest="37.187.104.0/24")
@@ -85,7 +103,11 @@ def test_missing():
 def test_unexpected():
     """Test that unexpected flows are correctly reported."""
 
-    model = PMod(os.path.join(FLOWS_PATH, "small_unexpected.csv"), os.path.join(REF_PATH, "small.csv"), 300)
+    model = PMod(
+        os.path.join(FLOWS_PATH, "small_unexpected.csv"),
+        os.path.join(REF_PATH, "small.csv"),
+        300,
+    )
 
     segment1 = SMSubnetSegment(source="10.100.40.0/24", dest="37.186.104.0/24")
     segment2 = SMSubnetSegment(source="10.100.40.0/24", dest="37.187.104.0/24")
@@ -103,7 +125,11 @@ def test_unexpected():
 def test_incorrect_values():
     """Test that flows which have missmatch in packet / bytes are reported."""
 
-    model = PMod(os.path.join(FLOWS_PATH, "small_incorrect.csv"), os.path.join(REF_PATH, "small.csv"), 300)
+    model = PMod(
+        os.path.join(FLOWS_PATH, "small_incorrect.csv"),
+        os.path.join(REF_PATH, "small.csv"),
+        300,
+    )
     report = model.validate_precise()
     report.print_results()
 
@@ -117,7 +143,11 @@ def test_incorrect_timestamps():
     Test that flows which timestamps differ more than allowed threshold (but not pairing limit) are reported.
     """
 
-    model = PMod(os.path.join(FLOWS_PATH, "timestamps.csv"), os.path.join(REF_PATH, "small.csv"), 300)
+    model = PMod(
+        os.path.join(FLOWS_PATH, "timestamps.csv"),
+        os.path.join(REF_PATH, "small.csv"),
+        300,
+    )
     report = model.validate_precise()
     report.print_results()
 
@@ -141,7 +171,11 @@ def test_incorrect_timestamps():
 def test_mixed():
     """Test statistical validation on the precise model."""
 
-    model = PMod(os.path.join(FLOWS_PATH, "base_shuffle.csv"), os.path.join(REF_PATH, "base.csv"), 300)
+    model = PMod(
+        os.path.join(FLOWS_PATH, "base_shuffle.csv"),
+        os.path.join(REF_PATH, "base.csv"),
+        300,
+    )
     metrics = [
         SMMetric(SMMetricType.PACKETS, 0),
         SMMetric(SMMetricType.BYTES, 0),
@@ -157,11 +191,17 @@ def test_mixed():
 def test_same_segment():
     """Test adding the same segment multiple times."""
 
-    model = PMod(os.path.join(FLOWS_PATH, "base_shuffle.csv"), os.path.join(REF_PATH, "base.csv"), 300)
+    model = PMod(
+        os.path.join(FLOWS_PATH, "base_shuffle.csv"),
+        os.path.join(REF_PATH, "base.csv"),
+        300,
+    )
     with pytest.raises(ValueError):
         model.validate_precise([None, None])
 
-    segment1 = SMSubnetSegment(source="192.168.51.0/24", dest="81.2.248.0/24", bidir=True)
+    segment1 = SMSubnetSegment(
+        source="192.168.51.0/24", dest="81.2.248.0/24", bidir=True
+    )
     with pytest.raises(ValueError):
         model.validate_precise([segment1, segment1])
 
@@ -227,7 +267,9 @@ def test_biflows_ts_correction():
 def test_subnet_segment_check_complement():
     """Test basic functionality in a specified subnet segment. Check that complement is empty."""
 
-    model = PMod(os.path.join(REF_PATH, "small.csv"), os.path.join(REF_PATH, "small.csv"), 300)
+    model = PMod(
+        os.path.join(REF_PATH, "small.csv"), os.path.join(REF_PATH, "small.csv"), 300
+    )
     segment1 = SMSubnetSegment(source="10.100.40.140/32", bidir=True)
     report = model.validate_precise([segment1], check_complement=True)
     report.print_results()
@@ -238,11 +280,19 @@ def test_subnet_segment_check_complement():
 def test_subnet_segment_check_complement_fail():
     """Test dividing input data into segments by subnets. Complement is not empty."""
 
-    model = PMod(os.path.join(FLOWS_PATH, "base_shuffle.csv"), os.path.join(REF_PATH, "base.csv"), 300)
-    segment1 = SMSubnetSegment(source="192.168.51.0/24", dest="81.2.248.0/24", bidir=True)
+    model = PMod(
+        os.path.join(FLOWS_PATH, "base_shuffle.csv"),
+        os.path.join(REF_PATH, "base.csv"),
+        300,
+    )
+    segment1 = SMSubnetSegment(
+        source="192.168.51.0/24", dest="81.2.248.0/24", bidir=True
+    )
     segment2 = SMSubnetSegment(dest="ff02::2")
     segment3 = SMSubnetSegment(source="10.100.56.132", dest="37.187.104.44", bidir=True)
-    report = model.validate_precise([segment1, segment2, segment3], check_complement=True)
+    report = model.validate_precise(
+        [segment1, segment2, segment3], check_complement=True
+    )
     report.print_results()
 
     assert report.is_passing() is False
@@ -257,7 +307,10 @@ def test_subnet_time_segment_combination_check_complement():
     """Test dividing input data into segments by both subnet and time. Check that complement is empty."""
 
     model = PMod(
-        os.path.join(FLOWS_PATH, "split.csv"), os.path.join(REF_PATH, "split.csv"), 300, start_time=1694766005473
+        os.path.join(FLOWS_PATH, "split.csv"),
+        os.path.join(REF_PATH, "split.csv"),
+        300,
+        start_time=1694766005473,
     )
     segment1 = SMSubnetSegment(source="158.251.62.121/32", bidir=True)
 

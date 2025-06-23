@@ -35,7 +35,10 @@ def pytest_addoption(parser: Parser):
     parser.addoption(
         "--profiles",
         action="store",
-        default=Path(__file__).parent.joinpath("../profiles/profiles_all.csv").resolve().as_posix(),
+        default=Path(__file__)
+        .parent.joinpath("../profiles/profiles_all.csv")
+        .resolve()
+        .as_posix(),
         help="Path to file with flow profiles.",
     )
     parser.addoption(
@@ -114,7 +117,9 @@ def fixture_profiles(request: Parser) -> Path:
 
     path = Path(request.config.option.profiles)
     if not path.exists():
-        raise FileNotFoundError(f"conftest: Argument 'profiles': File '{path}' cannot be found.")
+        raise FileNotFoundError(
+            f"conftest: Argument 'profiles': File '{path}' cannot be found."
+        )
 
     return path
 
@@ -131,7 +136,9 @@ def fixture_profiles_dir() -> Path:
 
     path = Path(__file__).parent.joinpath("../profiles/").resolve()
     if not path.exists():
-        raise FileNotFoundError(f"conftest: Profiles directory '{dir}' cannot be found.")
+        raise FileNotFoundError(
+            f"conftest: Profiles directory '{dir}' cannot be found."
+        )
     return path
 
 
@@ -179,13 +186,17 @@ def fixture_custom_config(request: Parser) -> Union[Path, None]:
 
     path = Path(path)
     if not path.exists():
-        raise FileNotFoundError("conftest: Argument 'config': File with config cannot be found.")
+        raise FileNotFoundError(
+            "conftest: Argument 'config': File with config cannot be found."
+        )
 
     return path.absolute()
 
 
 @fixture(name="ft_generator")
-def fixture_ft_generator(exec_path: Union[Path, None], profiles: Path, tmp: Path, request: FixtureRequest) -> Generator:
+def fixture_ft_generator(
+    exec_path: Union[Path, None], profiles: Path, tmp: Path, request: FixtureRequest
+) -> Generator:
     """Fixtures creates instance of Generator with configured paths.
 
     Parameters
@@ -204,9 +215,13 @@ def fixture_ft_generator(exec_path: Union[Path, None], profiles: Path, tmp: Path
     """
     if not tmp.exists():
         tmp.mkdir()
-    test_dir = tmp / request.node.name  # request.node.name is the name of the test function
+    test_dir = (
+        tmp / request.node.name
+    )  # request.node.name is the name of the test function
 
-    generator = Generator(generator_file=exec_path, profiles_file=profiles, tmp_dir=test_dir)
+    generator = Generator(
+        generator_file=exec_path, profiles_file=profiles, tmp_dir=test_dir
+    )
 
     yield generator
 

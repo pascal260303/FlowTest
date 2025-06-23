@@ -35,7 +35,9 @@ def assert_tool_is_installed(tool: Any, executor: Executor) -> None:
         If tool is not installed on machine.
     """
 
-    cmd = Tool(f"command -v {tool}", failure_verbosity="no-exception", executor=executor)
+    cmd = Tool(
+        f"command -v {tool}", failure_verbosity="no-exception", executor=executor
+    )
     stdout, _ = cmd.run()
 
     if cmd.returncode() != 0:

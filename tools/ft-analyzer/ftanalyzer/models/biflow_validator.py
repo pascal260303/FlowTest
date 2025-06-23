@@ -54,13 +54,20 @@ class BiflowValidator:
 
         self._flows = []
         self._ref = []
-        self._flow_map = {key: {"flows": [], "ref": []}, rev_key: {"flows": [], "ref": []}}
+        self._flow_map = {
+            key: {"flows": [], "ref": []},
+            rev_key: {"flows": [], "ref": []},
+        }
         self._flow_pairs = {}
         self._ref_pairs = {}
         self._ref_flow_indexes = []
         self._results_cache = {}
 
-    def add_flows(self, fwd_flow: Union["Flow", ValidationFlow], rev_flow: Union["Flow", ValidationFlow, None]) -> None:
+    def add_flows(
+        self,
+        fwd_flow: Union["Flow", ValidationFlow],
+        rev_flow: Union["Flow", ValidationFlow, None],
+    ) -> None:
         """Add provided flows to the validator.
 
         Parameters
@@ -74,11 +81,15 @@ class BiflowValidator:
         if isinstance(fwd_flow, ValidationFlow):
             self._store_flows(fwd_flow, rev_flow, self._ref, self._ref_pairs, "ref")
         else:
-            self._store_flows(fwd_flow, rev_flow, self._flows, self._flow_pairs, "flows")
+            self._store_flows(
+                fwd_flow, rev_flow, self._flows, self._flow_pairs, "flows"
+            )
 
     def validate(
         self, supported: List[str], special: Dict[str, str]
-    ) -> List[Tuple[Optional["Flow"], Optional[ValidationFlow], Optional["ValidationResult"]]]:
+    ) -> List[
+        Tuple[Optional["Flow"], Optional[ValidationFlow], Optional["ValidationResult"]]
+    ]:
         """Perform the validation of flows present in the validator.
 
         Compute validation results for all possible flow mappings.
@@ -115,7 +126,12 @@ class BiflowValidator:
         return self._convert_perm_to_results(best_perm)
 
     def _store_flows(
-        self, fwd_flow: "Flow", rev_flow: Optional["Flow"], storage: List["Flow"], pairs: Dict[int, int], f_type: str
+        self,
+        fwd_flow: "Flow",
+        rev_flow: Optional["Flow"],
+        storage: List["Flow"],
+        pairs: Dict[int, int],
+        f_type: str,
     ) -> None:
         """Store provided flow objects to the validator private structures.
 
@@ -177,7 +193,9 @@ class BiflowValidator:
 
     def _convert_perm_to_results(
         self, perm: List[int]
-    ) -> List[Tuple[Optional["Flow"], Optional[ValidationFlow], Optional["ValidationResult"]]]:
+    ) -> List[
+        Tuple[Optional["Flow"], Optional[ValidationFlow], Optional["ValidationResult"]]
+    ]:
         """Find flow validation results which correspond to the provided permutation.
 
         Parameters
@@ -194,9 +212,17 @@ class BiflowValidator:
 
         ret = []
         for test in self._break_perm_to_tests(perm):
-            ret.append((self._flows[test[0]], self._ref[test[1]], self._results_cache[test][0]))
+            ret.append(
+                (self._flows[test[0]], self._ref[test[1]], self._results_cache[test][0])
+            )
             if len(test) > 2:
-                ret.append((self._flows[test[2]], self._ref[test[3]], self._results_cache[test][1]))
+                ret.append(
+                    (
+                        self._flows[test[2]],
+                        self._ref[test[3]],
+                        self._results_cache[test][1],
+                    )
+                )
 
         # Missing flows.
         for index, val in enumerate(perm):
@@ -211,7 +237,10 @@ class BiflowValidator:
         return ret
 
     def _compute_tests_score(
-        self, tests: List[Tuple[int, int, Optional[int], Optional[int]]], supported: List[str], special: Dict[str, str]
+        self,
+        tests: List[Tuple[int, int, Optional[int], Optional[int]]],
+        supported: List[str],
+        special: Dict[str, str],
     ) -> int:
         """Get error score for provided batch of tests.
 
@@ -239,7 +268,9 @@ class BiflowValidator:
                 score += self._results_cache[test][2]
                 continue
 
-            res_a, res_b = self._validate_biflow(supported, special, *self._get_biflow_indexes(*test))
+            res_a, res_b = self._validate_biflow(
+                supported, special, *self._get_biflow_indexes(*test)
+            )
             test_score = res_a.score()
             if res_b is not None:
                 test_score += res_b.score()
@@ -250,7 +281,11 @@ class BiflowValidator:
         return score
 
     def _get_biflow_indexes(
-        self, f_index: int, r_index: int, f_index_rev: Optional[int] = None, r_index_rev: Optional[int] = None
+        self,
+        f_index: int,
+        r_index: int,
+        f_index_rev: Optional[int] = None,
+        r_index_rev: Optional[int] = None,
     ) -> Tuple["Flow", ValidationFlow, Optional["Flow"], Optional[ValidationFlow]]:
         """Get Flow objects based on their indexes
 
@@ -311,11 +346,17 @@ class BiflowValidator:
         """
 
         result_a = ref_a.validate(flow_a, flow_b, supported, special)
-        result_b = ref_b.validate(flow_b, flow_a, supported, special) if flow_b is not None else None
+        result_b = (
+            ref_b.validate(flow_b, flow_a, supported, special)
+            if flow_b is not None
+            else None
+        )
 
         return result_a, result_b
 
-    def _break_perm_to_tests(self, perm: List[int]) -> List[Tuple[int, int, Optional[int], Optional[int]]]:
+    def _break_perm_to_tests(
+        self, perm: List[int]
+    ) -> List[Tuple[int, int, Optional[int], Optional[int]]]:
         """Break the flow mapping into several individual bi-flow tests.
 
         Parameters
@@ -390,7 +431,11 @@ class BiflowValidator:
 
             if r_pair_index == -1:
                 # Reference flow does not originate from biflow.
-                if flow_rev_pos == -1 or self._ref_pairs.get(self._ref_flow_indexes[flow_rev_pos], -1) != -1:
+                if (
+                    flow_rev_pos == -1
+                    or self._ref_pairs.get(self._ref_flow_indexes[flow_rev_pos], -1)
+                    != -1
+                ):
                     # Reverse flow is not in the permutation or
                     # reference flow at reverse position exists and has a pair - invalid.
                     return False

@@ -106,9 +106,13 @@ class CollectorOutputMapper:
             with open(mapping_filename, "r", encoding="utf-8") as file:
                 mapping = yaml.safe_load(file)
         except OSError as exc:
-            raise MappingFileReadException(f"Cannot open mapping configuration file '{mapping_filename}'.") from exc
+            raise MappingFileReadException(
+                f"Cannot open mapping configuration file '{mapping_filename}'."
+            ) from exc
         except yaml.YAMLError as exc:
-            raise MappingFormatException("Error while parsing mapping configuration file.") from exc
+            raise MappingFormatException(
+                "Error while parsing mapping configuration file."
+            ) from exc
 
         self._check_yaml_format(mapping)
         self._mapping = mapping
@@ -152,7 +156,9 @@ class CollectorOutputMapper:
         """
         for attrib, attrib_mapping in mapping.items():
             if "map" not in attrib_mapping:
-                raise MappingFormatException(f"Missing map attribute for key '{attrib}'.")
+                raise MappingFormatException(
+                    f"Missing map attribute for key '{attrib}'."
+                )
             for key, value in attrib_mapping.items():
                 if key in ["map", "converter"]:
                     if not isinstance(value, str):
@@ -212,7 +218,9 @@ class CollectorOutputMapper:
                     if nested_key not in struct_attribute:
                         struct_attribute[nested_key] = {}
                     elif not isinstance(struct_attribute[nested_key], dict):
-                        raise MappingException(f"Attribute must be either dict or simple value (key: '{nested_key}')")
+                        raise MappingException(
+                            f"Attribute must be either dict or simple value (key: '{nested_key}')"
+                        )
                     struct_attribute = struct_attribute[nested_key]
                 inner_key = key_parts[-1]
                 struct_attribute[inner_key] = self._map_value(mapping, value)

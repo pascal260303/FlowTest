@@ -62,7 +62,9 @@ class CollectorBuilder(BuilderBase, Analyzer):
         super().__init__(config, disable_ansible)  # pylint: disable=too-many-function-args
 
         if alias not in self._config.collectors:
-            raise BuilderError(f"Collector '{alias}' not found in collectors configuration.")
+            raise BuilderError(
+                f"Collector '{alias}' not found in collectors configuration."
+            )
         collector_cfg = self._config.collectors[alias]
 
         self._prepare_env(collector_cfg)
@@ -73,7 +75,9 @@ class CollectorBuilder(BuilderBase, Analyzer):
         self._connector_args = cmd_connector_args
 
         import_paths = extra_import_paths + [COLLECTOR_IMPORT_PATH]
-        self._class = self._find_class(import_paths, collector_cfg.type, CollectorInterface)
+        self._class = self._find_class(
+            import_paths, collector_cfg.type, CollectorInterface
+        )
 
     # pylint: disable=arguments-differ
     def get(self) -> CollectorInterface:
@@ -85,7 +89,9 @@ class CollectorBuilder(BuilderBase, Analyzer):
             New collector instance.
         """
 
-        return self._class(self._executor, self._input_plugin, self._port, **self._connector_args)
+        return self._class(
+            self._executor, self._input_plugin, self._port, **self._connector_args
+        )
 
     def get_probe_target(self) -> ProbeTarget:
         """Get exporting target used by probe connector.

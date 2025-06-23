@@ -53,8 +53,12 @@ class Normalizer:
 
         self._field_db = field_db
         self._skipped_fields = set()
-        self._fwd_fields = self._field_db.get_fields_in_direction(FieldDirection.FORWARD)
-        self._rev_fields = self._field_db.get_fields_in_direction(FieldDirection.REVERSE)
+        self._fwd_fields = self._field_db.get_fields_in_direction(
+            FieldDirection.FORWARD
+        )
+        self._rev_fields = self._field_db.get_fields_in_direction(
+            FieldDirection.REVERSE
+        )
 
         # No error expected here, because the keys are already initialized in the database object.
         self._fwd_key_fmt, self._rev_key_fmt = self._field_db.get_key_formats()
@@ -90,7 +94,11 @@ class Normalizer:
 
     def normalize(
         self, flows: List[Dict[str, Any]], annotation: bool = False
-    ) -> List[Union[Tuple[Flow, Optional[Flow]], Tuple[ValidationFlow, Optional[ValidationFlow]]]]:
+    ) -> List[
+        Union[
+            Tuple[Flow, Optional[Flow]], Tuple[ValidationFlow, Optional[ValidationFlow]]
+        ]
+    ]:
         """Create pairs of Flow objects (forward and reverse) from provided sets of flow fields.
 
         Parameters
@@ -142,9 +150,13 @@ class Normalizer:
         biflow = self._is_biflow(norm_fields)
 
         rev_flow = None
-        fwd_flow = self._build_flow(FieldDirection.FORWARD, norm_fields, annotation, biflow)
+        fwd_flow = self._build_flow(
+            FieldDirection.FORWARD, norm_fields, annotation, biflow
+        )
         if biflow:
-            rev_flow = self._build_flow(FieldDirection.REVERSE, norm_fields, annotation, biflow)
+            rev_flow = self._build_flow(
+                FieldDirection.REVERSE, norm_fields, annotation, biflow
+            )
 
         return fwd_flow, rev_flow
 
@@ -187,7 +199,12 @@ class Normalizer:
 
         if annotation:
             return ValidationFlow(
-                self._fwd_key_fmt, self._rev_key_fmt, uni_fields, biflow, set(rev_fixed_fields.keys()), self._field_db
+                self._fwd_key_fmt,
+                self._rev_key_fmt,
+                uni_fields,
+                biflow,
+                set(rev_fixed_fields.keys()),
+                self._field_db,
             )
 
         return Flow(self._fwd_key_fmt, self._rev_key_fmt, uni_fields, biflow)
@@ -214,7 +231,11 @@ class Normalizer:
             Fields filtered based on specified direction.
         """
 
-        excluded = self._rev_fields if direction == FieldDirection.FORWARD else self._fwd_fields
+        excluded = (
+            self._rev_fields
+            if direction == FieldDirection.FORWARD
+            else self._fwd_fields
+        )
         filtered = {}
 
         # Pick fields fixed for this direction to be later merged with the original fields.
@@ -251,7 +272,10 @@ class Normalizer:
             if f_name.startswith("_"):
                 continue
 
-            if self._field_db.get_field_direction(f_name) == FieldDirection.REVERSE and f_value:
+            if (
+                self._field_db.get_field_direction(f_name) == FieldDirection.REVERSE
+                and f_value
+            ):
                 return True
 
         return False
@@ -277,7 +301,9 @@ class Normalizer:
                 normalized_fields[f_name] = new_value
             else:
                 self._skipped_fields.add(f_name)
-                logging.getLogger().warning("unknown or empty field=%s, skipping...", f_name)
+                logging.getLogger().warning(
+                    "unknown or empty field=%s, skipping...", f_name
+                )
 
         return normalized_fields
 
@@ -328,7 +354,9 @@ class Normalizer:
 
         return self._normalize_field_type(name, value)
 
-    def _normalize_field_type(self, f_name, f_value: Any) -> Union[str, int, Dict, List, None]:
+    def _normalize_field_type(
+        self, f_name, f_value: Any
+    ) -> Union[str, int, Dict, List, None]:
         """Convert a flow field to its expected type, Supported types: str, int, Dict, List.
 
         Parameters
@@ -361,11 +389,17 @@ class Normalizer:
 
             if f_type == "dict":
                 if not isinstance(f_value, dict):
-                    raise TypeError(f"Field '{f_name}' is not a dictionary, but {type(f_value)}.")
+                    raise TypeError(
+                        f"Field '{f_name}' is not a dictionary, but {type(f_value)}."
+                    )
 
                 return f_value
 
             raise TypeError(f"Field '{f_name}' unsupported type {f_type}.")
         except TypeError as err:
-            logging.getLogger().warning("unable to convert field=%s to designated type, error=%s", f_name, str(err))
+            logging.getLogger().warning(
+                "unable to convert field=%s to designated type, error=%s",
+                f_name,
+                str(err),
+            )
             return None

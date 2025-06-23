@@ -203,9 +203,13 @@ def validation_summary(summary: list) -> None:
     summary.append(html.table([thead, tbody], id="environment"))
 
     summary.append(html.h4("Fields unrecognized by Mapper"))
-    summary.append(html.p(", ".join(HTMLReportData.validation_summary_report.unmapped_fields)))
+    summary.append(
+        html.p(", ".join(HTMLReportData.validation_summary_report.unmapped_fields))
+    )
     summary.append(html.h4("Fields unrecognized by Normalizer"))
-    summary.append(html.p(", ".join(HTMLReportData.validation_summary_report.unknown_fields)))
+    summary.append(
+        html.p(", ".join(HTMLReportData.validation_summary_report.unknown_fields))
+    )
 
 
 def simulation_summary(summary: list) -> None:
@@ -224,7 +228,9 @@ def simulation_summary(summary: list) -> None:
     stats = HTMLReportData.simulation_summary_report.get_summary()
     thead = html.thead(html.tr(thead))
     rows = [
-        html.tr(html.td(name), html.td(str(value["passed"])), html.td(str(value["failed"])))
+        html.tr(
+            html.td(name), html.td(str(value["passed"])), html.td(str(value["failed"]))
+        )
         for name, value in stats.items()
     ]
     tbody = html.tbody(rows)
@@ -297,7 +303,9 @@ def get_logs_url(relative_logs_path: str) -> str:
     # tests are running in GitLab CI pipeline
     ci_job_url = os.getenv("CI_JOB_URL")
     ci_project_dir = os.getenv("CI_PROJECT_DIR")
-    relative_logs_path = os.path.relpath(os.path.realpath(relative_logs_path), ci_project_dir)
+    relative_logs_path = os.path.relpath(
+        os.path.realpath(relative_logs_path), ci_project_dir
+    )
     if ci_job_url:
         return f"{ci_job_url}/artifacts/browse/{relative_logs_path}"
     return relative_logs_path
@@ -335,8 +343,12 @@ def pytest_runtest_makereport(item: pytest.Function) -> None:
             html_path = item.config.getoption("htmlpath")
             if html_path:
                 assert isinstance(html_path, str)
-                relative_logs_path = os.path.relpath(logs_path, os.path.dirname(html_path))
+                relative_logs_path = os.path.relpath(
+                    logs_path, os.path.dirname(html_path)
+                )
             else:
                 relative_logs_path = logs_path
-            extra.append(pytest_html.extras.url(get_logs_url(relative_logs_path), name="Logs"))
+            extra.append(
+                pytest_html.extras.url(get_logs_url(relative_logs_path), name="Logs")
+            )
             report.extra = extra

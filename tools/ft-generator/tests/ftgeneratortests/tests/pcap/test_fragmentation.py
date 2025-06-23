@@ -75,7 +75,9 @@ def get_fragment_ratio(pcap: FlowCache, l3_proto: int) -> float:
     "probability",
     [0.1, 0.3, 0.5, 0.7, 0.9],
 )
-def test_ipv4_fragmentation(ft_generator: Generator, probability: Optional[int], custom_config: Optional[Path]):
+def test_ipv4_fragmentation(
+    ft_generator: Generator, probability: Optional[int], custom_config: Optional[Path]
+):
     """Test verifies if ipv4 fragments are generated with desired probability.
 
     Parameters
@@ -90,7 +92,11 @@ def test_ipv4_fragmentation(ft_generator: Generator, probability: Optional[int],
 
     if custom_config:
         config = GeneratorConfig.read_from_file(custom_config)
-        if not config.ipv4 or not config.ipv4.fragmentation_probability or not config.ipv4.min_packet_size_to_fragment:
+        if (
+            not config.ipv4
+            or not config.ipv4.fragmentation_probability
+            or not config.ipv4.min_packet_size_to_fragment
+        ):
             pytest.skip()
         probability = get_prob_from_str(config.ipv4.fragmentation_probability)
     elif probability:
@@ -103,14 +109,18 @@ def test_ipv4_fragmentation(ft_generator: Generator, probability: Optional[int],
 
     calculated_ratio = get_fragment_ratio(pcap, L3_PROTOCOL_IPV4)
 
-    assert math.isclose(probability, calculated_ratio, abs_tol=FRAGMENTATION_ABS_TOLERANCE)
+    assert math.isclose(
+        probability, calculated_ratio, abs_tol=FRAGMENTATION_ABS_TOLERANCE
+    )
 
 
 @pytest.mark.parametrize(
     "probability",
     [0.1, 0.3, 0.5, 0.7, 0.9],
 )
-def test_ipv6_fragmentation(ft_generator: Generator, probability: Optional[int], custom_config: Optional[Path]):
+def test_ipv6_fragmentation(
+    ft_generator: Generator, probability: Optional[int], custom_config: Optional[Path]
+):
     """Test verifies if ipv6 fragments are generated with desired probability.
 
     Parameters
@@ -125,7 +135,11 @@ def test_ipv6_fragmentation(ft_generator: Generator, probability: Optional[int],
 
     if custom_config:
         config = GeneratorConfig.read_from_file(custom_config)
-        if not config.ipv6 or not config.ipv6.fragmentation_probability or not config.ipv6.min_packet_size_to_fragment:
+        if (
+            not config.ipv6
+            or not config.ipv6.fragmentation_probability
+            or not config.ipv6.min_packet_size_to_fragment
+        ):
             pytest.skip()
         probability = get_prob_from_str(config.ipv6.fragmentation_probability)
     elif probability:
@@ -138,7 +152,9 @@ def test_ipv6_fragmentation(ft_generator: Generator, probability: Optional[int],
 
     calculated_ratio = get_fragment_ratio(pcap, L3_PROTOCOL_IPV6)
 
-    assert math.isclose(probability, calculated_ratio, abs_tol=FRAGMENTATION_ABS_TOLERANCE)
+    assert math.isclose(
+        probability, calculated_ratio, abs_tol=FRAGMENTATION_ABS_TOLERANCE
+    )
 
 
 def test_no_fragmentation(ft_generator: Generator):

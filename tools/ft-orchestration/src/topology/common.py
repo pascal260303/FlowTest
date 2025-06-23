@@ -27,7 +27,9 @@ def pytest_addoption(parser: pytest.Parser):
     parser.addoption(
         "--config-path",
         type=str,
-        help=("Redefine path to static config yaml files (probes.yaml, authentications.yaml, ...)."),
+        help=(
+            "Redefine path to static config yaml files (probes.yaml, authentications.yaml, ...)."
+        ),
     )
 
     parser.addoption(
@@ -97,9 +99,9 @@ def config(request: pytest.FixtureRequest) -> Config:
         Static configuration.
     """
 
-    assert request.config.getoption(
-        "config_path"
-    ), "Path to static configuration files is required option (--config-path)."
+    assert request.config.getoption("config_path"), (
+        "Path to static configuration files is required option (--config-path)."
+    )
 
     config_dir = request.config.getoption("config_path")
 
@@ -243,6 +245,6 @@ def check_time_synchronization(*args: list[BuilderBase]) -> None:
         builder.host_timestamp_async()
     timestamps = [builder.host_timestamp_result() for builder in args]
 
-    assert (
-        max(timestamps) - min(timestamps) <= MAX_HOST_TIMESTAMPS_DIFF
-    ), f"Timestamps from remote hosts differ by more than {MAX_HOST_TIMESTAMPS_DIFF}ms."
+    assert max(timestamps) - min(timestamps) <= MAX_HOST_TIMESTAMPS_DIFF, (
+        f"Timestamps from remote hosts differ by more than {MAX_HOST_TIMESTAMPS_DIFF}ms."
+    )

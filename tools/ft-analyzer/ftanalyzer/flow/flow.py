@@ -86,7 +86,11 @@ class Flow:
         FieldsDict
             Flow fields in format "name: value".
         """
-        return {f_name: f_value for f_name, f_value in self.fields.items() if f_name not in self.key_fmt}
+        return {
+            f_name: f_value
+            for f_name, f_value in self.fields.items()
+            if f_name not in self.key_fmt
+        }
 
     def _parse_key(self, key_fmt: Tuple[str, ...]) -> Tuple[str, ...]:
         """Parse flow key from flow fields based on the key format.
@@ -108,6 +112,8 @@ class Flow:
         """
         for key_field_name in key_fmt:
             if key_field_name not in self.fields:
-                raise KeyError(f"Key field '{key_field_name}' not present among flow fields.")
+                raise KeyError(
+                    f"Key field '{key_field_name}' not present among flow fields."
+                )
 
         return tuple(map(lambda name: self.fields[name], key_fmt))

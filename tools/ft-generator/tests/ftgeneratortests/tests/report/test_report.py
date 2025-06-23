@@ -53,8 +53,12 @@ def search_profile_in_list(profile: Flow, flow_list: list) -> Union[Flow, None]:
                 math.isclose(profile.end_time, flow.end_time, abs_tol=TIMING_ABS_TOLERANCE),
                 math.isclose(profile.packets, flow.packets, rel_tol=REPORT_REL_TOLERANCE),
                 math.isclose(profile.bytes, flow.bytes, rel_tol=REPORT_REL_TOLERANCE),
-                math.isclose(profile.packets_rev, flow.packets_rev, rel_tol=REPORT_REL_TOLERANCE),
-                math.isclose(profile.bytes_rev, flow.bytes_rev, rel_tol=REPORT_REL_TOLERANCE),
+                math.isclose(
+                    profile.packets_rev, flow.packets_rev, rel_tol=REPORT_REL_TOLERANCE
+                ),
+                math.isclose(
+                    profile.bytes_rev, flow.bytes_rev, rel_tol=REPORT_REL_TOLERANCE
+                ),
             ]
         ):
             return flow

@@ -223,7 +223,9 @@ def parse_fragmentation(
     return tmp
 
 
-def parse_packet(pkt: Packet, fragments: FlowCache, frag_min_size_packets: int) -> Union[ExtendedFlow, None]:
+def parse_packet(
+    pkt: Packet, fragments: FlowCache, frag_min_size_packets: int
+) -> Union[ExtendedFlow, None]:
     """Function parses packet and creates ExtendedFlow.
     Function is parsing L2, L3, L4, MPLS, VLAN layers and linking packet fragments.
 
@@ -268,7 +270,9 @@ def parse_packet(pkt: Packet, fragments: FlowCache, frag_min_size_packets: int) 
     return tmp
 
 
-def parse_pcap(pcap_file: Path, frag_min_size_packets: Optional[int] = 512) -> FlowCache:
+def parse_pcap(
+    pcap_file: Path, frag_min_size_packets: Optional[int] = 512
+) -> FlowCache:
     """Function to parse pcap file into dictionary with ExtendedFlow objects.
 
     Parameters
@@ -334,7 +338,9 @@ def parse_report(file: Path) -> FlowCache:
     """
 
     if not file.exists():
-        raise FileNotFoundError("parser::parse_report(): File not found:", file.as_posix())
+        raise FileNotFoundError(
+            "parser::parse_report(): File not found:", file.as_posix()
+        )
 
     cache = FlowCache()
     report = pd.read_csv(file.as_posix())
@@ -412,7 +418,9 @@ def parse_profiles(file: Path) -> FlowCache:
     """
 
     if not file.exists():
-        raise FileNotFoundError("parser::parse_profiles(): File not found:", file.as_posix())
+        raise FileNotFoundError(
+            "parser::parse_profiles(): File not found:", file.as_posix()
+        )
 
     cache = FlowCache()
     profiles = pd.read_csv(file.as_posix())

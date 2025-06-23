@@ -50,7 +50,9 @@ def create_config(ip_ranges: list[str]) -> GeneratorConfig:
         elif isinstance(ipaddress.ip_network(network), ipaddress.IPv6Network):
             ipv6.append(network)
         else:
-            raise ValueError("test_ip_range::create_config: Unexpected IP format found.")
+            raise ValueError(
+                "test_ip_range::create_config: Unexpected IP format found."
+            )
 
     # If none or one entry in list, modify data type
     if len(ipv4) == 0:
@@ -100,7 +102,9 @@ def get_ip_range_from_config(config: GeneratorConfig) -> list[str]:
         elif isinstance(config.ipv4.ip_range, list):
             ip_range = ip_range + config.ipv4.ip_range
         else:
-            raise ValueError("test_ip_range::get_ip_range_from_config: Unexpected ip_range data type.")
+            raise ValueError(
+                "test_ip_range::get_ip_range_from_config: Unexpected ip_range data type."
+            )
 
     if config.ipv6 and config.ipv6.ip_range:
         if isinstance(config.ipv6.ip_range, str):
@@ -108,7 +112,9 @@ def get_ip_range_from_config(config: GeneratorConfig) -> list[str]:
         elif isinstance(config.ipv6.ip_range, list):
             ip_range = ip_range + config.ipv6.ip_range
         else:
-            raise ValueError("test_ip_range::get_ip_range_from_config: Unexpected ip_range data type.")
+            raise ValueError(
+                "test_ip_range::get_ip_range_from_config: Unexpected ip_range data type."
+            )
 
     return ip_range
 
@@ -212,6 +218,8 @@ def test_ip_range(
     pcap = parse_pcap(pcap_file)
 
     for flow in pcap.values():
-        if (flow.l3_proto == L3_PROTOCOL_IPV4 and ipv4) or (flow.l3_proto == L3_PROTOCOL_IPV6 and ipv6):
+        if (flow.l3_proto == L3_PROTOCOL_IPV4 and ipv4) or (
+            flow.l3_proto == L3_PROTOCOL_IPV6 and ipv6
+        ):
             assert in_range(flow.src_ip, ip_range)
             assert in_range(flow.dst_ip, ip_range)

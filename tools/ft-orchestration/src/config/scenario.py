@@ -82,7 +82,10 @@ class AnalysisCfg(YAMLWizard):
 
     model: str = "statistical"
     metrics: list[SMMetric] = field(
-        default_factory=lambda: [SMMetric(SMMetricType.PACKETS, 0.0001), SMMetric(SMMetricType.BYTES, 0.0001)]
+        default_factory=lambda: [
+            SMMetric(SMMetricType.PACKETS, 0.0001),
+            SMMetric(SMMetricType.BYTES, 0.0001),
+        ]
     )
 
 
@@ -168,7 +171,9 @@ class SimConfig(YAMLWizard):
 
         return res
 
-    def get_replay_speed(self, default: "SimConfig") -> Union[MbpsSpeed, MultiplierSpeed, PpsSpeed]:
+    def get_replay_speed(
+        self, default: "SimConfig"
+    ) -> Union[MbpsSpeed, MultiplierSpeed, PpsSpeed]:
         """
         Determine replay speed from the provided configuration.
         Priorities:
@@ -369,16 +374,22 @@ class SimulationScenario(ScenarioCfg):
             profile_path = os.path.join(profiles_dir, profile_name)
 
             # duplicity - check if the profile has been already downloaded in some previous tests
-            csv_list = [f for f in os.listdir(os.path.dirname(profile_path)) if hash_url in f]
+            csv_list = [
+                f for f in os.listdir(os.path.dirname(profile_path)) if hash_url in f
+            ]
             if csv_list:
                 return os.path.join(profiles_dir, csv_list[0])
 
             # profile does not exist - download it
             try:
-                logging.getLogger().info("Downloading scenario profile from URL %s", self.profile)
+                logging.getLogger().info(
+                    "Downloading scenario profile from URL %s", self.profile
+                )
                 urlretrieve(self.profile, profile_path)
             except HTTPError as err:
-                raise ScenarioCfgException("Error downloading profile from provided URL.") from err
+                raise ScenarioCfgException(
+                    "Error downloading profile from provided URL."
+                ) from err
 
             return profile_path
 

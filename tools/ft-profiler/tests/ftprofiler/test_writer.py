@@ -7,6 +7,7 @@ SPDX-License-Identifier: BSD-3-Clause
 
 Unit tests for ftprofiler - writer.py.
 """
+
 import os
 from unittest.mock import mock_open, patch
 
@@ -38,7 +39,9 @@ class WriterHelper:
     DUMMY_OUTFILE_GZ = f"{DUMMY_OUTFILE}.gz"
 
     @staticmethod
-    def create_pw(name=DUMMY_OUTFILE, header=Flow.FLOW_CSV_FORMAT, compress=True) -> ProfileWriter:
+    def create_pw(
+        name=DUMMY_OUTFILE, header=Flow.FLOW_CSV_FORMAT, compress=True
+    ) -> ProfileWriter:
         """Create profile writer instance"""
         profile_writer = ProfileWriter(name, header, compress)
         if compress:
@@ -52,13 +55,15 @@ class WriterHelper:
         return profile_writer
 
     @staticmethod
-    def assert_flow_was_written(called_methods: list, flow: str, compress: bool) -> bool:
+    def assert_flow_was_written(
+        called_methods: list, flow: str, compress: bool
+    ) -> bool:
         """Custom asserts for open() mock and flow file writing. Skip check for compressed file."""
         if compress:
             return True
-        assert (
-            len(called_methods) == 1
-        ), f"Open() mock must have only one call (write()), but it has more!\nobj: {called_methods}"
+        assert len(called_methods) == 1, (
+            f"Open() mock must have only one call (write()), but it has more!\nobj: {called_methods}"
+        )
         assert called_methods[0][1][0] == f"{flow}\n"
         return True
 
@@ -114,13 +119,17 @@ class TestWriter:
             with WriterHelper.create_pw(compress=compress) as profile_writer:
                 written_cnt += 1  # header
                 assert profile_writer._written_cnt == written_cnt
-                WriterHelper.assert_flow_was_written(mocked_open().method_calls, Flow.FLOW_CSV_FORMAT, compress)
+                WriterHelper.assert_flow_was_written(
+                    mocked_open().method_calls, Flow.FLOW_CSV_FORMAT, compress
+                )
                 mocked_open.reset_mock()
                 for _ in range(0, nrflows):
                     flow = GenerateCache.gen_unique_flow()
                     profile_writer.write(flow)
                     written_cnt += 1  # flows
-                    WriterHelper.assert_flow_was_written(mocked_open().method_calls, str(flow), compress)
+                    WriterHelper.assert_flow_was_written(
+                        mocked_open().method_calls, str(flow), compress
+                    )
                     mocked_open.reset_mock()
                 assert profile_writer._written_cnt == written_cnt
 
@@ -130,6 +139,8 @@ class TestWriter:
         Builtin open() is mocked - raise OSError, which raises OutputException"""
         with pytest.raises(OutputException):
             with patch("builtins.open", mock_open()) as mocked_open:
-                mocked_open.side_effect = OSError()  # must be here, does not work if moved below!
+                mocked_open.side_effect = (
+                    OSError()
+                )  # must be here, does not work if moved below!
                 with WriterHelper.create_pw(compress=compress) as profile_writer:
                     profile_writer.write("")
