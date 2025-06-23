@@ -285,6 +285,8 @@ def test_simulation_general(
     # initialize generator
     generator_conf = scenario.test.get_generator_conf(scenario.default.generator)
     generator_instance = generator.get(scenario.mtu)
+    objects_to_cleanup.append(generator_instance)
+    objects_to_cleanup.append(generator_instance.get_cache())
     # file to save replication report from ft-generator (flows reference)
     ref_file = os.path.join(tmp_dir, "report.csv")
 

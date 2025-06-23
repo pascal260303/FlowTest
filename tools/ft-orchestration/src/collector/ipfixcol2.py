@@ -310,7 +310,8 @@ class Ipfixcol2(CollectorInterface):
         """Delete working directory."""
 
         self._rsync.wipe_data_directory()
-        Tool(f"rm -rf {self._work_dir}/*").run()
+        Tool(f"rm -rf {self._work_dir}").run()
+        Tool(f"rmdir {self._rsync.get_data_directory()}", executor=self._rsync._executor)
 
     def get_reader(self):
         """Return flow reader fdsdump.

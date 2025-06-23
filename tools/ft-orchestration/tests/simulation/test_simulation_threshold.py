@@ -191,6 +191,12 @@ def test_simulation_threshold(
         for obj in objects_to_cleanup:
             obj.stop()
             obj.cleanup()
+            
+    objects_for_final_cleanup = []
+    def final_cleanup():
+        for obj in objects_for_final_cleanup:
+            obj.stop()
+            obj.cleanup()
 
     def finalizer_download_logs():
         download_logs(
@@ -200,6 +206,7 @@ def test_simulation_threshold(
             probe=probe_instance,
         )
 
+    request.addfinalizer(final_cleanup)
     request.addfinalizer(cleanup)
     request.addfinalizer(finalizer_download_logs)
 

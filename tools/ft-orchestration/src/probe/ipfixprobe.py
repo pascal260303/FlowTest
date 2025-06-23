@@ -501,9 +501,7 @@ class Ipfixprobe(ProbeInterface, ABC):
 
     def cleanup(self) -> None:
         """Clean any artifacts which were created by the connector or the active probe itself."""
-
-        Rsync(self._executor).wipe_data_directory()
-        Tool(f"rm -rf {self._local_workdir}/*").run()
+        Tool(f"rm -rf {self._local_workdir}").run()
 
     def download_logs(self, directory: str):
         """Download logs from ipfix probe.

@@ -732,3 +732,11 @@ class FtReplay(Replicator):
             raise TypeError("Unsupported speed type.")
 
         return f"--{param_name}{speed.speed and f'={speed.speed}'}"
+    
+    def cleanup(self):
+        """Clean any artifacts which were created by ft-replay / ft-generator."""
+        self._ft_generator.cleanup()
+        Tool(f"rm -rf {self._work_dir}").run()
+        
+    def get_cache(self):
+        return self._ft_generator._cache
