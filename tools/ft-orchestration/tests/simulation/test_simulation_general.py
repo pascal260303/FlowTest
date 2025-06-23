@@ -11,6 +11,7 @@ Allows to modify most of the configuration options.
 import ipaddress
 import logging
 import os
+import time
 from typing import Optional
 
 import pandas as pd
@@ -109,7 +110,10 @@ def validate(
         metrics = analysis.metrics
 
     if len(prefilter_conf) > 0:
-        rules = [SMRule(metrics, SMSubnetSegment(subnet, bidir=True)) for subnet in prefilter_conf]
+        rules = [
+            SMRule(metrics, SMSubnetSegment(subnet, bidir=True))
+            for subnet in prefilter_conf
+        ]
         check_complement = True
     else:
         rules = [SMRule(metrics)]
@@ -155,7 +159,10 @@ def setup_replicator(
     assert loop_cnt > 0 and unit_cnt > 0
 
     prefix = get_replicator_prefix(
-        (loop_cnt * unit_cnt - 1).bit_length(), DEFAULT_REPLICATOR_PREFIX, conf.ipv4.ip_range, conf.ipv6.ip_range
+        (loop_cnt * unit_cnt - 1).bit_length(),
+        DEFAULT_REPLICATOR_PREFIX,
+        conf.ipv4.ip_range,
+        conf.ipv6.ip_range,
     )
     if conf.ipv4.ip_range is None:
         conf.ipv4.ip_range = f"{ipaddress.IPv4Address(2 ** (32 - prefix)):s}/{prefix}"
@@ -182,15 +189,24 @@ def setup_replicator(
         for loop_n in range(loop_cnt)
     }
 
-    logging.getLogger().info("Generator - ipv4 range: %s, ipv6 range: %s", conf.ipv4.ip_range, conf.ipv6.ip_range)
-    logging.getLogger().info("Replicator - units: %d, loops: %d, prefix: %d", unit_cnt, loop_cnt, prefix)
+    logging.getLogger().info(
+        "Generator - ipv4 range: %s, ipv6 range: %s",
+        conf.ipv4.ip_range,
+        conf.ipv6.ip_range,
+    )
+    logging.getLogger().info(
+        "Replicator - units: %d, loops: %d, prefix: %d", unit_cnt, loop_cnt, prefix
+    )
 
-    return FlowReplicator(generator.get_replicator_config()), list(map(str, extended_prefilter_conf))
+    return FlowReplicator(generator.get_replicator_config()), list(
+        map(str, extended_prefilter_conf)
+    )
 
 
 @pytest.mark.simulation
 @pytest.mark.parametrize(
-    "scenario, test_id", collect_scenarios(SIMULATION_TESTS_DIR, SimulationScenario, name="sim_general")
+    "scenario, test_id",
+    collect_scenarios(SIMULATION_TESTS_DIR, SimulationScenario, name="sim_general"),
 )
 # pylint: disable=too-many-locals
 # pylint: disable=unused-argument
@@ -244,7 +260,12 @@ def test_simulation_general(
     probe_instance, collector_instance, generator_instance = (None, None, None)
 
     def finalizer_download_logs():
-        download_logs(log_dir, collector=collector_instance, generator=generator_instance, probe=probe_instance)
+        download_logs(
+            log_dir,
+            collector=collector_instance,
+            generator=generator_instance,
+            probe=probe_instance,
+        )
 
     request.addfinalizer(cleanup)
     request.addfinalizer(finalizer_download_logs)
@@ -255,7 +276,9 @@ def test_simulation_general(
     collector_instance.start()
 
     # initialize probe
-    probe_conf = scenario.test.get_probe_conf(device.get_instance_type(), scenario.default.probe)
+    probe_conf = scenario.test.get_probe_conf(
+        device.get_instance_type(), scenario.default.probe
+    )
     probe_instance = device.get(mtu=scenario.mtu, **probe_conf)
     objects_to_cleanup.append(probe_instance)
     active_t, inactive_t = probe_instance.get_timeouts()
@@ -300,7 +323,11 @@ def test_simulation_general(
     # method stats blocks until traffic is sent
     stats = generator_instance.stats()
 
+    time.sleep(5)
+
     probe_instance.stop()
+
+    time.sleep(5)
     collector_instance.stop()
 
     flows_file = os.path.join(tmp_dir, "flows.csv")
@@ -328,8 +355,14 @@ def test_simulation_general(
         precise_report.print_results()
 
     HTMLReportData.simulation_summary_report.update_stats(
-        "sim_general", stats_report.is_passing() and (not precise_report or precise_report.is_passing())
+        "sim_general",
+        stats_report.is_passing()
+        and (not precise_report or precise_report.is_passing()),
     )
 
-    if not stats_report.is_passing() or (precise_report is not None and not precise_report.is_passing()):
-        assert False, f"evaluation of test: {request.function.__name__}[{test_id}] failed"
+    if not stats_report.is_passing() or (
+        precise_report is not None and not precise_report.is_passing()
+    ):
+        assert False, (
+            f"evaluation of test: {request.function.__name__}[{test_id}] failed"
+        )
