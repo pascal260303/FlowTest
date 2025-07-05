@@ -32,13 +32,14 @@ from ftanalyzer.models.sm_data_types import (
 )
 from ftanalyzer.reports import StatisticalReport
 from src.generator.interface import GeneratorStats
-from ftanalyzer.statistic_counter import ContinuousCounter
-from ftanalyzer.statistic_object import StatisticObject
+from ftanalyzer.counter import ContinuousCounter
+from ftanalyzer.statistic_object import StatisticObject, SimState
 from ftanalyzer.events import (
     Event,
     OnePacketFlow,
     create_event_queue,
 )
+from ftanalyzer.histogram import ContinuousHistogram
 
 
 class StatisticalModel:
@@ -181,6 +182,8 @@ class StatisticalModel:
         self._ref_ip_addresses_converted = isinstance(reference, pd.DataFrame)
 
         # statistic objects
+        self._sim = SimState(self._generator_stats.start_time)
+        
         self._statistic_objects, self._metic_to_obj = self._setup_statsitic_objects()
         event_queue = create_event_queue(self._flows)
         self._process_events(event_queue, self._statistic_objects)
@@ -531,13 +534,13 @@ class StatisticalModel:
     ) -> tuple[dict[str, StatisticObject], dict[str, str]]:
         statistic_objects: dict[str, StatisticObject] = {
             "ct_data_rate": ContinuousCounter(
-                "data rate in Gb/s", self._generator_stats.start_time, 1 / (10**9)
+                "data rate in Gb/s", self._sim, 1 / (10**9)
             ),
             "ct_data_rate_bibit": ContinuousCounter(
-                "data rate in Gib/s", self._generator_stats.start_time, 1 / (1024**3)
+                "data rate in Gib/s", self._sim, 1 / (1024**3)
             ),
             "ct_packet_rate": ContinuousCounter(
-                "packets per second", self._generator_stats.start_time
+                "packets per second", self._sim
             ),
         }
 
@@ -561,7 +564,7 @@ class StatisticalModel:
         """
 
         one_packet_events: list[OnePacketFlow] = []
-        last_time = self._generator_stats.start_time
+        last_time: np.uint64 = self._sim.get_time() # in milliseconds
 
         current_data_rate = 0.0
         current_packet_rate = 0.0
@@ -570,17 +573,17 @@ class StatisticalModel:
         n_events = len(event_queue)
 
         while index < n_events:
-            current_time = event_queue[index].time
+            self._sim.set_time(event_queue[index].time)
 
             # Gather all events with this timestamp
             simultaneous_events = []
-            while index < n_events and event_queue[index].time == current_time:
+            while index < n_events and event_queue[index].time == self._sim.get_time():
                 simultaneous_events.append(event_queue[index])
                 index += 1
 
             # Compute the duration between the last time and the current group of events
-            duration_ms = current_time - last_time
-            duration_s = duration_ms / 1000.0
+            duration_ms = self._sim.get_time_diff(last_time)
+            duration_s = self._sim.convert_seconds(duration_ms)
 
             # Only advance stats if time progressed
             if duration_s > 0 and not all_instance_of(
@@ -603,7 +606,6 @@ class StatisticalModel:
 
                 self._update_statistic_objects(
                     statistic_objects,
-                    current_time,
                     data_rate=total_data_rate,
                     packet_rate=total_packet_rate,
                 )
@@ -620,12 +622,11 @@ class StatisticalModel:
                     current_packet_rate += event.packet_rate
 
             # move forward in time
-            last_time = current_time
+            last_time = self._sim.get_time()
 
     def _update_statistic_objects(
         self,
         statistic_objects: dict[str, StatisticObject],
-        current_time: np.float64,
         **kwargs: dict | None,
     ):
         for key, rate in kwargs.items():
@@ -635,10 +636,7 @@ class StatisticalModel:
             for stat_obj_name in stat_obj_names:
                 stat_obj = statistic_objects.get(stat_obj_name)
                 if stat_obj is not None:
-                    if isinstance(stat_obj, ContinuousCounter):
-                        stat_obj.count(rate, current_time)
-                    else:
-                        stat_obj.count(rate)
+                    stat_obj.count(rate)
 
 
 def all_instance_of(iterable: Iterable, cls):
