@@ -348,12 +348,12 @@ class Replicator(PcapPlayer):
         """
 
         raise NotImplementedError
-    
+
     @abstractmethod
     def cleanup(self):
         """Clean any artifacts which were created by the replicator or generator."""
         raise NotImplementedError
-    
+
     @abstractmethod
     def get_cache(self):
         """Return ft-generator cache for cleanup"""

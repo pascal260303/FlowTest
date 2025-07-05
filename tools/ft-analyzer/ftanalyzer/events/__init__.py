@@ -1,1 +1,7 @@
-from .events import Event, FlowEndEvent, FlowStartEvent, OnePacketFlow, create_event_queue
+from .events import (
+    Event,
+    FlowEndEvent,
+    FlowStartEvent,
+    OnePacketFlow,
+    create_event_queue,
+)

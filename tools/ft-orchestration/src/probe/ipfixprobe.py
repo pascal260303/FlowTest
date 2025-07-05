@@ -21,7 +21,6 @@ from typing import Dict, List, Optional, Tuple
 from lbr_testsuite.executable import (
     Daemon,
     Executor,
-    Rsync,
     Tool,
     RemoteExecutor,
     LocalExecutor,

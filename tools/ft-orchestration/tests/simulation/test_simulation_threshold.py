@@ -191,8 +191,9 @@ def test_simulation_threshold(
         for obj in objects_to_cleanup:
             obj.stop()
             obj.cleanup()
-            
+
     objects_for_final_cleanup = []
+
     def final_cleanup():
         for obj in objects_for_final_cleanup:
             obj.stop()

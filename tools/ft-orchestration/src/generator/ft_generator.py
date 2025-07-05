@@ -268,7 +268,13 @@ class FtGeneratorCache:
 
     INDEX_FILENAME = "ft-generator-cache.pickle"
 
-    def __init__(self, executor: Executor, cache_dir: str, biflow_export: bool, persist_cache: bool = False) -> None:
+    def __init__(
+        self,
+        executor: Executor,
+        cache_dir: str,
+        biflow_export: bool,
+        persist_cache: bool = False,
+    ) -> None:
         """Cache init.
 
         Parameters
@@ -289,13 +295,13 @@ class FtGeneratorCache:
         self._tmp_index = path.join(self._tmp_dir, self.INDEX_FILENAME)
         self._biflow_export = biflow_export
         self._persist_cache = persist_cache
-        
+
     def cleanup(self):
         """Delete files in cache"""
         if not self._persist_cache:
             Tool(f"rm -rf {self._cache_dir}/*", executor=self._executor).run()
         Tool(f"rm -rf {self._tmp_dir}").run()
-        
+
     def stop(self):
         pass
 
@@ -789,7 +795,7 @@ class FtGenerator:
             return profile_path_out
 
         return profile_path
-    
+
     def cleanup(self):
         """Clean any artifacts which were created by the generator."""
         Tool(f"rm -rf {self._local_workdir}").run()

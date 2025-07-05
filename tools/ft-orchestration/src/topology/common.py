@@ -248,5 +248,7 @@ def check_time_synchronization(*args: list[BuilderBase]) -> None:
 
     assert max(timestamps) - min(timestamps) <= MAX_HOST_TIMESTAMPS_DIFF, (
         f"Timestamps from remote hosts differ by more than {MAX_HOST_TIMESTAMPS_DIFF}ms.",
-        "\n".join([f"{host}: {timestamp}" for host,timestamp in zip(hosts,timestamps)])
+        "\n".join(
+            [f"{host}: {timestamp}" for host, timestamp in zip(hosts, timestamps)]
+        ),
     )
