@@ -196,7 +196,7 @@ class FieldDatabase:
 
         Parameters
         ----------
-        key : list[str], tuple(str), None
+        key : List[str], tuple(str), None
             Names of flow fields which specify the flow key.
             If None, default flow key format is going to be used (from flow fields specification file).
 

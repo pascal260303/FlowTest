@@ -36,7 +36,7 @@ class StatisticalReport:
         """Basic init."""
         self.tests = []
         self._log_dir = log_dir
-        self.stat_objs: list[tuple[StatisticObject, StatisticObject]] = []
+        self.stat_objs: List[tuple[StatisticObject, StatisticObject]] = []
 
     def add_test(self, test: SMTestOutcome) -> None:
         """Append the performed test into the report.
@@ -134,6 +134,6 @@ Got:
 Expected:
 {ref_obj.report()}
 """)
-            
+
             stat_obj.csv_report(self._log_dir)
             stat_obj.reset()

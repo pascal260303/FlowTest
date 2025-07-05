@@ -41,6 +41,7 @@ from ftanalyzer.events import (
     create_event_queue,
 )
 
+
 class StatisticalModel:
     """Statistical model reads flows obtained from a network probe and compares them with a provided reference.
 
@@ -140,7 +141,7 @@ class StatisticalModel:
 
         # fallback to python analyzer implementation
         self._fast_model = None
-        
+
         self._log_dir = log_dir
 
         try:
@@ -185,7 +186,7 @@ class StatisticalModel:
 
         # statistic objects
         self._sim = SimState(self._generator_stats.start_time)
-        
+
         self._statistic_objects, self._metric_to_obj = self._setup_statsitic_objects()
         event_queue = create_event_queue(self._flows)
         self._process_events(event_queue, self._statistic_objects)
@@ -541,18 +542,23 @@ class StatisticalModel:
             "ct_data_rate_bibit": ContinuousCounter(
                 "data rate in Gib/s", self._sim, 1 / (1024**3)
             ),
-            "ct_packet_rate": ContinuousCounter(
-                "packets per second", self._sim
-            ),
+            "ct_packet_rate": ContinuousCounter("packets per second", self._sim),
             "tsc_data_rate": TimeSeriesCounter(
-                "data rate in Gb/s", self._sim, 1 / (10**9)
+                "data rate in Gb/s",
+                self._sim,
+                self._generator_stats.start_time,
+                self._generator_stats.end_time,
+                1 / (10**9),
             ),
             "tsc_packet_rate": TimeSeriesCounter(
-                "packets per second", self._sim
+                "packets per second",
+                self._sim,
+                self._generator_stats.start_time,
+                self._generator_stats.end_time,
             ),
         }
 
-        metric_mapping: dict[str, list[str]] = {
+        metric_mapping: dict[str, List[str]] = {
             "data_rate": ["ct_data_rate", "ct_data_rate_bibit", "tsc_data_rate"],
             "packet_rate": ["ct_packet_rate", "tsc_packet_rate"],
         }
@@ -571,8 +577,8 @@ class StatisticalModel:
         timestamp are processed together to avoid zero-duration artifacts.
         """
 
-        one_packet_events: list[OnePacketFlow] = []
-        last_time: np.uint64 = self._sim.get_time() # in milliseconds
+        one_packet_events: List[OnePacketFlow] = []
+        last_time: np.uint64 = self._sim.get_time()  # in milliseconds
 
         current_data_rate = 0.0
         current_packet_rate = 0.0

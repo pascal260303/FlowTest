@@ -86,7 +86,9 @@ def validate(
     """
 
     if analysis.model == "precise":
-        model = PreciseModel(flows_file, reference, active_timeout, stats, log_dir, biflows)
+        model = PreciseModel(
+            flows_file, reference, active_timeout, stats, log_dir, biflows
+        )
         if len(prefilter_conf) > 0:
             precise_report = model.validate_precise(
                 [SMSubnetSegment(subnet, bidir=True) for subnet in prefilter_conf],
@@ -345,7 +347,7 @@ def test_simulation_general(
         active_timeout=active_t,
         stats=stats,
         biflows=device.get_biflow_export(),
-        log_dir=log_dir
+        log_dir=log_dir,
     )
 
     print("")

@@ -9,7 +9,7 @@ SPDX-License-Identifier: BSD-3-Clause
 import operator
 from functools import reduce
 from os import PathLike
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import pandas as pd
 from ftanalyzer.models.sm_data_types import SMSubnetSegment, SMTimeSegment
@@ -91,7 +91,7 @@ class PreciseModel(StatisticalModel):
 
     def validate_precise(
         self,
-        segments: Optional[list[Union[SMSubnetSegment, SMTimeSegment]]] = None,
+        segments: Optional[List[Union[SMSubnetSegment, SMTimeSegment]]] = None,
         ok_time_diff: int = DEFAULT_OK_TIME_DIFF,
         check_complement: bool = False,
     ) -> PreciseReport:

@@ -1,13 +1,16 @@
 from .counter import Counter
 import numpy as np
 
+
 class DiscreteCounter(Counter):
     """
     Implements a discrete time counter, which updates statistics per discrete
     observation.
     """
 
-    def __init__(self, variable: str, counter_type: str = "counter type: discrete-time counter"):
+    def __init__(
+        self, variable: str, counter_type: str = "counter type: discrete-time counter"
+    ):
         """
         Constructor for DiscreteCounter.
 
@@ -25,7 +28,9 @@ class DiscreteCounter(Counter):
             np.float64: the mean value
         """
         if self.get_num_samples() > 0:
-            return np.float64(self.get_sum_power_one()) / np.float64(self.get_num_samples())
+            return np.float64(self.get_sum_power_one()) / np.float64(
+                self.get_num_samples()
+            )
         else:
             return np.float64(0)
 

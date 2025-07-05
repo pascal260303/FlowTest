@@ -1,5 +1,6 @@
 from os import PathLike
 import os
+from typing import List
 import numpy as np
 import pandas as pd
 from .discrete_counter import DiscreteCounter
@@ -12,7 +13,15 @@ class TimeSeriesCounter(DiscreteCounter):
     Counter that records the time series of a variable
     """
 
-    def __init__(self, variable: str, sim: SimState, factor=1.0):
+    def __init__(
+        self,
+        variable: str,
+        sim: SimState,
+        start_time: np.uint64,
+        end_time: np.uint64,
+        factor=1.0,
+        target_sample_count=10000,
+    ):
         """
         Args:
             variable (str): name of the observed variable
@@ -22,30 +31,66 @@ class TimeSeriesCounter(DiscreteCounter):
         super().__init__(variable, "counter type: time-series counter")
         self._sim = sim
         self._factor = factor
-        self._samples_list: list[tuple[np.uint64, np.float64]] = []
+        self._samples_list: List[tuple[np.uint64, np.float64]] = []
+
+        total_time_ms = end_time - start_time + 1
+
+        self._agg_window_ms = max(1, total_time_ms // target_sample_count)
+        self._agg_start_time: np.uint64 | None = None
+        self._agg_sum = 0.0
+        self._agg_count = 0
 
     def count(self, x: np.float64) -> None:
         x = x * self._factor
         super().count(x)
 
-        current_time = self._sim.get_time()
-        self._samples_list.append((current_time, x))
+        if self._agg_start_time is None:
+            self._agg_start_time = self._sim.get_time()
+
+        self._agg_sum += x
+        self._agg_count += 1
+
+        # If aggregation window is over, compute average and store
+        if self._sim.get_time() - self._agg_start_time >= self._agg_window_ms:
+            avg_value = self._agg_sum / self._agg_count
+            self._samples_list.append((self._agg_start_time, avg_value))
+
+            # Reset aggregation state
+            self._agg_start_time = self._sim.get_time()
+            self._agg_sum = 0.0
+            self._agg_count = 0
+
+    def _finalize_aggregation(self):
+        if self._agg_count > 0:
+            avg_value = self._agg_sum / self._agg_count
+            self._samples_list.append((self._agg_start_time, avg_value))
+            self._agg_sum = 0.0
+            self._agg_count = 0
 
     def reset(self) -> None:
         super().reset()
         self._samples_list.clear()
+
+    def report(self):
+        super().report()
+        self._finalize_aggregation()
 
     def csv_report(self, outputdir: PathLike) -> None:
         """
         Exports the time series data to a CSV file and calls the plot function
         to create plot
         """
+        self._finalize_aggregation()
         self._plot(os.path.join(outputdir, "plots"))
 
         samples_df = pd.DataFrame(
             self._samples_list,
             columns=["time", "value"],
-            dtype={"time": np.uint64, "value": np.float64},
+        ).astype(
+            {
+                "time": np.uint64,
+                "value": np.float64,
+            }
         )
 
         outputdir = os.path.join(outputdir, "counters")
@@ -75,7 +120,11 @@ class TimeSeriesCounter(DiscreteCounter):
         df = pd.DataFrame(
             self._samples_list,
             columns=["time", "value"],
-            dtype={"time": np.uint64, "value": np.float64},
+        ).astype(
+            {
+                "time": np.uint64,
+                "value": np.float64,
+            }
         )
         df["time_sec"] = df["time"].apply(self._sim.convert_to_seconds)
         df["time_sec_zero"] = df["time_sec"] - df["time_sec"].iloc[0]

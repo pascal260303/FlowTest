@@ -9,7 +9,7 @@ SPDX-License-Identifier: BSD-3-Clause
 import ipaddress
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 from ftanalyzer.models.sm_data_types import SMSubnetSegment, SMTimeSegment
 
@@ -86,11 +86,11 @@ class PMTestOutcome:
     """
 
     segment: Union[SMSubnetSegment, SMTimeSegment, None, str] = None
-    split: list[PMFlow] = field(default_factory=list)
-    missing: list[PMFlow] = field(default_factory=list)
-    unexpected: list[PMFlow] = field(default_factory=list)
-    shifted: list[PMFlowPair] = field(default_factory=list)
-    scaled: list[PMFlowPair] = field(default_factory=list)
+    split: List[PMFlow] = field(default_factory=list)
+    missing: List[PMFlow] = field(default_factory=list)
+    unexpected: List[PMFlow] = field(default_factory=list)
+    shifted: List[PMFlowPair] = field(default_factory=list)
+    scaled: List[PMFlowPair] = field(default_factory=list)
 
     def is_passing(self) -> bool:
         """The test is passing if no errors are present in any category.

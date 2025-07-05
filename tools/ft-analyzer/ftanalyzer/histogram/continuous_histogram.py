@@ -2,6 +2,7 @@ from .histogram import Histogram
 from abc import ABC
 from ..statistic_object import SimState
 
+
 class ContinuousHistogram(Histogram, ABC):
     """
     This class implements a continuous-time histogram.

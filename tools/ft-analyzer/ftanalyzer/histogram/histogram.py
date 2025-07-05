@@ -3,8 +3,16 @@ from pathlib import Path
 from ..statistic_object import StatisticObject
 import os
 
+
 class Histogram(StatisticObject, ABC):
-    def __init__(self, variable: str, num_intervals: int, lower_bound: float, upper_bound: float, histogram_type: str = "histogram type: base histogram"):
+    def __init__(
+        self,
+        variable: str,
+        num_intervals: int,
+        lower_bound: float,
+        upper_bound: float,
+        histogram_type: str = "histogram type: base histogram",
+    ):
         self.observed_variable = variable
         self.histogram_type = histogram_type
         self.num_intervals = num_intervals
@@ -63,10 +71,11 @@ class Histogram(StatisticObject, ABC):
         dist_path = dest / f"{self.observed_variable}_dist.csv"
 
         try:
-            with hist_path.open("w", encoding="utf-8") as hist_writer, \
-                 pdf_path.open("w", encoding="utf-8") as pdf_writer, \
-                 dist_path.open("w", encoding="utf-8") as dist_writer:
-
+            with (
+                hist_path.open("w", encoding="utf-8") as hist_writer,
+                pdf_path.open("w", encoding="utf-8") as pdf_writer,
+                dist_path.open("w", encoding="utf-8") as dist_writer,
+            ):
                 header = f"#{self.histogram_type}\n#{self.observed_variable}\n"
                 hist_writer.write(header)
                 pdf_writer.write(header)
@@ -85,10 +94,15 @@ class Histogram(StatisticObject, ABC):
                     prob_density = rel_freq / self.delta if self.delta != 0 else 0
                     center = lb + 0.5 * self.delta
 
-                    hist_writer.write(f"{lb:.6f};{ub:.6f};{rel_freq:.6f}\n".replace('.', ','))
-                    pdf_writer.write(f"{lb:.6f};{ub:.6f};{prob_density:.6f}\n".replace('.', ','))
-                    dist_writer.write(f"{center:.6f};{rel_freq:.6f}\n".replace('.', ','))
+                    hist_writer.write(
+                        f"{lb:.6f};{ub:.6f};{rel_freq:.6f}\n".replace(".", ",")
+                    )
+                    pdf_writer.write(
+                        f"{lb:.6f};{ub:.6f};{prob_density:.6f}\n".replace(".", ",")
+                    )
+                    dist_writer.write(
+                        f"{center:.6f};{rel_freq:.6f}\n".replace(".", ",")
+                    )
 
         except IOError as e:
             print(f"Error writing histogram files: {e}")
-

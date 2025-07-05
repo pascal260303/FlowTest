@@ -182,14 +182,14 @@ class FlowReplicator:
             return FlowReplicator.IPv6Address(obj)
         return FlowReplicator.IPv4Address(obj)
 
-    def __init__(self, config: dict, ignore_loops: Optional[list[int]] = None) -> None:
+    def __init__(self, config: dict, ignore_loops: Optional[List[int]] = None) -> None:
         """Init flow replicator. Parse config dict.
 
         Parameters
         ----------
         config : dict
             Configuration in form of dict, the same as ft-replay configuration.
-        ignore_loops : list[int], optional
+        ignore_loops : List[int], optional
             Do not replicate flows in loops with indices.
             Replication units that are active only in these loops may contain unsupported modifiers (addCounter).
 

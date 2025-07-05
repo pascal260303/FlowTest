@@ -4,7 +4,7 @@ from ..statistic_object import SimState
 
 
 class ContinuousCounter(Counter):
-    def __init__(self, variable: str, sim: SimState, factor = 1):
+    def __init__(self, variable: str, sim: SimState, factor=1):
         """Constructor
 
         Args:
@@ -29,23 +29,24 @@ class ContinuousCounter(Counter):
         interval = self.last_sample_time - self.first_sample_time
         if interval > 0:
             mean = self.get_mean()
-            variance = (np.float64(self.get_sum_power_two()) / np.float64(interval)
+            variance = (
+                np.float64(self.get_sum_power_two()) / np.float64(interval)
             ) - mean * mean
             return variance
-                
+
         else:
             return np.float64(0)
 
-    def count(self, x: np.float64) -> None:       
+    def count(self, x: np.float64) -> None:
         x = x * self._factor
         super().count(x)
-        
+
         if self.first_sample_time == 0:
             self.first_sample_time = self._sim.get_time()
             self.last_sample_time = self._sim.get_time()
             self.last_sample_size = x
             return
-        
+
         current_time = self._sim.get_time()
         interval = self._sim.get_time_diff(self.last_sample_time)
         self.increase_sum_power_one(self.last_sample_size * interval)

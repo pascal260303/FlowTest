@@ -11,7 +11,7 @@ import logging
 import multiprocessing
 import time
 from functools import partial
-from typing import Callable
+from typing import Callable, List
 
 import pandas as pd
 
@@ -46,7 +46,7 @@ class PandasMultiprocessingHelper:
             self._pool.join()
 
     def apply(
-        self, df: pd.DataFrame, mappings: list[tuple[str, Callable, list]]
+        self, df: pd.DataFrame, mappings: List[tuple[str, Callable, list]]
     ) -> None:
         """Apply functions on a DataFrame columns.
 
@@ -54,7 +54,7 @@ class PandasMultiprocessingHelper:
         ----------
         df: pd.DataFrame
             DataFrame on applying.
-        mappings: list[tuple[str, Callable, list]
+        mappings: List[tuple[str, Callable, list]
             Mapping describing which function should be applied to which column in the form:
                 (column name, function, additional args)
             Note: additional args are the same for each apply call.
@@ -85,7 +85,7 @@ class PandasMultiprocessingHelper:
             )
 
     def binary(
-        self, df: pd.DataFrame, mappings: list[tuple[str, Callable, str, str, list]]
+        self, df: pd.DataFrame, mappings: List[tuple[str, Callable, str, str, list]]
     ) -> None:
         """Apply binary functions on a DataFrame columns.
 
@@ -93,7 +93,7 @@ class PandasMultiprocessingHelper:
         ----------
         df: pd.DataFrame
             DataFrame on applying.
-        mappings: list[tuple[str, Callable, list]
+        mappings: List[tuple[str, Callable, list]
             Mapping describing which function should be applied to which column in the form:
                 (target column name, function, operand column1, operand column2, additional args)
             Binary function gets values from operand column 1 and 2. Result is stored to target
