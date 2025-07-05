@@ -6,10 +6,13 @@ SPDX-License-Identifier: BSD-3-Clause
 
 """
 
+import atexit
 import ipaddress
 import logging
 import operator
 from os import PathLike
+from pathlib import Path
+import tempfile
 import time
 from functools import reduce
 from typing import Iterable, List, Optional, Tuple, Union
@@ -40,6 +43,20 @@ from ftanalyzer.events import (
     OnePacketFlow,
     create_event_queue,
 )
+
+_TEMP_FILES = []
+
+
+def _cleanup_temp_files():
+    for path in _TEMP_FILES:
+        try:
+            Path(path).unlink()
+        except FileNotFoundError:
+            pass
+
+
+# Register only once
+atexit.register(_cleanup_temp_files)
 
 
 class StatisticalModel:
@@ -180,6 +197,19 @@ class StatisticalModel:
         if merge:
             self._merge_flows(biflows_ts_correction)
 
+        # write dataframes back to file and read later when needed
+        self._flows_path = tempfile.NamedTemporaryFile(delete=False, suffix=".csv").name
+        self._flows.to_csv(self._flows_path, index=False)
+        del self._flows
+
+        _TEMP_FILES.append(self._flows_path)
+
+        self._ref_path = tempfile.NamedTemporaryFile(delete=False, suffix=".csv").name
+        self._ref.to_csv(self._ref_path, index=False)
+        del self._ref
+
+        _TEMP_FILES.append(self._ref_path)
+
         self._generator_stats: GeneratorStats = stats
         self._flows_ip_addresses_converted = False
         self._ref_ip_addresses_converted = isinstance(reference, pd.DataFrame)
@@ -188,12 +218,22 @@ class StatisticalModel:
         self._sim = SimState(self._generator_stats.start_time)
 
         self._statistic_objects, self._metric_to_obj = self._setup_statsitic_objects()
-        event_queue = create_event_queue(self._flows)
+        event_queue = create_event_queue(self._flows_path)
         self._process_events(event_queue, self._statistic_objects)
 
         self._ref_statisitic_objetcs, _ = self._setup_statsitic_objects()
-        ref_event_queue = create_event_queue(self._ref)
+        ref_event_queue = create_event_queue(self._ref_path)
         self._process_events(ref_event_queue, self._ref_statisitic_objetcs)
+
+    def _load_flows_df(self):
+        return pd.read_csv(
+            self._flows_path, engine="pyarrow", dtype=self.CSV_COLUMN_TYPES
+        )
+
+    def _load_ref_df(self):
+        return pd.read_csv(
+            self._ref_path, engine="pyarrow", dtype=self.CSV_COLUMN_TYPES
+        )
 
     def validate(
         self, rules: List[SMRule], check_complement: bool = False
@@ -225,6 +265,10 @@ class StatisticalModel:
 
         report = StatisticalReport(self._log_dir)
         all_flow_masks = []
+
+        self._flows = self._load_flows_df()
+        self._ref = self._load_ref_df()
+
         for rule in rules:
             flows, ref, mask_flow = self._filter_segment(rule.segment)
             all_flow_masks.append(mask_flow)
@@ -566,10 +610,12 @@ class StatisticalModel:
         return (statistic_objects, metric_mapping)
 
     def _process_events(
-        self, event_queue: List[Event], statistic_objects: dict[str, StatisticObject]
+        self,
+        event_queue: Iterable[Event],
+        statistic_objects: dict[str, StatisticObject],
     ) -> None:
         """
-        Process a list of flow events, calculating data rates and packet rates
+        Process a stream of flow events, calculating data rates and packet rates
         over event-driven time windows.
 
         OnePacketFlow events are aggregated into the current time window until
@@ -577,35 +623,40 @@ class StatisticalModel:
         timestamp are processed together to avoid zero-duration artifacts.
         """
 
-        one_packet_events: List[OnePacketFlow] = []
-        last_time: np.uint64 = self._sim.get_time()  # in milliseconds
-
+        one_packet_events: list[OnePacketFlow] = []
         current_data_rate = 0.0
         current_packet_rate = 0.0
 
-        index = 0
-        n_events = len(event_queue)
+        # Prime the iterator
+        event_iter = iter(event_queue)
+        try:
+            current_event = next(event_iter)
+        except StopIteration:
+            return  # No events to process
 
-        while index < n_events:
-            self._sim.set_time(event_queue[index].time)
+        last_time: np.uint64 = self._sim.get_time()
+        self._sim.set_time(current_event.time)
 
-            # Gather all events with this timestamp
-            simultaneous_events = []
-            while index < n_events and event_queue[index].time == self._sim.get_time():
-                simultaneous_events.append(event_queue[index])
-                index += 1
+        simultaneous_events = [current_event]
+
+        for event in event_iter:
+            if event.time == self._sim.get_time():
+                simultaneous_events.append(event)
+                continue
 
             # Compute the duration between the last time and the current group of events
             duration_ms = self._sim.get_time_diff(last_time)
             duration_s = self._sim.convert_to_seconds(duration_ms)
 
             # Only advance stats if time progressed
-            if duration_s > 0 and not all_instance_of(
-                simultaneous_events, OnePacketFlow
+            if (
+                duration_ms > 0
+                and not all_instance_of(simultaneous_events, OnePacketFlow)
+                or duration_ms > 100
             ):
                 # aggregate OnePacketFlow events within this window
-                total_bytes = sum(event.bytes for event in one_packet_events)
-                total_packets = sum(event.packets for event in one_packet_events)
+                total_bytes = sum(e.bytes for e in one_packet_events)
+                total_packets = sum(e.packets for e in one_packet_events)
 
                 singleton_data_rate = (
                     (total_bytes * 8) / duration_s if duration_s > 0 else 0.0
@@ -626,17 +677,43 @@ class StatisticalModel:
 
                 # reset one-packet events after processing
                 one_packet_events.clear()
+                # move forward in time
+                last_time = self._sim.get_time()
 
             # apply each event's effect to current rates
-            for event in simultaneous_events:
-                if isinstance(event, OnePacketFlow):
-                    one_packet_events.append(event)
+            for e in simultaneous_events:
+                if isinstance(e, OnePacketFlow):
+                    one_packet_events.append(e)
                 else:
-                    current_data_rate += event.data_rate
-                    current_packet_rate += event.packet_rate
+                    current_data_rate += e.data_rate
+                    current_packet_rate += e.packet_rate
 
-            # move forward in time
-            last_time = self._sim.get_time()
+            self._sim.set_time(event.time)
+            simultaneous_events = [event]
+
+        # Final flush
+        duration_ms = self._sim.get_time_diff(last_time)
+        duration_s = self._sim.convert_to_seconds(duration_ms)
+
+        if duration_s > 0:
+            total_bytes = sum(e.bytes for e in one_packet_events)
+            total_packets = sum(e.packets for e in one_packet_events)
+
+            singleton_data_rate = (
+                (total_bytes * 8) / duration_s if duration_s > 0 else 0.0
+            )
+            singleton_packet_rate = (
+                total_packets / duration_s if duration_s > 0 else 0.0
+            )
+
+            total_data_rate = current_data_rate + singleton_data_rate
+            total_packet_rate = current_packet_rate + singleton_packet_rate
+
+            self._update_statistic_objects(
+                statistic_objects,
+                data_rate=total_data_rate,
+                packet_rate=total_packet_rate,
+            )
 
     def _update_statistic_objects(
         self,

@@ -1,7 +1,38 @@
 from abc import ABC, abstractmethod
-from typing import List
+import atexit
+import heapq
+import os
+import shutil
+import tempfile
+from typing import Iterator
 import numpy as np
 import pandas as pd
+
+CSV_COLUMN_TYPES = {
+    "START_TIME": np.uint64,
+    "END_TIME": np.uint64,
+    "PROTOCOL": np.uint8,
+    "SRC_IP": str,
+    "DST_IP": str,
+    "SRC_PORT": np.uint16,
+    "DST_PORT": np.uint16,
+    "PACKETS": np.uint64,
+    "BYTES": np.uint64,
+}
+
+_TEMP_DIRS = []
+
+
+def _cleanup_temp_dirs():
+    for path in _TEMP_DIRS:
+        try:
+            shutil.rmtree(path, ignore_errors=True)
+        except Exception as e:
+            print(f"Failed to delete temp dir {path}: {e}")
+
+
+# Register cleanup function once
+atexit.register(_cleanup_temp_dirs)
 
 
 class Event(ABC):
@@ -44,54 +75,64 @@ class OnePacketFlow(Event):
         self.time = time
 
 
-def create_event_queue(flow_df: pd.DataFrame) -> List[Event]:
-    events: List[Event] = []
+def create_event_queue(
+    flows_csv_path: str, out_dir: str = tempfile.mkdtemp(prefix="flows_split_")
+) -> Iterator[Event]:
+    # Paths for output CSVs
+    one_packet_path = os.path.join(out_dir, "flows_one_packet.csv")
+    sorted_by_start_path = os.path.join(out_dir, "flows_sorted_by_start.csv")
+    sorted_by_end_path = os.path.join(out_dir, "flows_sorted_by_end.csv")
 
-    # Split flows
-    one_packet_mask = flow_df["PACKETS"] == 1
-    one_packet_flows = flow_df[one_packet_mask]
-    multi_packet_flows = flow_df[~one_packet_mask]
+    if out_dir.startswith("flows_split_"):
+        _TEMP_DIRS.append(out_dir)
 
-    # Process one-packet flows
-    if not one_packet_flows.empty:
-        bytes_arr = one_packet_flows["BYTES"].to_numpy()
-        packets_arr = one_packet_flows["PACKETS"].to_numpy()
-        times_arr = one_packet_flows["START_TIME"].to_numpy()
+    # Load and split
+    df = pd.read_csv(flows_csv_path, dtype=CSV_COLUMN_TYPES)
 
-        events.extend(
-            [
-                OnePacketFlow(bytes=b, packets=p, time=t)
-                for b, p, t in zip(bytes_arr, packets_arr, times_arr)
-            ]
-        )
+    # One-packet flows
+    one_packet_df = df[df["PACKETS"] == 1].sort_values("START_TIME")
+    one_packet_df.to_csv(one_packet_path, index=False)
 
-    # Process multi-packet flows
-    if not multi_packet_flows.empty:
-        start_times = multi_packet_flows["START_TIME"].to_numpy()
-        end_times = multi_packet_flows["END_TIME"].to_numpy()
-        bytes_arr = multi_packet_flows["BYTES"].to_numpy()
-        packets_arr = multi_packet_flows["PACKETS"].to_numpy()
+    # Multi-packet flows
+    multi_df = df[df["PACKETS"] > 1]
+    multi_df.sort_values("START_TIME").to_csv(sorted_by_start_path, index=False)
+    multi_df.sort_values("END_TIME").to_csv(sorted_by_end_path, index=False)
 
-        durations_s = (end_times - start_times + 1) / 1_000  # convert ms to s
-        data_rates = (bytes_arr * 8) / durations_s  # bits per second
-        packet_rates = packets_arr / durations_s
+    return heapq.merge(
+        read_one_packet_events(one_packet_path),
+        read_start_events(sorted_by_start_path),
+        read_end_events(sorted_by_end_path),
+        key=lambda e: e.time,
+    )
 
-        # Add FlowStartEvents
-        events.extend(
-            [
-                FlowStartEvent(data_rate=dr, packet_rate=pr, start_time=st)
-                for dr, pr, st in zip(data_rates, packet_rates, start_times)
-            ]
-        )
 
-        # Add FlowEndEvents
-        events.extend(
-            [
-                FlowEndEvent(data_rate=dr, packet_rate=pr, end_time=et)
-                for dr, pr, et in zip(data_rates, packet_rates, end_times)
-            ]
-        )
+def read_one_packet_events(path: str) -> Iterator[OnePacketFlow]:
+    for chunk in pd.read_csv(path, dtype=CSV_COLUMN_TYPES, chunksize=100_000):
+        for row in chunk.itertuples(index=False):
+            yield OnePacketFlow(
+                bytes=np.uint64(row.BYTES),
+                packets=np.uint64(row.PACKETS),
+                time=np.uint64(row.START_TIME),
+            )
 
-    # Sort events by timestamp (in-place)
-    events.sort(key=lambda e: e.time)
-    return events
+
+def read_start_events(path: str) -> Iterator[FlowStartEvent]:
+    for chunk in pd.read_csv(path, dtype=CSV_COLUMN_TYPES, chunksize=100_000):
+        durations = (chunk.END_TIME - chunk.START_TIME + 1) / 1_000
+        data_rates = (chunk.BYTES * 8) / durations
+        packet_rates = chunk.PACKETS / durations
+        for row, dr, pr in zip(chunk.itertuples(index=False), data_rates, packet_rates):
+            yield FlowStartEvent(
+                data_rate=dr, packet_rate=pr, start_time=np.uint64(row.START_TIME)
+            )
+
+
+def read_end_events(path: str) -> Iterator[FlowEndEvent]:
+    for chunk in pd.read_csv(path, dtype=CSV_COLUMN_TYPES, chunksize=100_000):
+        durations = (chunk.END_TIME - chunk.START_TIME + 1) / 1_000
+        data_rates = (chunk.BYTES * 8) / durations
+        packet_rates = chunk.PACKETS / durations
+        for row, dr, pr in zip(chunk.itertuples(index=False), data_rates, packet_rates):
+            yield FlowEndEvent(
+                data_rate=dr, packet_rate=pr, end_time=np.uint64(row.END_TIME)
+            )
