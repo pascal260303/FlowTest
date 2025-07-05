@@ -9,6 +9,7 @@ SPDX-License-Identifier: BSD-3-Clause
 from os import PathLike
 from typing import List, Optional, Union
 
+from ftanalyzer.counter import TimeSeriesCounter
 from ftanalyzer.models.sm_data_types import (
     SMMetricType,
     SMSubnetSegment,
@@ -125,7 +126,8 @@ class StatisticalReport:
             print(test_str)
 
         for stat_obj, ref_obj in self.stat_objs:
-            print(f"""
+            if not isinstance(stat_obj, TimeSeriesCounter):
+                print(f"""
 Got:
 {stat_obj.report()}
             

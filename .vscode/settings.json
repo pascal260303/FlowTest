@@ -8,7 +8,7 @@
         "--disable-ansible",
         "--html=logs/report.html",
         "--self-contained-html",
-        "-m simulation and (small_mtu and short)",
+        "-m simulation and (small_mtu and not short)",
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,

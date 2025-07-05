@@ -1,10 +1,11 @@
 from os import PathLike
+import os
 import numpy as np
-from .counter import Counter
+from .discrete_counter import DiscreteCounter
 from ..statistic_object import SimState
 
 
-class TimeSeriesCounter(Counter):
+class TimeSeriesCounter(DiscreteCounter):
     """
     Counter that records the time series of a variable
     """
@@ -36,10 +37,10 @@ class TimeSeriesCounter(Counter):
         """
         Exports the time series data to a CSV file.
         """
-        import os
-
+        outputdir = os.path.join(outputdir, "counters")
         os.makedirs(outputdir, exist_ok=True)
-        path = os.path.join(outputdir, f"{self.variable}_timeseries.csv")
+        file_name = f"{self._observed_variable}_timeseries.csv".replace(" ", "_").replace("/","p")
+        path = os.path.join(outputdir, file_name)
 
         with open(path, "w") as f:
             f.write("#time;value\n")
