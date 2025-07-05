@@ -15,6 +15,8 @@ from ftanalyzer.models.sm_data_types import (
     SMTimeSegment,
 )
 
+from ftanalyzer.statistic_object import StatisticObject
+
 
 class StatisticalReport:
     """Acts as a storage for tests performed in a statistical model.
@@ -31,6 +33,7 @@ class StatisticalReport:
     def __init__(self) -> None:
         """Basic init."""
         self.tests = []
+        self.stat_objs: list[tuple[StatisticObject, StatisticObject]] = []
 
     def add_test(self, test: SMTestOutcome) -> None:
         """Append the performed test into the report.
@@ -41,6 +44,14 @@ class StatisticalReport:
             Test to be added into the report.
         """
         self.tests.append(test)
+
+    def add_statistic_object(self, stat_obj: StatisticObject, ref_obj) -> None:
+        """Append a statistical object into the report
+
+        Args:
+            stat_obj (StatisticObject): Object to append
+        """
+        self.stat_objs.append((stat_obj, ref_obj))
 
     def is_passing(self) -> bool:
         """Get information whether all performed tests passed.
@@ -110,3 +121,12 @@ class StatisticalReport:
                 test_str += f"{self.RST_CLR}"
 
             print(test_str)
+
+        for stat_obj, ref_obj in self.stat_objs:
+            print(f"""
+Got:
+{stat_obj.report()}
+            
+Expected:
+{ref_obj.report()}
+""")

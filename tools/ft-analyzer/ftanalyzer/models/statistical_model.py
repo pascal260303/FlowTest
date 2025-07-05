@@ -11,7 +11,7 @@ import logging
 import operator
 import time
 from functools import reduce
-from typing import List, Optional, Tuple, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -32,6 +32,13 @@ from ftanalyzer.models.sm_data_types import (
 )
 from ftanalyzer.reports import StatisticalReport
 from src.generator.interface import GeneratorStats
+from ftanalyzer.statistic_counter import ContinuousCounter
+from ftanalyzer.statistic_object import StatisticObject
+from ftanalyzer.events import (
+    Event,
+    OnePacketFlow,
+    create_event_queue,
+)
 
 
 class StatisticalModel:
@@ -173,6 +180,15 @@ class StatisticalModel:
         self._flows_ip_addresses_converted = False
         self._ref_ip_addresses_converted = isinstance(reference, pd.DataFrame)
 
+        # statistic objects
+        self._statistic_objects, self._metic_to_obj = self._setup_statsitic_objects()
+        event_queue = create_event_queue(self._flows)
+        self._process_events(event_queue, self._statistic_objects)
+
+        self._ref_statisitic_objetcs, _ = self._setup_statsitic_objects()
+        ref_event_queue = create_event_queue(self._ref)
+        self._process_events(ref_event_queue, self._ref_statisitic_objetcs)
+
     def validate(
         self, rules: List[SMRule], check_complement: bool = False
     ) -> StatisticalReport:
@@ -274,6 +290,11 @@ class StatisticalModel:
                         0 if value == reference else 1,
                     )
                 )
+
+        for objects in zip(
+            self._statistic_objects.values(), self._ref_statisitic_objetcs.values()
+        ):
+            report.add_statistic_object(*objects)
 
         return report
 
@@ -504,3 +525,124 @@ class StatisticalModel:
             self._ref[mask_ref].reset_index(drop=True),
             mask_flow,
         )
+
+    def _setup_statsitic_objects(
+        self,
+    ) -> tuple[dict[str, StatisticObject], dict[str, str]]:
+        statistic_objects: dict[str, StatisticObject] = {
+            "ct_data_rate": ContinuousCounter(
+                "data rate in Gb/s", self._generator_stats.start_time, 1 / (10**9)
+            ),
+            "ct_data_rate_bibit": ContinuousCounter(
+                "data rate in Gib/s", self._generator_stats.start_time, 1 / (1024**3)
+            ),
+            "ct_packet_rate": ContinuousCounter(
+                "packets per second", self._generator_stats.start_time
+            ),
+        }
+
+        metric_mapping: dict[str, list[str]] = {
+            "data_rate": ["ct_data_rate", "ct_data_rate_bibit"],
+            "packet_rate": ["ct_packet_rate"],
+        }
+
+        return (statistic_objects, metric_mapping)
+
+    def _process_events(
+        self, event_queue: List[Event], statistic_objects: dict[str, StatisticObject]
+    ) -> None:
+        """
+        Process a list of flow events, calculating data rates and packet rates
+        over event-driven time windows.
+
+        OnePacketFlow events are aggregated into the current time window until
+        a non-zero duration interval is reached. Multiple events at the same
+        timestamp are processed together to avoid zero-duration artifacts.
+        """
+
+        one_packet_events: list[OnePacketFlow] = []
+        last_time = self._generator_stats.start_time
+
+        current_data_rate = 0.0
+        current_packet_rate = 0.0
+
+        index = 0
+        n_events = len(event_queue)
+
+        while index < n_events:
+            current_time = event_queue[index].time
+
+            # Gather all events with this timestamp
+            simultaneous_events = []
+            while index < n_events and event_queue[index].time == current_time:
+                simultaneous_events.append(event_queue[index])
+                index += 1
+
+            # Compute the duration between the last time and the current group of events
+            duration_ms = current_time - last_time
+            duration_s = duration_ms / 1000.0
+
+            # Only advance stats if time progressed
+            if duration_s > 0 and not all_instance_of(
+                simultaneous_events, OnePacketFlow
+            ):
+                # aggregate OnePacketFlow events within this window
+                total_bytes = sum(event.bytes for event in one_packet_events)
+                total_packets = sum(event.packets for event in one_packet_events)
+
+                singleton_data_rate = (
+                    (total_bytes * 8) / duration_s if duration_s > 0 else 0.0
+                )
+                singleton_packet_rate = (
+                    total_packets / duration_s if duration_s > 0 else 0.0
+                )
+
+                # Compose final rates
+                total_data_rate = current_data_rate + singleton_data_rate
+                total_packet_rate = current_packet_rate + singleton_packet_rate
+
+                self._update_statistic_objects(
+                    statistic_objects,
+                    current_time,
+                    data_rate=total_data_rate,
+                    packet_rate=total_packet_rate,
+                )
+
+                # reset one-packet events after processing
+                one_packet_events.clear()
+
+            # apply each event's effect to current rates
+            for event in simultaneous_events:
+                if isinstance(event, OnePacketFlow):
+                    one_packet_events.append(event)
+                else:
+                    current_data_rate += event.data_rate
+                    current_packet_rate += event.packet_rate
+
+            # move forward in time
+            last_time = current_time
+
+    def _update_statistic_objects(
+        self,
+        statistic_objects: dict[str, StatisticObject],
+        current_time: np.float64,
+        **kwargs: dict | None,
+    ):
+        for key, rate in kwargs.items():
+            if rate is None:
+                continue
+            stat_obj_names = self._metic_to_obj.get(key, [])
+            for stat_obj_name in stat_obj_names:
+                stat_obj = statistic_objects.get(stat_obj_name)
+                if stat_obj is not None:
+                    if isinstance(stat_obj, ContinuousCounter):
+                        stat_obj.count(rate, current_time)
+                    else:
+                        stat_obj.count(rate)
+
+
+def all_instance_of(iterable: Iterable, cls):
+    """
+    Check if all elements in `iterable` are instances of `cls`.
+    """
+    return all(isinstance(item, cls) for item in iterable)

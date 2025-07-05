@@ -1,9 +1,9 @@
 import numpy as np
 from .counter import Counter
 
+
 class ContinuousCounter(Counter):
-    
-    def __init__(self, variable: str, start_time: np.uint64 = np.uint64(0)):
+    def __init__(self, variable: str, start_time: np.uint64 = np.uint64(0), factor = 1):
         """Constructor
 
         Args:
@@ -14,6 +14,7 @@ class ContinuousCounter(Counter):
         self.last_sample_time: np.uint64 = start_time
         self.first_sample_time: np.uint64 = start_time
         self.last_sample_size: np.float64 = np.float64(0)
+        self._factor = factor
 
     def get_mean(self) -> np.float64:
         interval = self.last_sample_time - self.first_sample_time
@@ -26,15 +27,20 @@ class ContinuousCounter(Counter):
         interval = self.last_sample_time - self.first_sample_time
         if interval > 0:
             mean = self.get_mean()
-            return (np.float64(self.get_sum_power_two()) / np.float64(interval)) - mean * mean
+            return (
+                np.float64(self.get_sum_power_two()) / np.float64(interval)
+            ) - mean * mean
         else:
             return np.float64(0)
 
     def count(self, x: np.float64, current_time: np.uint64) -> None:
+        x = x * self._factor
         super().count(x)
         interval = current_time - self.last_sample_time
         self.increase_sum_power_one(self.last_sample_size * interval)
-        self.increase_sum_power_two(self.last_sample_size * self.last_sample_size * interval)
+        self.increase_sum_power_two(
+            self.last_sample_size * self.last_sample_size * interval
+        )
         self.last_sample_size = x
         self.last_sample_time = current_time
 
