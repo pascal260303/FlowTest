@@ -57,6 +57,7 @@ def validate(
     active_timeout: int,
     stats: GeneratorStats,
     biflows: bool,
+    log_dir: os.PathLike,
 ) -> tuple[StatisticalReport, Optional[PreciseReport]]:
     """Perform statistical and/or precise model evaluation of the test scenario.
 
@@ -85,7 +86,7 @@ def validate(
     """
 
     if analysis.model == "precise":
-        model = PreciseModel(flows_file, reference, active_timeout, stats, biflows)
+        model = PreciseModel(flows_file, reference, active_timeout, stats, log_dir, biflows)
         if len(prefilter_conf) > 0:
             precise_report = model.validate_precise(
                 [SMSubnetSegment(subnet, bidir=True) for subnet in prefilter_conf],
@@ -104,7 +105,7 @@ def validate(
             SMMetric(SMMetricType.DURATION, 0),
         ]
     else:
-        model = StatisticalModel(flows_file, reference, stats)
+        model = StatisticalModel(flows_file, reference, stats, log_dir)
         precise_report = None
         metrics = analysis.metrics
 
@@ -344,6 +345,7 @@ def test_simulation_general(
         active_timeout=active_t,
         stats=stats,
         biflows=device.get_biflow_export(),
+        log_dir=log_dir
     )
 
     print("")

@@ -6,6 +6,7 @@ SPDX-License-Identifier: BSD-3-Clause
 
 """
 
+from os import PathLike
 from typing import List, Optional, Union
 
 from ftanalyzer.models.sm_data_types import (
@@ -30,9 +31,10 @@ class StatisticalReport:
     ERR_CLR = "\033[31m"
     RST_CLR = "\033[0m"
 
-    def __init__(self) -> None:
+    def __init__(self, log_dir: PathLike) -> None:
         """Basic init."""
         self.tests = []
+        self._log_dir = log_dir
         self.stat_objs: list[tuple[StatisticObject, StatisticObject]] = []
 
     def add_test(self, test: SMTestOutcome) -> None:
@@ -130,3 +132,5 @@ Got:
 Expected:
 {ref_obj.report()}
 """)
+            
+            stat_obj.csv_report(self._log_dir)

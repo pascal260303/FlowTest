@@ -8,6 +8,7 @@ SPDX-License-Identifier: BSD-3-Clause
 
 import operator
 from functools import reduce
+from os import PathLike
 from typing import Optional, Union
 
 import pandas as pd
@@ -50,6 +51,7 @@ class PreciseModel(StatisticalModel):
         reference: Union[str, pd.DataFrame],
         active_timeout: int,
         stats: GeneratorStats,
+        log_dir: PathLike,
         biflows_ts_correction: bool = False,
     ) -> None:
         """Initialize the statistical model with sorted input data.
@@ -80,6 +82,7 @@ class PreciseModel(StatisticalModel):
             flows,
             reference,
             stats,
+            log_dir,
             merge=True,
             biflows_ts_correction=biflows_ts_correction,
         )

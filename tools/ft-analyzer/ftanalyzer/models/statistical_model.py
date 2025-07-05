@@ -9,6 +9,7 @@ SPDX-License-Identifier: BSD-3-Clause
 import ipaddress
 import logging
 import operator
+from os import PathLike
 import time
 from functools import reduce
 from typing import Iterable, List, Optional, Tuple, Union
@@ -32,15 +33,13 @@ from ftanalyzer.models.sm_data_types import (
 )
 from ftanalyzer.reports import StatisticalReport
 from src.generator.interface import GeneratorStats
-from ftanalyzer.counter import ContinuousCounter
+from ftanalyzer.counter import ContinuousCounter, TimeSeriesCounter
 from ftanalyzer.statistic_object import StatisticObject, SimState
 from ftanalyzer.events import (
     Event,
     OnePacketFlow,
     create_event_queue,
 )
-from ftanalyzer.histogram import ContinuousHistogram
-
 
 class StatisticalModel:
     """Statistical model reads flows obtained from a network probe and compares them with a provided reference.
@@ -106,6 +105,7 @@ class StatisticalModel:
         flows: str,
         reference: Union[str, pd.DataFrame],
         stats: GeneratorStats,
+        log_dir: PathLike,
         merge: bool = False,
         biflows_ts_correction: bool = False,
     ) -> None:
@@ -140,6 +140,8 @@ class StatisticalModel:
 
         # fallback to python analyzer implementation
         self._fast_model = None
+        
+        self._log_dir = log_dir
 
         try:
             logging.getLogger().debug("reading file with flows=%s", flows)
@@ -220,7 +222,7 @@ class StatisticalModel:
         if self._fast_model is not None:
             return validate_statistical_model(self._fast_model, rules, check_complement)
 
-        report = StatisticalReport()
+        report = StatisticalReport(self._log_dir)
         all_flow_masks = []
         for rule in rules:
             flows, ref, mask_flow = self._filter_segment(rule.segment)
@@ -542,11 +544,17 @@ class StatisticalModel:
             "ct_packet_rate": ContinuousCounter(
                 "packets per second", self._sim
             ),
+            "tsc_data_rate": TimeSeriesCounter(
+                "data rate in Gb/s", self._sim, 1 / (10**9)
+            ),
+            "tsc_packet_rate": TimeSeriesCounter(
+                "packets per second", self._sim
+            ),
         }
 
         metric_mapping: dict[str, list[str]] = {
-            "data_rate": ["ct_data_rate", "ct_data_rate_bibit"],
-            "packet_rate": ["ct_packet_rate"],
+            "data_rate": ["ct_data_rate", "ct_data_rate_bibit", "tsc_data_rate"],
+            "packet_rate": ["ct_packet_rate", "tsc_packet_rate"],
         }
 
         return (statistic_objects, metric_mapping)
