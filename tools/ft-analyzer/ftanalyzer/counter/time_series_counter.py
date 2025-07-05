@@ -1,8 +1,10 @@
 from os import PathLike
 import os
 import numpy as np
+import pandas as pd
 from .discrete_counter import DiscreteCounter
 from ..statistic_object import SimState
+import matplotlib.pyplot as plt
 
 
 class TimeSeriesCounter(DiscreteCounter):
@@ -20,32 +22,81 @@ class TimeSeriesCounter(DiscreteCounter):
         super().__init__(variable, "counter type: time-series counter")
         self._sim = sim
         self._factor = factor
-        self.samples: list[tuple[np.uint64, np.float64]] = []
+        self._samples_list: list[tuple[np.uint64, np.float64]] = []
 
     def count(self, x: np.float64) -> None:
         x = x * self._factor
         super().count(x)
 
         current_time = self._sim.get_time()
-        self.samples.append((current_time, x))
+        self._samples_list.append((current_time, x))
 
     def reset(self) -> None:
         super().reset()
-        self.samples.clear()
+        self._samples_list.clear()
 
     def csv_report(self, outputdir: PathLike) -> None:
         """
-        Exports the time series data to a CSV file.
+        Exports the time series data to a CSV file and calls the plot function
+        to create plot
         """
+        self._plot(os.path.join(outputdir, "plots"))
+
+        samples_df = pd.DataFrame(
+            self._samples_list,
+            columns=["time", "value"],
+            dtype={"time": np.uint64, "value": np.float64},
+        )
+
         outputdir = os.path.join(outputdir, "counters")
         os.makedirs(outputdir, exist_ok=True)
-        file_name = f"{self._observed_variable}_timeseries.csv".replace(" ", "_").replace("/","p")
+        file_name = f"{self._observed_variable}_timeseries.csv".replace(
+            " ", "_"
+        ).replace("/", "p")
         path = os.path.join(outputdir, file_name)
 
-        with open(path, "w") as f:
-            f.write("#time;value\n")
-            for timestamp, value in self.samples:
-                # change dot to comma if needed (like your Histogram)
-                line = f"{timestamp};{value}\n"
-                f.write(line.replace(".", ","))
+        samples_df.to_csv(path, sep=";", index=False, float_format="%.6f", decimal=",")
 
+    def _plot(self, outputdir: str) -> None:
+        """
+        Plots the time series data stored in this TimeSeriesCounter
+        and saves it to a PNG file in the given output directory.
+
+        Args:
+            outputdir (str): path to the output folder
+        """
+        if not self._samples_list:
+            return
+
+        os.makedirs(outputdir, exist_ok=True)
+
+        # convert times from ms to seconds for the plot
+        time_unit = "seconds"
+        df = pd.DataFrame(
+            self._samples_list,
+            columns=["time", "value"],
+            dtype={"time": np.uint64, "value": np.float64},
+        )
+        df["time_sec"] = df["time"].apply(self._sim.convert_to_seconds)
+        df["time_sec_zero"] = df["time_sec"] - df["time_sec"].iloc[0]
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(
+            df["time_sec_zero"],
+            df["value"],
+            color="orange",
+            linewidth=1.5,
+            label=self._observed_variable,
+        )
+        plt.xlabel(time_unit)
+        plt.ylabel(self._observed_variable)
+        plt.title(f"Time Series of {self._observed_variable}")
+        plt.legend()
+        plt.grid(True)
+
+        file_name = f"{self._observed_variable}_timeseries.png".replace(
+            " ", "_"
+        ).replace("/", "p")
+        file_path = os.path.join(outputdir, file_name)
+        plt.savefig(file_path, dpi=300)
+        plt.close()

@@ -13,10 +13,10 @@ class SimState:
         return self._time
     
     def get_time_seconds(self) -> np.float64:
-        return self.convert_seconds(self._time)
+        return self.convert_to_seconds(self._time)
     
     def get_time_diff(self, time) -> np.uint64:
         return np.uint64(abs(int(self._time) - int(time)))
     
-    def convert_seconds(self, time) -> np.float64:
+    def convert_to_seconds(self, time) -> np.float64:
         return np.float64(time) / 10**3

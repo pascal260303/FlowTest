@@ -186,7 +186,7 @@ class StatisticalModel:
         # statistic objects
         self._sim = SimState(self._generator_stats.start_time)
         
-        self._statistic_objects, self._metic_to_obj = self._setup_statsitic_objects()
+        self._statistic_objects, self._metric_to_obj = self._setup_statsitic_objects()
         event_queue = create_event_queue(self._flows)
         self._process_events(event_queue, self._statistic_objects)
 
@@ -591,7 +591,7 @@ class StatisticalModel:
 
             # Compute the duration between the last time and the current group of events
             duration_ms = self._sim.get_time_diff(last_time)
-            duration_s = self._sim.convert_seconds(duration_ms)
+            duration_s = self._sim.convert_to_seconds(duration_ms)
 
             # Only advance stats if time progressed
             if duration_s > 0 and not all_instance_of(
@@ -640,7 +640,7 @@ class StatisticalModel:
         for key, rate in kwargs.items():
             if rate is None:
                 continue
-            stat_obj_names = self._metic_to_obj.get(key, [])
+            stat_obj_names = self._metric_to_obj.get(key, [])
             for stat_obj_name in stat_obj_names:
                 stat_obj = statistic_objects.get(stat_obj_name)
                 if stat_obj is not None:
