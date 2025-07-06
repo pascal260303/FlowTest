@@ -86,7 +86,13 @@ def validate(
 
     if analysis.model == "precise":
         model = PreciseModel(
-            flows_file, ref_file, active_timeout, stats, log_dir, biflows
+            flows_file,
+            ref_file,
+            active_timeout,
+            stats,
+            log_dir,
+            biflows,
+            use_statistical_counter=analysis.use_statistic_counter,
         )
         if len(prefilter_conf) > 0:
             precise_report = model.validate_precise(
@@ -106,7 +112,13 @@ def validate(
             SMMetric(SMMetricType.DURATION, 0),
         ]
     else:
-        model = StatisticalModel(flows_file, ref_file, stats, log_dir)
+        model = StatisticalModel(
+            flows_file,
+            ref_file,
+            stats,
+            log_dir,
+            use_statistical_counter=analysis.use_statistic_counter,
+        )
         precise_report = None
         metrics = analysis.metrics
 

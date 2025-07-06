@@ -87,6 +87,7 @@ class AnalysisCfg(YAMLWizard):
             SMMetric(SMMetricType.BYTES, 0.0001),
         ]
     )
+    use_statistic_counter: bool = False
 
 
 @dataclass

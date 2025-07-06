@@ -15,7 +15,6 @@ import os
 import shutil
 import time
 
-import pandas as pd
 import pytest
 from ftanalyzer.models.sm_data_types import SMRule
 from ftanalyzer.models.statistical_model import StatisticalModel
@@ -45,7 +44,7 @@ DEFAULT_REPLICATOR_PREFIX = 8
 def validate(
     analysis: AnalysisCfg,
     flows_file: str,
-    reference: pd.DataFrame,
+    ref_file: str,
     stats: GeneratorStats,
     log_dir: os.PathLike,
 ) -> bool:
@@ -69,7 +68,13 @@ def validate(
         precise report is present only if a precise model is selected.
     """
 
-    model = StatisticalModel(flows_file, reference, stats, log_dir)
+    model = StatisticalModel(
+        flows_file,
+        ref_file,
+        stats,
+        log_dir,
+        use_statistical_counter=analysis.use_statistic_counter,
+    )
     stats_report = model.validate([SMRule(analysis.metrics)])
     stats_report.print_results()
     print("")
@@ -250,7 +255,7 @@ def test_simulation_threshold(
         ret = validate(
             analysis=scenario.test.analysis,
             flows_file=flows_file,
-            reference=replicated_ref,
+            ref_file=replicated_ref,
             stats=stats,
             log_dir=log_dir,
         )

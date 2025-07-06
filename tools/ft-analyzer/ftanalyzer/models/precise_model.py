@@ -53,6 +53,7 @@ class PreciseModel(StatisticalModel):
         stats: GeneratorStats,
         log_dir: PathLike,
         biflows_ts_correction: bool = False,
+        use_statistical_counter: bool = False,
     ) -> None:
         """Initialize the statistical model with sorted input data.
         Parameters
@@ -85,6 +86,7 @@ class PreciseModel(StatisticalModel):
             log_dir,
             merge=True,
             biflows_ts_correction=biflows_ts_correction,
+            use_statistical_counter=use_statistical_counter,
         )
         self._report = None
         self._active_timeout = active_timeout * 1000
