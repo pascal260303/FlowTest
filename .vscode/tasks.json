@@ -1,0 +1,39 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Pytest in Tmux (Detached)",
+            "type": "shell",
+            "command": "${workspaceFolder}/run_tests_tmux.sh",
+            "args": [
+                ".",
+                "--config-path=/home/student/2025-bsc-kuppler-flowmeter/flowtest-configs",
+                "--replicator=kuppler-2-xdp-zc",
+                "--collector=ipfixcol-1",
+                "--probe=ipfix-probe-dpdk",
+                "--disable-ansible",
+                "--html=logs/report.html",
+                "--self-contained-html",
+                "-m simulation and (small_mtu and short)"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Pytest with nohup (Detached)",
+            "type": "shell",
+            "command": "${workspaceFolder}/run_tests_nohup.sh",
+            "args": [
+                "--config-path=/home/student/2025-bsc-kuppler-flowmeter/flowtest-configs",
+                "--replicator=kuppler-2-xdp-zc",
+                "--collector=ipfixcol-1",
+                "--probe=ipfix-probe-dpdk",
+                "--disable-ansible",
+                "--html=logs/report.html",
+                "--self-contained-html",
+                "-m",
+                "simulation and (small_mtu and short)"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}
