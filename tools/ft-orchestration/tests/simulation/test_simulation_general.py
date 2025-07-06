@@ -13,7 +13,6 @@ import logging
 import os
 from typing import Optional
 
-import pandas as pd
 import pytest
 from ftanalyzer.models.precise_model import PreciseModel
 from ftanalyzer.models.sm_data_types import (
@@ -53,7 +52,7 @@ def validate(
     analysis: AnalysisCfg,
     prefilter_conf: list[str],
     flows_file: str,
-    reference: pd.DataFrame,
+    ref_file: str,
     active_timeout: int,
     stats: GeneratorStats,
     biflows: bool,
@@ -87,7 +86,7 @@ def validate(
 
     if analysis.model == "precise":
         model = PreciseModel(
-            flows_file, reference, active_timeout, stats, log_dir, biflows
+            flows_file, ref_file, active_timeout, stats, log_dir, biflows
         )
         if len(prefilter_conf) > 0:
             precise_report = model.validate_precise(
@@ -107,7 +106,7 @@ def validate(
             SMMetric(SMMetricType.DURATION, 0),
         ]
     else:
-        model = StatisticalModel(flows_file, reference, stats, log_dir)
+        model = StatisticalModel(flows_file, ref_file, stats, log_dir)
         precise_report = None
         metrics = analysis.metrics
 
@@ -343,7 +342,7 @@ def test_simulation_general(
         analysis=scenario.test.analysis,
         prefilter_conf=prefilter_conf,
         flows_file=flows_file,
-        reference=replicated_ref,
+        ref_file=replicated_ref,
         active_timeout=active_t,
         stats=stats,
         biflows=device.get_biflow_export(),

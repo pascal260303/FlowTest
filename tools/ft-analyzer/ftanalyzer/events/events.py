@@ -75,16 +75,15 @@ class OnePacketFlow(Event):
         self.time = time
 
 
-def create_event_queue(
-    flows_csv_path: str, out_dir: str = tempfile.mkdtemp(prefix="flows_split_")
-) -> Iterator[Event]:
+def create_event_queue(flows_csv_path: str, out_dir: str = None) -> Iterator[Event]:
+    if not out_dir:
+        tempfile.mkdtemp(prefix="flows_split_")
+        _TEMP_DIRS.append(out_dir)
+
     # Paths for output CSVs
     one_packet_path = os.path.join(out_dir, "flows_one_packet.csv")
     sorted_by_start_path = os.path.join(out_dir, "flows_sorted_by_start.csv")
     sorted_by_end_path = os.path.join(out_dir, "flows_sorted_by_end.csv")
-
-    if out_dir.startswith("flows_split_"):
-        _TEMP_DIRS.append(out_dir)
 
     # Load and split
     df = pd.read_csv(flows_csv_path, dtype=CSV_COLUMN_TYPES)

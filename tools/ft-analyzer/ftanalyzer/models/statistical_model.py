@@ -12,6 +12,7 @@ import logging
 import operator
 from os import PathLike
 from pathlib import Path
+import shutil
 import tempfile
 import time
 from functools import reduce
@@ -217,13 +218,20 @@ class StatisticalModel:
         # statistic objects
         self._sim = SimState(self._generator_stats.start_time)
 
+        output_dir = tempfile.mkdtemp()
+
         self._statistic_objects, self._metric_to_obj = self._setup_statsitic_objects()
-        event_queue = create_event_queue(self._flows_path)
+        event_queue = create_event_queue(self._flows_path, output_dir)
         self._process_events(event_queue, self._statistic_objects)
 
+        shutil.rmtree(output_dir, ignore_errors=True)
+        output_dir = tempfile.mkdtemp()
+
         self._ref_statisitic_objetcs, _ = self._setup_statsitic_objects()
-        ref_event_queue = create_event_queue(self._ref_path)
+        ref_event_queue = create_event_queue(self._ref_path, output_dir)
         self._process_events(ref_event_queue, self._ref_statisitic_objetcs)
+
+        shutil.rmtree(output_dir, ignore_errors=True)
 
     def _load_flows_df(self):
         return pd.read_csv(

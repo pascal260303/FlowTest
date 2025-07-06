@@ -10,16 +10,33 @@ in case a replicator (ft-replay) was used as a generator during testing.
 
 from __future__ import annotations
 
+import atexit
 import ipaddress
 import logging
 import operator
+from pathlib import Path
 import re
 from dataclasses import dataclass
+import tempfile
 from typing import Any, Iterable, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 from ftanalyzer.common.pandas_multiprocessing import PandasMultiprocessingHelper
+
+_TEMP_FILES = []
+
+
+def _cleanup_temp_files():
+    for path in _TEMP_FILES:
+        try:
+            Path(path).unlink()
+        except FileNotFoundError:
+            pass
+
+
+# Register only once
+atexit.register(_cleanup_temp_files)
 
 
 class FlowReplicatorException(Exception):
@@ -208,9 +225,11 @@ class FlowReplicator:
         self,
         input_file: str,
         loops: int,
+        output_file: str = None,
         merge_across_loops: bool = False,
         inactive_timeout: int = -1,
         speed_multiplier: float = 1,
+        chunksize: int = 100_000,
     ) -> pd.DataFrame:
         """Read source data and replicate source flows based on configuration.
         Save replication result to CSV file. Helper columns like "ORIG_INDEX" are not exported.
@@ -240,47 +259,86 @@ class FlowReplicator:
         FlowReplicatorException
             When source CSV file cannot be read.
         """
+        if not output_file:
+            output_file = tempfile.NamedTemporaryFile(
+                delete=False, suffix=".csv", prefix="tmp_ref_"
+            ).name
+            _TEMP_FILES.append(output_file)
 
+        chunksize = max(100, chunksize / loops)
+
+        if output_file.startswith("tmp_ref_"):
+            _TEMP_FILES.append(output_file)
+
+        # First pass: compute min and max timestamps
+        loop_start, loop_end = None, None
         try:
-            self._flows = pd.read_csv(
-                input_file, engine="pyarrow", dtype=self.CSV_COLUMN_TYPES
-            )
+            for chunk in pd.read_csv(
+                input_file,
+                dtype=self.CSV_COLUMN_TYPES,
+                chunksize=chunksize,
+            ):
+                start_min = chunk["START_TIME"].min()
+                end_max = chunk["END_TIME"].max()
+                loop_start = (
+                    start_min if loop_start is None else min(loop_start, start_min)
+                )
+                loop_end = end_max if loop_end is None else max(loop_end, end_max)
         except Exception as err:
             raise FlowReplicatorException("Unable to read file with flows.") from err
 
+        if loop_start is None or loop_end is None:
+            raise FlowReplicatorException("Input file appears empty or corrupt.")
+
+        loop_start = int(loop_start)
+        loop_end = int(loop_end)
+        time_multiplier = 1 / speed_multiplier
+        loop_length = int((loop_end - loop_start) * time_multiplier)
+
+        first_write = True
+
         with PandasMultiprocessingHelper() as pool:
-            pool.apply(
-                self._flows,
-                [("SRC_IP", self.ip_address, []), ("DST_IP", self.ip_address, [])],
-            )
+            for chunk in pd.read_csv(
+                input_file, dtype=self.CSV_COLUMN_TYPES, chunksize=chunksize
+            ):
+                pool.apply(
+                    chunk,
+                    [("SRC_IP", self.ip_address, []), ("DST_IP", self.ip_address, [])],
+                )
+                chunk["ORIG_INDEX"] = chunk.index
 
-            # index of source flow is used when merging flows within single loop
-            self._flows["ORIG_INDEX"] = self._flows.index
+                replicated = self._replicate(
+                    chunk=chunk,
+                    loops=loops,
+                    loop_start=loop_start,
+                    loop_length=loop_length,
+                    time_multiplier=time_multiplier,
+                )
 
-            # transform speed to time multiplier
-            # e.g. time multiplier 0.5 corresponds to traffic played 2x faster
-            time_multiplier = 1 / speed_multiplier
+                with PandasMultiprocessingHelper() as binary_pool:
+                    binary_pool.binary(
+                        replicated,
+                        [
+                            ("SRC_IP", operator.add, "SRC_IP", "_SRC_IP_OFFSET", []),
+                            ("DST_IP", operator.add, "DST_IP", "_DST_IP_OFFSET", []),
+                        ],
+                    )
 
-            # replicate and drop original record indexes - deduplicate
-            result = self._replicate(loops, time_multiplier)
-            result.reset_index(drop=True, inplace=True)
-            result.reindex()
+                if merge_across_loops:
+                    self._inactive_timeout = (
+                        inactive_timeout * 1000 if inactive_timeout > -1 else None
+                    )
+                    replicated = self._merge_across_loop(replicated)
 
-            pool.binary(
-                result,
-                [
-                    ("SRC_IP", operator.add, "SRC_IP", "_SRC_IP_OFFSET", []),
-                    ("DST_IP", operator.add, "DST_IP", "_DST_IP_OFFSET", []),
-                ],
-            )
+                replicated[self.CSV_COLUMN_TYPES.keys()].to_csv(
+                    output_file,
+                    index=False,
+                    mode="w" if first_write else "a",
+                    header=first_write,
+                )
+                first_write = False
 
-        if merge_across_loops:
-            self._inactive_timeout = (
-                inactive_timeout * 1000 if inactive_timeout > -1 else None
-            )
-            result = self._merge_across_loop(result)
-
-        return result.loc[:, self.CSV_COLUMN_TYPES.keys()]
+        return output_file
 
     @staticmethod
     def _parse_config_item(item: str, src_dict: dict) -> Optional[IpAddConstant]:
@@ -371,7 +429,14 @@ class FlowReplicator:
 
         return ReplicatorConfig(units, loop)
 
-    def _replicate(self, loops: int, time_multiplier: float) -> pd.DataFrame:
+    def _replicate(
+        self,
+        chunk: pd.DataFrame,
+        loops: int,
+        loop_start: int,
+        loop_length: int,
+        time_multiplier: float,
+    ) -> pd.DataFrame:
         """Replicate flows from source according to the configuration.
 
         Parameters
@@ -387,31 +452,32 @@ class FlowReplicator:
             Replicated flows.
         """
 
-        loop_start = int(self._flows.loc[:, "START_TIME"].min())
-        loop_end = int(self._flows.loc[:, "END_TIME"].max())
-        loop_length = int((loop_end - loop_start) * time_multiplier)
-
-        self._flows["_FLOW_LEN"] = (
-            (self._flows["END_TIME"] - self._flows["START_TIME"]) * time_multiplier
-        ).astype(np.uint64)
-        self._flows["_START_OFFSET"] = (
-            (self._flows["START_TIME"] - loop_start) * time_multiplier
+        chunk["_FLOW_LEN"] = (
+            (chunk["END_TIME"] - chunk["START_TIME"]) * time_multiplier
         ).astype(np.uint64)
 
-        self._flows["_SRC_IP_OFFSET"] = 0
-        self._flows["_DST_IP_OFFSET"] = 0
+        chunk["_START_OFFSET"] = (
+            (chunk["START_TIME"] - loop_start) * time_multiplier
+        ).astype(np.uint64)
+
+        chunk["_SRC_IP_OFFSET"] = 0
+        chunk["_DST_IP_OFFSET"] = 0
 
         tmp_dataframes = []
         for loop_n in range(loops):
-            logging.getLogger().debug("Processing %d loop...", loop_n)
+            logging.getLogger().debug("Processing loop %d...", loop_n)
             if loop_n in self._ignore_loops:
                 continue
-            tmp_dataframes.append(
-                self._process_single_loop(loop_n, loop_start, loop_length)
-            )
 
-        res = pd.concat(tmp_dataframes, axis=0)
-        return res
+            self._flows = chunk  # used internally by _process_single_loop
+            replicated = self._process_single_loop(loop_n, loop_start, loop_length)
+            tmp_dataframes.append(replicated)
+
+        return (
+            pd.concat(tmp_dataframes, axis=0)
+            if tmp_dataframes
+            else pd.DataFrame(columns=chunk.columns)
+        )
 
     def _process_single_loop(
         self, loop_n: int, global_start: int, loop_length: int
