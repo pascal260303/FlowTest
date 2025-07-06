@@ -242,7 +242,7 @@ class StatisticalModel:
         else:
             self._statistic_objects = {}
             self._ref_statisitic_objetcs = {}
-            
+
     def __del__(self):
         try:
             Path(self._flows_path).unlink()
@@ -708,7 +708,7 @@ class StatisticalModel:
                 singleton_packet_rate = (
                     total_packets / duration_s if duration_s > 0 else 0.0
                 )
-                
+
                 singleton_flow_rate = (
                     total_flows / duration_s if duration_s > 0 else 0.0
                 )

@@ -245,7 +245,9 @@ def test_simulation_threshold(
         collector_instance.get_reader().save_csv(flows_file)
         logging.getLogger().debug("Start applying flow replicator...")
         start = time.time()
-        replicated_ref = flow_replicator.replicate(input_file=ref_file, loops=loops)
+        replicated_ref = flow_replicator.replicate(
+            input_file=ref_file, loops=loops, generator_stats=stats
+        )
         end = time.time()
         logging.getLogger().debug("Flows replicated in %.2f seconds.", (end - start))
 

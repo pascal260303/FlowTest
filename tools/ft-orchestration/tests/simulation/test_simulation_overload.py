@@ -301,6 +301,7 @@ def test_simulation_overload(
     replicated_ref = flow_replicator.replicate(
         input_file=ref_file,
         loops=LOOPS,
+        generator_stats=stats,
         speed_multiplier=speed.speed if isinstance(speed, MultiplierSpeed) else 1.0,
     )
 

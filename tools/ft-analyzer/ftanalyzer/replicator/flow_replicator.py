@@ -23,6 +23,7 @@ from typing import Any, Iterable, List, Optional, Union
 import numpy as np
 import pandas as pd
 from ftanalyzer.common.pandas_multiprocessing import PandasMultiprocessingHelper
+from src.generator.interface import GeneratorStats
 
 _TEMP_FILES = []
 
@@ -225,6 +226,7 @@ class FlowReplicator:
         self,
         input_file: str,
         loops: int,
+        generator_stats: GeneratorStats,
         output_file: str = None,
         merge_across_loops: bool = False,
         inactive_timeout: int = -1,
@@ -292,6 +294,15 @@ class FlowReplicator:
 
         loop_start = int(loop_start)
         loop_end = int(loop_end)
+
+        if speed_multiplier == 1:
+            # derive speed multiplier from actual replay times (not really correct)
+            speed_multiplier = (
+                (loop_end - loop_start)
+                * loops
+                / (generator_stats.end_time - generator_stats.start_time)
+            )
+
         time_multiplier = 1 / speed_multiplier
         loop_length = int((loop_end - loop_start) * time_multiplier)
 

@@ -137,3 +137,4 @@ Expected:
 
             stat_obj.csv_report(self._log_dir)
             stat_obj.reset()
+            ref_obj.reset()

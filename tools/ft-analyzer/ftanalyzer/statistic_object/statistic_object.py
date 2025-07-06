@@ -31,3 +31,9 @@ class StatisticObject(ABC):
             output_dir (PathLike): filepath
         """
         pass
+    
+    @abstractmethod
+    def reset(self):
+        """Reset all internal data structures
+        """
+        pass

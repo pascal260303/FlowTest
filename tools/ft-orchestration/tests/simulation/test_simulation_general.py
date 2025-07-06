@@ -347,6 +347,7 @@ def test_simulation_general(
     replicated_ref = flow_replicator.replicate(
         input_file=ref_file,
         loops=scenario.test.loops,
+        generator_stats=stats,
         speed_multiplier=speed.speed if isinstance(speed, MultiplierSpeed) else 1.0,
     )
 
