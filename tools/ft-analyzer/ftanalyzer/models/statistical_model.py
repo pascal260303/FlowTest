@@ -42,6 +42,8 @@ from ftanalyzer.statistic_object import StatisticObject, SimState
 from ftanalyzer.events import (
     Event,
     OnePacketFlow,
+    FlowEndEvent,
+    FlowStartEvent,
     create_event_queue,
 )
 
@@ -240,6 +242,13 @@ class StatisticalModel:
         else:
             self._statistic_objects = {}
             self._ref_statisitic_objetcs = {}
+            
+    def __del__(self):
+        try:
+            Path(self._flows_path).unlink()
+            Path(self._ref_path).unlink()
+        except FileNotFoundError:
+            pass
 
     def _load_flows_df(self):
         return pd.read_csv(
@@ -603,6 +612,8 @@ class StatisticalModel:
                 "data rate in Gib/s", self._sim, 1 / (1024**3)
             ),
             "ct_packet_rate": ContinuousCounter("packets per second", self._sim),
+            "ct_flow_count": ContinuousCounter("total flows", self._sim),
+            "ct_flow_rate": ContinuousCounter("flows rate", self._sim),
             "tsc_data_rate": TimeSeriesCounter(
                 "data rate in Gb/s",
                 self._sim,
@@ -616,11 +627,25 @@ class StatisticalModel:
                 self._generator_stats.start_time,
                 self._generator_stats.end_time,
             ),
+            "tsc_flow_count": TimeSeriesCounter(
+                "total flows",
+                self._sim,
+                self._generator_stats.start_time,
+                self._generator_stats.end_time,
+            ),
+            "tsc_flow_rate": TimeSeriesCounter(
+                "flow rate",
+                self._sim,
+                self._generator_stats.start_time,
+                self._generator_stats.end_time,
+            ),
         }
 
         metric_mapping: dict[str, List[str]] = {
             "data_rate": ["ct_data_rate", "ct_data_rate_bibit", "tsc_data_rate"],
             "packet_rate": ["ct_packet_rate", "tsc_packet_rate"],
+            "flow_count": ["ct_flow_count", "tsc_flow_count"],
+            "flow_rate": ["ct_flow_rate", "tsc_flow_rate"],
         }
 
         return (statistic_objects, metric_mapping)
@@ -642,6 +667,8 @@ class StatisticalModel:
         one_packet_events: list[OnePacketFlow] = []
         current_data_rate = 0.0
         current_packet_rate = 0.0
+        current_flow_count = np.uint64(0)
+        current_flow_rate = 0.0
 
         # Prime the iterator
         event_iter = iter(event_queue)
@@ -673,6 +700,7 @@ class StatisticalModel:
                 # aggregate OnePacketFlow events within this window
                 total_bytes = sum(e.bytes for e in one_packet_events)
                 total_packets = sum(e.packets for e in one_packet_events)
+                total_flows = len(one_packet_events)
 
                 singleton_data_rate = (
                     (total_bytes * 8) / duration_s if duration_s > 0 else 0.0
@@ -680,15 +708,23 @@ class StatisticalModel:
                 singleton_packet_rate = (
                     total_packets / duration_s if duration_s > 0 else 0.0
                 )
+                
+                singleton_flow_rate = (
+                    total_flows / duration_s if duration_s > 0 else 0.0
+                )
 
                 # Compose final rates
                 total_data_rate = current_data_rate + singleton_data_rate
                 total_packet_rate = current_packet_rate + singleton_packet_rate
+                total_flow_count = current_flow_count + total_flows
+                total_flow_rate = current_flow_rate + singleton_flow_rate
 
                 self._update_statistic_objects(
                     statistic_objects,
                     data_rate=total_data_rate,
                     packet_rate=total_packet_rate,
+                    flow_count=total_flow_count,
+                    flow_rate=total_flow_rate,
                 )
 
                 # reset one-packet events after processing
@@ -703,6 +739,11 @@ class StatisticalModel:
                 else:
                     current_data_rate += e.data_rate
                     current_packet_rate += e.packet_rate
+                    current_flow_count += e.flow_rate
+                    if isinstance(e, FlowStartEvent):
+                        current_flow_count += 1
+                    elif isinstance(e, FlowEndEvent):
+                        current_flow_count -= 1
 
             self._sim.set_time(event.time)
             simultaneous_events = [event]

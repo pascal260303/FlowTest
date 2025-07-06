@@ -46,22 +46,26 @@ class FlowStartEvent(Event):
     data_rate: float
     packet_rate: float
     time = 0
+    flow_rate: float
 
-    def __init__(self, data_rate, packet_rate, start_time):
+    def __init__(self, data_rate, packet_rate, start_time, flow_rate):
         self.data_rate = data_rate
         self.packet_rate = packet_rate
         self.time = start_time
+        self.flow_rate = flow_rate
 
 
 class FlowEndEvent(Event):
     data_rate: float
     packet_rate: float
     time = 0
+    flow_rate: float
 
-    def __init__(self, data_rate, packet_rate, end_time):
+    def __init__(self, data_rate, packet_rate, end_time, flow_rate):
         self.data_rate = -data_rate
         self.packet_rate = -packet_rate
         self.time = end_time
+        self.flow_rate = -flow_rate
 
 
 class OnePacketFlow(Event):
@@ -120,9 +124,15 @@ def read_start_events(path: str) -> Iterator[FlowStartEvent]:
         durations = (chunk.END_TIME - chunk.START_TIME + 1) / 1_000
         data_rates = (chunk.BYTES * 8) / durations
         packet_rates = chunk.PACKETS / durations
-        for row, dr, pr in zip(chunk.itertuples(index=False), data_rates, packet_rates):
+        flow_rates = 1 / durations
+        for row, dr, pr, fr in zip(
+            chunk.itertuples(index=False), data_rates, packet_rates, flow_rates
+        ):
             yield FlowStartEvent(
-                data_rate=dr, packet_rate=pr, start_time=np.uint64(row.START_TIME)
+                data_rate=dr,
+                packet_rate=pr,
+                start_time=np.uint64(row.START_TIME),
+                flow_rate=fr,
             )
 
 
@@ -131,7 +141,13 @@ def read_end_events(path: str) -> Iterator[FlowEndEvent]:
         durations = (chunk.END_TIME - chunk.START_TIME + 1) / 1_000
         data_rates = (chunk.BYTES * 8) / durations
         packet_rates = chunk.PACKETS / durations
-        for row, dr, pr in zip(chunk.itertuples(index=False), data_rates, packet_rates):
+        flow_rates = 1 / durations
+        for row, dr, pr, fr in zip(
+            chunk.itertuples(index=False), data_rates, packet_rates, flow_rates
+        ):
             yield FlowEndEvent(
-                data_rate=dr, packet_rate=pr, end_time=np.uint64(row.END_TIME)
+                data_rate=dr,
+                packet_rate=pr,
+                end_time=np.uint64(row.END_TIME),
+                flow_rate=fr,
             )

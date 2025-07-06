@@ -24,14 +24,14 @@ default:
 
 # individual tests for general simulation scenario
 sim_general:
-  - id: munich_precise
+  - id: munich_short_precise
     marks: [precise]
     speed_multiplier: 1.0
     analysis:
       model: "precise"
       use_statistic_counter: true
 
-  - id: munich_statistical
+  - id: munich_short_statistical
     marks: []
     speed_multiplier: 1.0
     analysis:
@@ -50,12 +50,13 @@ sim_general:
           diff: 1
         - key: DURATION
           diff: 1
-  - id: munich_speedup_400G
+  - id: munich_short_speedup_400G
     marks: [speedup]
     mbps: 400000
     loops: 5
     analysis:
       model: "statistical"
+      use_statistic_counter: true
       metrics:
         - key: PACKETS
           diff: 0.5
