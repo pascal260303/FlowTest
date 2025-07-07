@@ -46,7 +46,7 @@ class PidStat(HostStats):
         )  # in kB
 
         self._cmd = f"""
-        pidstat -rushHv -C {watch_cmd} | sed 's/^# //g' | sed -E 's/[ ]+/;/g' | tail -n2 > {self._outfile}
+        pidstat -rushHv -C {watch_cmd} | sed -E -e 's/^# //g' -e 's/[ ]+/;/g' -e 's/%/percent_/g' | tail -n2 > {self._outfile}
         sleep 1
         stdbuf -oL pidstat -rushHv -C {watch_cmd} 1 | stdbuf -oL sed -E -e 's/[ ]+/;/g' -e '/^([^0-9].*)?$/d' >> {self._outfile}
         """

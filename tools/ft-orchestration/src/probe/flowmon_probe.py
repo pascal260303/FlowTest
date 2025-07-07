@@ -24,7 +24,8 @@ from lbr_testsuite.executable import (
     LocalExecutor,
 )
 from lbr_testsuite.executable.rsync import RsyncException
-from src.probe.interface import HostStats, ProbeException, ProbeInterface
+from src.probe.interface import ProbeException, ProbeInterface
+from src.probe.pidstat import PidStat
 
 FLOWMONEXP_BIN = "/usr/bin/flowmonexp5"
 FLOWMONEXP_LOG = Path("/data/components/flowmonexp/log")
@@ -192,9 +193,7 @@ class FlowmonProbe(ProbeInterface):
         else:
             stats_executor = LocalExecutor()
 
-        self.host_statistics = HostStats(
-            stats_executor, os.path.basename(FLOWMONEXP_BIN)
-        )
+        self.host_statistics = PidStat(stats_executor, os.path.basename(FLOWMONEXP_BIN))
 
         dpdk_is_active = Tool(
             "systemctl -q is-active dpdk-controller.service",

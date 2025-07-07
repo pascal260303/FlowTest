@@ -29,7 +29,8 @@ from src.common.required_field import required_field
 from src.common.tool_is_installed import assert_tool_is_installed
 from src.common.typed_dataclass import bool_convertor, typed_dataclass
 from src.config.common import InterfaceCfg
-from src.probe.interface import HostStats, ProbeException, ProbeInterface
+from src.probe.interface import ProbeException, ProbeInterface
+from src.probe.pidstat import PidStat
 from src.probe.probe_target import ProbeTarget
 from lbr_testsuite.executable import ExecutableProcessError
 
@@ -398,7 +399,7 @@ class Ipfixprobe(ProbeInterface, ABC):
 
         assert_tool_is_installed("ipfixprobe", executor)
         self._cmd = self._prepare_cmd(target, protocols, settings)
-        self.host_statistics = HostStats(stats_executor, self._cmd.split(" ", 1)[0])
+        self.host_statistics = PidStat(stats_executor, self._cmd.split(" ", 1)[0])
 
         self._local_workdir = tempfile.mkdtemp()
         self._log_file = Path(self._local_workdir, "ipfixprobe.log")

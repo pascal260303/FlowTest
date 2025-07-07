@@ -41,6 +41,7 @@ from ftanalyzer.counter import ContinuousCounter, TimeSeriesCounter
 from ftanalyzer.statistic_object import StatisticObject, SimState
 from ftanalyzer.events import (
     Event,
+    HostStatsEvent,
     OnePacketFlow,
     FlowEndEvent,
     FlowStartEvent,
@@ -229,14 +230,14 @@ class StatisticalModel:
             self._statistic_objects, self._metric_to_obj = (
                 self._setup_statsitic_objects()
             )
-            event_queue = create_event_queue(self._flows_path, output_dir)
+            event_queue = create_event_queue(self._flows_path, host_stats, output_dir)
             self._process_events(event_queue, self._statistic_objects)
 
             shutil.rmtree(output_dir, ignore_errors=True)
             output_dir = tempfile.mkdtemp()
 
             self._ref_statisitic_objetcs, _ = self._setup_statsitic_objects()
-            ref_event_queue = create_event_queue(self._ref_path, output_dir)
+            ref_event_queue = create_event_queue(self._ref_path, "", output_dir)
             self._process_events(ref_event_queue, self._ref_statisitic_objetcs)
 
             shutil.rmtree(output_dir, ignore_errors=True)
@@ -732,7 +733,9 @@ class StatisticalModel:
 
             # apply each event's effect to current rates
             for e in simultaneous_events:
-                if isinstance(e, OnePacketFlow):
+                if isinstance(e, HostStatsEvent):
+                    pass
+                elif isinstance(e, OnePacketFlow):
                     one_packet_events.append(e)
                 else:
                     current_data_rate += e.data_rate

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import atexit
 import heapq
+import math
 import os
 import shutil
 import tempfile
@@ -18,6 +19,28 @@ CSV_COLUMN_TYPES = {
     "DST_PORT": np.uint16,
     "PACKETS": np.uint64,
     "BYTES": np.uint64,
+}
+
+STATS_CSV_COLUMN_TYPES = {
+    "Time": np.uint64,
+    "UID": np.uint64,
+    "PID": np.uint64,
+    "percent_usr": np.float64,
+    "percent_system": np.float64,
+    "percent_guest": np.float64,
+    "percent_wait": np.float64,
+    "percent_CPU": np.float64,
+    "CPU": np.uint64,
+    "minflt/s": np.float64,
+    "majflt/s": np.float64,
+    "VSZ": np.uint64,
+    "RSS": np.uint64,
+    "percent_MEM": np.float64,
+    "StkSize": np.uint64,
+    "StkRef": np.uint64,
+    "threads": np.uint64,
+    "fd-nr": np.uint64,
+    "Command": str,
 }
 
 _TEMP_DIRS = []
@@ -79,10 +102,31 @@ class OnePacketFlow(Event):
         self.time = time
 
 
-def create_event_queue(flows_csv_path: str, out_dir: str = None) -> Iterator[Event]:
+class HostStatsEvent(Event):
+    """Event Holding Statistics fetched from Host OS
+
+    Example header of original csv file:
+        Time;UID;PID;percent_usr;percent_system;percent_guest;percent_wait;percent_CPU;CPU;minflt/s;majflt/s;VSZ;RSS;percent_MEM;StkSize;StkRef;threads;fd-nr;Command
+    """
+
+    time = 0
+
+    def __init__(self, row):
+        self.row = row
+        self.time = row.Time * 1000
+
+
+def create_event_queue(
+    flows_csv_path: os.PathLike, hosts_stats_file: os.PathLike, out_dir: str = None
+) -> Iterator[Event]:
     if not out_dir:
-        tempfile.mkdtemp(prefix="flows_split_")
+        out_dir = tempfile.mkdtemp(prefix="flows_split_")
         _TEMP_DIRS.append(out_dir)
+
+    if not hosts_stats_file:
+        hosts_stats_file = tempfile.NamedTemporaryFile(suffix=".csv", dir=out_dir).name
+        with open(hosts_stats_file, "x") as f:
+            f.write(";".join(STATS_CSV_COLUMN_TYPES.keys()))
 
     # Paths for output CSVs
     one_packet_path = os.path.join(out_dir, "flows_one_packet.csv")
@@ -91,6 +135,16 @@ def create_event_queue(flows_csv_path: str, out_dir: str = None) -> Iterator[Eve
 
     # Load and split
     df = pd.read_csv(flows_csv_path, dtype=CSV_COLUMN_TYPES)
+
+    # Filer host stats file by time
+    start = math.floor(df["START_TIME"].min() / 1000)
+    end = math.ceil(df["END_TIME"].max() / 1000)
+
+    stats_df: pd.DataFrame = pd.read_csv(
+        hosts_stats_file, sep=";", dtype=STATS_CSV_COLUMN_TYPES
+    )
+    stats_df = stats_df[(stats_df["Time"] >= start) & (stats_df["Time"] <= end)]
+    stats_df.to_csv(hosts_stats_file, sep=";", index=False)
 
     # One-packet flows
     one_packet_df = df[df["PACKETS"] == 1].sort_values("START_TIME")
@@ -105,8 +159,17 @@ def create_event_queue(flows_csv_path: str, out_dir: str = None) -> Iterator[Eve
         read_one_packet_events(one_packet_path),
         read_start_events(sorted_by_start_path),
         read_end_events(sorted_by_end_path),
+        read_host_stats_events(hosts_stats_file),
         key=lambda e: e.time,
     )
+
+
+def read_host_stats_events(path: os.PathLike):
+    for chunk in pd.read_csv(
+        path, chunksize=100_000, sep=";", dtype=STATS_CSV_COLUMN_TYPES
+    ):
+        for row in chunk.itertuples(index=False):
+            yield HostStatsEvent(row)
 
 
 def read_one_packet_events(path: str) -> Iterator[OnePacketFlow]:
