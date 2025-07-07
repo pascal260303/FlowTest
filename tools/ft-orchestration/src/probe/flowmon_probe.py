@@ -9,15 +9,22 @@ Library for managing Flowmon probe"""
 
 import json
 import logging
+import os
 import shutil
 import tempfile
 import time
 from pathlib import Path
 from typing import List
-
-from lbr_testsuite.executable import ExecutableProcessError, Rsync, Tool
+from fabric import Connection
+from lbr_testsuite.executable import (
+    ExecutableProcessError,
+    Rsync,
+    Tool,
+    RemoteExecutor,
+    LocalExecutor,
+)
 from lbr_testsuite.executable.rsync import RsyncException
-from src.probe.interface import ProbeException, ProbeInterface
+from src.probe.interface import HostStats, ProbeException, ProbeInterface
 
 FLOWMONEXP_BIN = "/usr/bin/flowmonexp5"
 FLOWMONEXP_LOG = Path("/data/components/flowmonexp/log")
@@ -126,6 +133,8 @@ class FlowmonProbe(ProbeInterface):
     """Flowmon Probe exporter. It's able to start, stop and terminate flow exporting process
     on a single monitoring interface."""
 
+    host_statistics = None
+
     # pylint: disable=too-many-locals
     def __init__(
         self,
@@ -175,6 +184,17 @@ class FlowmonProbe(ProbeInterface):
         interface = interfaces[0].name
 
         self._executor = executor
+        if isinstance(executor, RemoteExecutor):
+            connection: Connection = executor.get_connection()
+            stats_executor = RemoteExecutor(
+                executor.get_host(), **connection.connect_kwargs
+            )
+        else:
+            stats_executor = LocalExecutor()
+
+        self.host_statistics = HostStats(
+            stats_executor, os.path.basename(FLOWMONEXP_BIN)
+        )
 
         dpdk_is_active = Tool(
             "systemctl -q is-active dpdk-controller.service",
@@ -461,6 +481,7 @@ class FlowmonProbe(ProbeInterface):
             # The sudo parameter of the Tool class cannot be used because of selective permission
             # of flowmon user on flowmon probe. Command is transformed to form 'sudo -E sh -c cmd'.
             # User cannot run 'sh' under sudo.
+            self.host_statistics.start()
             Tool(f"sudo {cmd}", executor=self._executor).run()
             time.sleep(3)
             self._pid = int(
@@ -480,6 +501,7 @@ class FlowmonProbe(ProbeInterface):
             return
 
         logging.getLogger().info("Stopping exporter on %s", self._interface)
+        self.host_statistics.stop()
         self._stop_process(self._pid)
         self._pid = None
 
@@ -504,7 +526,7 @@ class FlowmonProbe(ProbeInterface):
 
     def cleanup(self):
         """Clean any artifacts which were created by the connector or the active probe itself."""
-
+        self.host_statistics.cleanup()
         logging.getLogger().info(
             "Cleaning up remote temporary directory %s", self._remote_dir
         )
@@ -524,6 +546,7 @@ class FlowmonProbe(ProbeInterface):
         directory : str
             Path to a local directory where logs should be stored.
         """
+        self.host_statistics.get_csv(directory)
         storage = Rsync(self._executor)
         for log_file in self._prepare_logs():
             try:

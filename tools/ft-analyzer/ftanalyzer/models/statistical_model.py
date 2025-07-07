@@ -127,6 +127,7 @@ class StatisticalModel:
         reference: Union[str, pd.DataFrame],
         stats: GeneratorStats,
         log_dir: PathLike,
+        host_stats: PathLike,
         merge: bool = False,
         use_statistical_counter: bool = False,
         biflows_ts_correction: bool = False,

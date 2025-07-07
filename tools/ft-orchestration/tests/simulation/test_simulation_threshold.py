@@ -47,6 +47,7 @@ def validate(
     ref_file: str,
     stats: GeneratorStats,
     log_dir: os.PathLike,
+    host_stats_file: os.PathLike,
 ) -> bool:
     """Perform statistical and/or precise model evaluation of the test scenario.
 
@@ -74,6 +75,7 @@ def validate(
         stats,
         log_dir,
         use_statistical_counter=analysis.use_statistic_counter,
+        host_stats=host_stats_file,
     )
     stats_report = model.validate([SMRule(analysis.metrics)])
     stats_report.print_results()
@@ -254,12 +256,16 @@ def test_simulation_threshold(
         flow_replicator = None
         gc.collect()
 
+        if not probe_instance.host_statistics.local_file:
+            probe_instance.host_statistics.get_csv(tmp_dir)
+
         ret = validate(
             analysis=scenario.test.analysis,
             flows_file=flows_file,
             ref_file=replicated_ref,
             stats=stats,
             log_dir=log_dir,
+            host_stats_file=probe_instance.host_statistics.local_file,
         )
 
         return ret

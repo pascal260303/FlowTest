@@ -29,7 +29,7 @@ from src.common.required_field import required_field
 from src.common.tool_is_installed import assert_tool_is_installed
 from src.common.typed_dataclass import bool_convertor, typed_dataclass
 from src.config.common import InterfaceCfg
-from src.probe.interface import ProbeException, ProbeInterface
+from src.probe.interface import HostStats, ProbeException, ProbeInterface
 from src.probe.probe_target import ProbeTarget
 from lbr_testsuite.executable import ExecutableProcessError
 
@@ -337,6 +337,8 @@ class Ipfixprobe(ProbeInterface, ABC):
         List of enabled process plugins. "basic" pseudo plugin is not listed.
     """
 
+    host_statistics = None
+
     # pylint: disable=super-init-not-called
     def __init__(
         self,
@@ -379,8 +381,13 @@ class Ipfixprobe(ProbeInterface, ABC):
             self._fallback_executor = RemoteExecutor(
                 executor.get_host(), **connection.connect_kwargs
             )
+            stats_executor = RemoteExecutor(
+                executor.get_host(), **connection.connect_kwargs
+            )
         else:
             self._fallback_executor = LocalExecutor()
+            stats_executor = LocalExecutor()
+
         self._process = None
         self._sudo = sudo
         self._ifc_names = ",".join([ifc.name for ifc in interfaces])
@@ -391,6 +398,7 @@ class Ipfixprobe(ProbeInterface, ABC):
 
         assert_tool_is_installed("ipfixprobe", executor)
         self._cmd = self._prepare_cmd(target, protocols, settings)
+        self.host_statistics = HostStats(stats_executor, self._cmd.split(" ", 1)[0])
 
         self._local_workdir = tempfile.mkdtemp()
         self._log_file = Path(self._local_workdir, "ipfixprobe.log")
@@ -438,6 +446,8 @@ class Ipfixprobe(ProbeInterface, ABC):
             self._stop_process(running_pid)
             time.sleep(2)
 
+        self.host_statistics.start()
+
         self._process = Daemon(self._cmd, executor=self._executor, sudo=self._sudo)
         # stderr is implicitly redirected to stdout
         self._process.set_outputs(self._log_file)
@@ -475,6 +485,8 @@ class Ipfixprobe(ProbeInterface, ABC):
             failure_verbosity="silent",
         ).run()
 
+        self.host_statistics.stop()
+
         stdout = []
         try:
             stdout, _ = self._process.stop()
@@ -501,6 +513,7 @@ class Ipfixprobe(ProbeInterface, ABC):
     def cleanup(self) -> None:
         """Clean any artifacts which were created by the connector or the active probe itself."""
         Tool(f"rm -rf {self._local_workdir}").run()
+        self.host_statistics.cleanup()
 
     def download_logs(self, directory: str):
         """Download logs from ipfix probe.
@@ -510,9 +523,9 @@ class Ipfixprobe(ProbeInterface, ABC):
         directory : str
             Path to a local directory where logs should be stored.
         """
-
         try:
             shutil.copy(self._log_file, directory)
+            self.host_statistics.get_csv()
         except PermissionError as err:
             logging.getLogger().warning("Cannot download ipfixprobe log, %s", err)
 

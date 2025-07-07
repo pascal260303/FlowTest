@@ -57,6 +57,7 @@ def validate(
     stats: GeneratorStats,
     biflows: bool,
     log_dir: os.PathLike,
+    host_stats_file: os.PathLike,
 ) -> tuple[StatisticalReport, Optional[PreciseReport]]:
     """Perform statistical and/or precise model evaluation of the test scenario.
 
@@ -93,6 +94,7 @@ def validate(
             log_dir,
             biflows,
             use_statistical_counter=analysis.use_statistic_counter,
+            host_stats=host_stats_file,
         )
         if len(prefilter_conf) > 0:
             precise_report = model.validate_precise(
@@ -118,6 +120,7 @@ def validate(
             stats,
             log_dir,
             use_statistical_counter=analysis.use_statistic_counter,
+            host_stats=host_stats_file,
         )
         precise_report = None
         metrics = analysis.metrics
@@ -351,6 +354,9 @@ def test_simulation_general(
         speed_multiplier=speed.speed if isinstance(speed, MultiplierSpeed) else 1.0,
     )
 
+    if not probe_instance.host_statistics.local_file:
+        probe_instance.host_statistics.get_csv(tmp_dir)
+
     stats_report, precise_report = validate(
         analysis=scenario.test.analysis,
         prefilter_conf=prefilter_conf,
@@ -360,6 +366,7 @@ def test_simulation_general(
         stats=stats,
         biflows=device.get_biflow_export(),
         log_dir=log_dir,
+        host_stats_file=probe_instance.host_statistics.local_file,
     )
 
     print("")

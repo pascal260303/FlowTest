@@ -15,6 +15,7 @@ from lbr_testsuite.executable import (
 class PidStat(HostStats):
     cpus: int = 0
     total_ram: int = 0
+    local_file: os.PathLike = None
 
     def __init__(self, executor: Executor, watch_cmd: str, sudo: bool = False):
         self._sudo = sudo
@@ -49,7 +50,7 @@ class PidStat(HostStats):
         sleep 1
         stdbuf -oL pidstat -rushHv -C {watch_cmd} 1 | stdbuf -oL sed -E -e 's/[ ]+/;/g' -e '/^([^0-9].*)?$/d' >> {self._outfile}
         """
-        """command that writes every second one line in `self._outfile` in csv format (; separated with header)
+        """command that writes every second one line in `self._outfile` in csv format (; separated,  with header)
         see `man pidstat` for the meaning of the metrics selected by `-rus`
         """
 
@@ -86,11 +87,11 @@ class PidStat(HostStats):
 
     def get_csv(self, output_dir) -> os.PathLike:
         try:
-            self._rsync.pull_path(self._outfile, output_dir)
+            self.local_file = self._rsync.pull_path(self._outfile, output_dir)
+            return self.local_file
         except RsyncException as err:
             logging.getLogger().warning("%s", err)
-
-        return os.path.join(output_dir, os.path.basename(self._outfile))
+        return ""
 
     def cleanup(self):
         self._rsync.wipe_data_directory()

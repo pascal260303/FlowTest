@@ -52,6 +52,7 @@ class PreciseModel(StatisticalModel):
         active_timeout: int,
         stats: GeneratorStats,
         log_dir: PathLike,
+        host_stats: PathLike,
         biflows_ts_correction: bool = False,
         use_statistical_counter: bool = False,
     ) -> None:
@@ -87,6 +88,7 @@ class PreciseModel(StatisticalModel):
             merge=True,
             biflows_ts_correction=biflows_ts_correction,
             use_statistical_counter=use_statistical_counter,
+            host_stats=host_stats,
         )
         self._report = None
         self._active_timeout = active_timeout * 1000

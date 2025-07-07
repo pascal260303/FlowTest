@@ -13,6 +13,62 @@ from os import PathLike
 from lbr_testsuite.executable import Executor
 
 
+class HostStats(ABC):
+    """Abstract class defining an Interface for a programm that reads statistics from a host"""
+
+    @abstractmethod
+    def __init__(self, executor: Executor, watch_cmd: str):
+        """Constructor
+
+        Args:
+            executor (Executor): _description_
+            watch_cmd (str): the program name to watch statistics for
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def cpus(self) -> int:
+        """number of cpus"""
+        pass
+
+    @property
+    @abstractmethod
+    def total_ram(self) -> int:
+        """size of ram in kB"""
+        pass
+
+    @property
+    @abstractmethod
+    def local_file(self) -> PathLike:
+        """Path to locally stored csv file"""
+        pass
+
+    @abstractmethod
+    def start(self):
+        """Start collecting statistics"""
+        pass
+
+    @abstractmethod
+    def stop(self):
+        """Stop collecting statistics"""
+        pass
+
+    @abstractmethod
+    def cleanup(self):
+        """Remove temporary files"""
+        pass
+
+    @abstractmethod
+    def get_csv(self, output_dir: PathLike):
+        """Download the csv file containing statistics to the output_dir
+
+        Args:
+            output_dir (PathLike): path where to copy csv to
+        """
+        pass
+
+
 class ProbeException(Exception):
     """Basic exception raised by the probe implementations"""
 
@@ -73,6 +129,12 @@ class ProbeInterface(ABC):
         """
         raise NotImplementedError
 
+    @property
+    @abstractmethod
+    def host_statistics(self) -> HostStats:
+        """Class with which to read statistics from the host"""
+        pass
+
     @abstractmethod
     def start(self):
         """Start the probe."""
@@ -131,58 +193,3 @@ class ProbeInterface(ABC):
         """
 
         raise NotImplementedError
-
-
-class HostStats(ABC):
-    """Abstract class defining an Interface for a programm that reads statistics from a host"""
-
-    @abstractmethod
-    def __init__(self, executor: Executor, watch_cmd: str):
-        """Constructor
-
-        Args:
-            executor (_type_): _description_
-            watch_cmd (str): the program name to what statistics for
-        """
-        pass
-    
-    @property
-    @abstractmethod
-    def cpus(self) -> int:
-        """number of cpus
-        """
-        pass
-    
-    @property
-    @abstractmethod
-    def total_ram(self) -> int:
-        """size of ram in kB
-        """
-        pass
-    
-    @abstractmethod
-    def start(self):
-        """Start collecting statistics
-        """
-        pass
-    
-    @abstractmethod
-    def stop(self):
-        """Stop collecting statistics
-        """
-        pass
-    
-    @abstractmethod
-    def cleanup(self):
-        """Remove temporary files
-        """
-        pass
-    
-    @abstractmethod
-    def get_csv(self, output_dir: PathLike):
-        """Download the csv file containing statistics to the output_dir
-
-        Args:
-            output_dir (PathLike): path where to copy csv to
-        """
-        pass
