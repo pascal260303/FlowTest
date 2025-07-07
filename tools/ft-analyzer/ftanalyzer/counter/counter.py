@@ -153,7 +153,7 @@ class Counter(StatisticObject, ABC):
         """
         out: str = ""
         if self._observed_variable:
-            out += f"observed random variable: {self._observed_variable}\n"
+            out += f"observed metric: {self._observed_variable}\n"
 
         out += (
             f"\t{self.__counter_type}\n"

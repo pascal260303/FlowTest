@@ -500,9 +500,9 @@ class FlowmonProbe(ProbeInterface):
             return
 
         logging.getLogger().info("Stopping exporter on %s", self._interface)
-        self.host_statistics.stop()
         self._stop_process(self._pid)
         self._pid = None
+        self.host_statistics.stop()
 
     def _stop_process(self, pid):
         """Stop exporter process"""

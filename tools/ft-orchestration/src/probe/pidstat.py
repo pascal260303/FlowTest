@@ -22,6 +22,12 @@ class PidStat(HostStats):
         self._executor = executor
         self._rsync = Rsync(executor)
         self._work_dir = self._rsync._data_dir
+        Tool(
+            f"mkdir -p {self._work_dir}",
+            executor=self._executor,
+            sudo=self._sudo,
+            failure_verbosity="silent",
+        ).run()  # make sure dir exists
         self._outfile = os.path.join(self._work_dir, "pidstat.csv")
         self.cpus = int(
             Tool(
@@ -95,4 +101,8 @@ class PidStat(HostStats):
 
     def cleanup(self):
         self._rsync.wipe_data_directory()
-        Tool(f"rmdir {self._work_dir}", executor=self._executor).run()
+        Tool(
+            f"rmdir {self._work_dir}",
+            executor=self._executor,
+            failure_verbosity="silent",
+        ).run()

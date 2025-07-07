@@ -92,7 +92,7 @@ def validate(
             active_timeout,
             stats,
             log_dir,
-            biflows,
+            biflows_ts_correction=biflows,
             use_statistical_counter=analysis.use_statistic_counter,
             host_stats=host_stats_file,
         )

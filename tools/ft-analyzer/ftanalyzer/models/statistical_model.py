@@ -611,7 +611,7 @@ class StatisticalModel:
                 "data rate in Gb/s", self._sim, 1 / (10**9)
             ),
             "ct_packet_rate": ContinuousCounter("packets per second", self._sim),
-            "ct_flow_count": ContinuousCounter("total flows", self._sim),
+            "ct_flow_count": ContinuousCounter("active flows", self._sim),
             "ct_flow_rate": ContinuousCounter("flows rate", self._sim),
             "tsc_data_rate": TimeSeriesCounter(
                 "data rate in Gb/s",
@@ -627,13 +627,25 @@ class StatisticalModel:
                 self._generator_stats.end_time,
             ),
             "tsc_flow_count": TimeSeriesCounter(
-                "total flows",
+                "active flows",
                 self._sim,
                 self._generator_stats.start_time,
                 self._generator_stats.end_time,
             ),
             "tsc_flow_rate": TimeSeriesCounter(
                 "flow rate",
+                self._sim,
+                self._generator_stats.start_time,
+                self._generator_stats.end_time,
+            ),
+            "tsc_cpu_usage": TimeSeriesCounter(
+                "CPU usage in percent",
+                self._sim,
+                self._generator_stats.start_time,
+                self._generator_stats.end_time,
+            ),
+            "tsc_mem_usage": TimeSeriesCounter(
+                "RAM Usage in percent",
                 self._sim,
                 self._generator_stats.start_time,
                 self._generator_stats.end_time,
@@ -645,6 +657,8 @@ class StatisticalModel:
             "packet_rate": ["ct_packet_rate", "tsc_packet_rate"],
             "flow_count": ["ct_flow_count", "tsc_flow_count"],
             "flow_rate": ["ct_flow_rate", "tsc_flow_rate"],
+            "percent_CPU": ["tsc_cpu_usage"],
+            "percent_MEM": ["tsc_mem_usage"],
         }
 
         return (statistic_objects, metric_mapping)
@@ -725,6 +739,15 @@ class StatisticalModel:
                     flow_count=total_flow_count,
                     flow_rate=total_flow_rate,
                 )
+
+                host_stats_event: HostStatsEvent = next(
+                    (e for e in simultaneous_events if isinstance(e, HostStatsEvent)),
+                    None,
+                )
+                if host_stats_event:
+                    self._update_statistic_objects(
+                        statistic_objects, **host_stats_event.row._asdict()
+                    )
 
                 # reset one-packet events after processing
                 one_packet_events.clear()

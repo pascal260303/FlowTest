@@ -486,8 +486,6 @@ class Ipfixprobe(ProbeInterface, ABC):
             failure_verbosity="silent",
         ).run()
 
-        self.host_statistics.stop()
-
         stdout = []
         try:
             stdout, _ = self._process.stop()
@@ -510,6 +508,7 @@ class Ipfixprobe(ProbeInterface, ABC):
             log = file.readlines()
         self._last_run_stats = IpfixprobeStats(log)
         self._process = None
+        self.host_statistics.stop()
 
     def cleanup(self) -> None:
         """Clean any artifacts which were created by the connector or the active probe itself."""
@@ -526,7 +525,7 @@ class Ipfixprobe(ProbeInterface, ABC):
         """
         try:
             shutil.copy(self._log_file, directory)
-            self.host_statistics.get_csv()
+            self.host_statistics.get_csv(directory)
         except PermissionError as err:
             logging.getLogger().warning("Cannot download ipfixprobe log, %s", err)
 
