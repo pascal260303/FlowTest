@@ -608,9 +608,6 @@ class StatisticalModel:
             "ct_data_rate": ContinuousCounter(
                 "data rate in Gb/s", self._sim, 1 / (10**9)
             ),
-            "ct_data_rate_bibit": ContinuousCounter(
-                "data rate in Gib/s", self._sim, 1 / (1024**3)
-            ),
             "ct_packet_rate": ContinuousCounter("packets per second", self._sim),
             "ct_flow_count": ContinuousCounter("total flows", self._sim),
             "ct_flow_rate": ContinuousCounter("flows rate", self._sim),
