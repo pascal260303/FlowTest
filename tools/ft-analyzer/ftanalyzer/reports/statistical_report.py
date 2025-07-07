@@ -105,6 +105,8 @@ class StatisticalReport:
     def print_results(self) -> None:
         """Print results of all tests to stdout."""
 
+        max_width = max(len(test.metric.key.value) for test in self.tests)
+
         print()
         for test in self.tests:
             test_str = ""
@@ -117,7 +119,7 @@ class StatisticalReport:
                 test_str += str(test.segment)
 
             test_str += (
-                f"\t{test.metric.key.value}\t{test.diff:.4f}/"
+                f"\t{test.metric.key.value:<{max_width}} {test.diff:.4f}/"
                 f"{test.metric.diff:.4f}\t({test.value}/{test.reference})"
             )
             if not test.is_passing():

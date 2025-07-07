@@ -7,6 +7,7 @@ SPDX-License-Identifier: BSD-3-Clause
 Pytest conftest file.
 """
 
+import datetime
 import logging
 import os
 
@@ -40,10 +41,22 @@ def pytest_addhooks(pluginmanager: pytest.PytestPluginManager):
             pluginmanager.import_plugin(plugin)
 
 
-def pytest_configure():
+def pytest_configure(config: pytest.Config):
     """Restrict certain loggers so they don't pollute
     output with useless messages.
     """
 
     logging.getLogger("paramiko.transport").setLevel(logging.WARNING)
     logging.getLogger().setLevel(logging.INFO)
+
+    global START_TIME
+    if hasattr(config, "_start_time"):
+        START_TIME = config._start_time
+    else:
+        START_TIME = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        config._start_time = START_TIME
+
+    logs = os.path.join(os.getcwd(), f"logs/{START_TIME}")
+    os.makedirs(logs, exist_ok=True)
+
+    config.option.htmlpath = os.path.join(logs, "report.html")

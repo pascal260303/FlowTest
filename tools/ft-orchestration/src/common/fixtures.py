@@ -33,7 +33,11 @@ def pytest_configure(config: pytest.Config) -> None:
     """
 
     global START_TIME
-    START_TIME = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    if hasattr(config, "_start_time"):
+        START_TIME = config._start_time
+    else:
+        START_TIME = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        config._start_time = START_TIME
 
 
 @pytest.fixture(scope="function")
