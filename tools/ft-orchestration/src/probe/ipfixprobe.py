@@ -870,6 +870,33 @@ class IpfixprobeDpdk(Ipfixprobe):
             executor, target, protocols, interfaces, verbose, settings, sudo
         )
 
+    def _prepare_interfaces(self, settings: IpfixprobeDpdkSettings):
+        grep_regex: str = r"(?m)^.*using DPDK-compatible driver(\n[^\n]+)+\n"
+        for interface in settings.devices:
+            tool = Tool(
+                f"dpdk-devbind.py -s | grep -Pzo '{grep_regex}' | grep -q {interface}",
+                executor=self._executor,
+                failure_verbosity="silent",
+            )
+            tool.run()
+            if tool.returncode() == 0:
+                continue
+
+            Tool(
+                "echo 1 > /sys/module/vfio/parameters/enable_unsafe_noiommu_mode",
+                executor=self._executor,
+            ).run()
+            Tool(
+                f"dpdk-devbind.py -b vfio-pci {interface}", executor=self._executor
+            ).run()
+
+        if settings.memory:
+            Tool(
+                f"dpdk-hugepages.py --setup {settings.memory}M",
+                executor=self._executor,
+                failure_verbosity="no-exception",
+            ).run()
+
     def _prepare_cmd(
         self, target: ProbeTarget, protocols: List[str], settings: IpfixprobeSettings
     ) -> str:
@@ -879,6 +906,7 @@ class IpfixprobeDpdk(Ipfixprobe):
             raise TypeError(
                 "In IpfixprobeDpdk settings should be IpfixprobeDpdkSettings."
             )
+        self._prepare_interfaces(settings)
 
         args = ["ipfixprobe"]
 
@@ -911,6 +939,12 @@ class IpfixprobeDpdk(Ipfixprobe):
 
         args += self._get_common_args(target, protocols, settings)
         return " ".join(args)
+
+    def stop(self):
+        super().stop()
+
+        for interface in self._ifc_names.split(","):
+            Tool(f"dpdk-devbind.py -b ice {interface}", executor=self._executor).run()
 
 
 class IpfixprobeNdp(Ipfixprobe):

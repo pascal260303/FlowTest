@@ -612,7 +612,7 @@ class StatisticalModel:
             ),
             "ct_packet_rate": ContinuousCounter("packets per second", self._sim),
             "ct_flow_count": ContinuousCounter("active flows", self._sim),
-            "ct_flow_rate": ContinuousCounter("flows rate", self._sim),
+            "ct_flow_rate": ContinuousCounter("flow rate", self._sim),
             "tsc_data_rate": TimeSeriesCounter(
                 "data rate in Gb/s",
                 self._sim,

@@ -157,7 +157,7 @@ class Counter(StatisticObject, ABC):
 
         out += (
             f"\t{self.__counter_type}\n"
-            + f"\tnumber of sampes: {self.__num_samples}\n"
+            + f"\tnumber of samples: {self.__num_samples}\n"
             + f"\tmean: {self.get_mean()}\n"
             + f"\tvariance: {self.get_variance()}\n"
             + f"\tstandard deviation: {self.get_std_deviation()}\n"
