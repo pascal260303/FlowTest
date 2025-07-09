@@ -4,14 +4,22 @@ from ..statistic_object import SimState
 
 
 class ContinuousCounter(Counter):
-    def __init__(self, variable: str, sim: SimState, factor=1):
+    def __init__(
+        self,
+        variable: str,
+        sim: SimState,
+        factor: float = 1,
+        has_negatives: bool = False,
+    ):
         """Constructor
 
         Args:
             variable (str): _description_
             start_time (np.uint64, optional): _description_. Defaults to np.uint64(0).
         """
-        super().__init__(variable, "counter type: continuous-time counter")
+        super().__init__(
+            variable, "counter type: continuous-time counter", has_negatives
+        )
         self.last_sample_time: np.uint64 = np.uint64(0)
         self.first_sample_time: np.uint64 = np.uint64(0)
         self.last_sample_size: np.float64 = np.float64(0)

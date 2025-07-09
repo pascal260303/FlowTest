@@ -27,7 +27,12 @@ class Counter(StatisticObject, ABC):
 
     __num_samples: np.uint64
 
-    def __init__(self, variable: str, type: str = "counter type: base counter"):
+    def __init__(
+        self,
+        variable: str,
+        type: str = "counter type: base counter",
+        has_negatives: bool = False,
+    ):
         """Constructor
 
         Args:
@@ -41,6 +46,7 @@ class Counter(StatisticObject, ABC):
         self.__min = np.inf
         self.__max = -np.inf
         self.__num_samples = 0
+        self._has_negatives = has_negatives
 
     @abstractmethod
     def get_mean(self) -> np.float64:
@@ -142,6 +148,8 @@ class Counter(StatisticObject, ABC):
             x (np.float64): the value to count
         """
         self.__min = min(self.__min, x)
+        if not self._has_negatives:
+            self.__min = max(0, self.__min)
         self.__max = max(self.__max, x)
         self.__num_samples += 1
 
