@@ -605,7 +605,14 @@ class StatisticalModel:
 
     def _setup_statsitic_objects(
         self,
-    ) -> tuple[dict[str, StatisticObject], dict[str, str]]:
+    ) -> tuple[dict[str, StatisticObject], dict[str, List[str]]]:
+        """Create two dicts.
+        The first one maps strings to StatisticObjects.
+        The second one maps a metric name to a list of strings, that are from the first dict
+
+        Returns:
+            tuple[dict[str, StatisticObject], dict[str, List[str]]]: the two dicts in a tuple
+        """
         statistic_objects: dict[str, StatisticObject] = {
             "ct_data_rate": ContinuousCounter(
                 "data rate in Gb/s", self._sim, 1 / (10**9)
@@ -613,6 +620,8 @@ class StatisticalModel:
             "ct_packet_rate": ContinuousCounter("packets per second", self._sim),
             "ct_flow_count": ContinuousCounter("active flows", self._sim),
             "ct_flow_rate": ContinuousCounter("flow rate", self._sim),
+            "ct_cpu_usage": ContinuousCounter("CPU usage in percent", self._sim),
+            "ct_ram_usage": ContinuousCounter("RAM Usage in percent", self._sim),
             "tsc_data_rate": TimeSeriesCounter(
                 "data rate in Gb/s",
                 self._sim,
@@ -657,8 +666,8 @@ class StatisticalModel:
             "packet_rate": ["ct_packet_rate", "tsc_packet_rate"],
             "flow_count": ["ct_flow_count", "tsc_flow_count"],
             "flow_rate": ["ct_flow_rate", "tsc_flow_rate"],
-            "percent_CPU": ["tsc_cpu_usage"],
-            "percent_MEM": ["tsc_mem_usage"],
+            "percent_CPU": ["ct_cpu_usage", "tsc_cpu_usage"],
+            "percent_MEM": ["ct_ram_usage", "tsc_mem_usage"],
         }
 
         return (statistic_objects, metric_mapping)
