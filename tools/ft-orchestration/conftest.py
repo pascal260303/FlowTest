@@ -57,6 +57,10 @@ def pytest_configure(config: pytest.Config):
         config._start_time = START_TIME
 
     logs = os.path.join(os.getcwd(), f"logs/{START_TIME}")
-    os.makedirs(logs, exist_ok=True)
+    config._log_dir = logs
 
     config.option.htmlpath = os.path.join(logs, "report.html")
+    
+def pytest_sessionstart(session):
+    # Create the log dir just before tests start running
+    os.makedirs(session.config._log_dir, exist_ok=True)

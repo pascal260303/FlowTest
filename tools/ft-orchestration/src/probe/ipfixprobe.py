@@ -945,7 +945,9 @@ class IpfixprobeDpdk(Ipfixprobe):
 
         for interface in self._ifc_names.split(","):
             Tool(f"dpdk-devbind.py -b ice {interface}", executor=self._executor).run()
-
+            
+        Tool("dpdk-hugepages.py --unmount", executor=self._executor).run()
+        Tool("dpdk-hugepages.py --clear", executor=self._executor, failure_verbosity="no-exception").run()
 
 class IpfixprobeNdp(Ipfixprobe):
     """Implementation of Ipfixprobe connector with ndp traffic capturing."""
