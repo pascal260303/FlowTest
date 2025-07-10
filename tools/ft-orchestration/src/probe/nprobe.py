@@ -1,4 +1,5 @@
 from abc import ABC
+from dataclasses import dataclass, field
 import ipaddress
 import logging
 from os import PathLike
@@ -8,7 +9,9 @@ import shutil
 import tempfile
 import time
 from typing import List, Optional
+from src.common.required_field import required_field
 from src.common.tool_is_installed import assert_tool_is_installed
+from src.common.typed_dataclass import typed_dataclass
 from src.config.common import InterfaceCfg
 from src.probe.interface import ProbeException, ProbeInterface
 from lbr_testsuite.executable import (
@@ -24,9 +27,12 @@ from src.probe.pidstat import PidStat
 from src.probe.probe_target import ProbeTarget
 
 SETTINGS_TO_ARGS: dict[str, str] = {
+    "flow_version": "-V",
     "active_timeout": "-t",
     "inactive_timeout": "-d",
     "queue_timeout": "-l",
+    "sample_rate": "-S",
+    "hash_size": "-w",
     "aggregation": "-p",
     "in_iface_idx": "-u",
     "out_iface_idx": "-Q",
@@ -43,26 +49,32 @@ SETTINGS_TO_ARGS: dict[str, str] = {
     "sender_address": "-q",
     "flow_template": "-T",
     "flow_template_id": "-U",
-    "flow_version": "-V",
     "fows_intra_templ": "-o",
     "black_list": "--black-list",
     "biflows_export_policy": "-N",
 }
 
-BASIC_TEMPLATE = r'"%flowStartMilliseconds,%flowEndMilliseconds,%protocolIdentifier,%sourceIPv4Address,%sourceIPv6Address,%destinationIPv4Address,%destinationIPv6Address,%sourceTransportPort,%destinationTransportPort,%packetDeltaCount,%octetDeltaCount"'
+BASIC_TEMPLATE = r'"%FLOW_START_MILLISECONDS %FLOW_END_MILLISECONDS %PROTOCOL %IPV4_SRC_ADDR %IPV6_SRC_ADDR %IPV4_DST_ADDR %IPV6_DST_ADDR %L4_SRC_PORT %L4_DST_PORT %IN_PKTS %IN_BYTES"'
 
 
+@typed_dataclass
+@dataclass
 class NProbeSettings(ABC):
+    # general options
+    interfaces: List[str] = required_field()
     active_timeout: int = 300
     inactive_timeout: int = 30
     queue_timeout: int = 15
+    sample_rate: str = "1:1:1"
+    hash_size: int = 131072
 
+    # Exporter options
     aggregation: Optional[str] = None
     in_iface_idx: Optional[int] = None
     out_iface_idx: Optional[int] = None
     vlanid_as_iface_idx: Optional[str] = None
     discard_unknown_flows: Optional[int] = None
-    ndpi_protocols: Optional[List[str]] = None
+    ndpi_protocols: Optional[List[str]] = field(default_factory=lambda: [])
     ndpi_categories_dir: Optional[PathLike] = None
     flow_delay: Optional[int] = None
     count_delay: Optional[int] = None
@@ -89,17 +101,23 @@ class NProbe(ProbeInterface):
         protocols: List[str],
         interfaces: List[InterfaceCfg],
         verbose: bool = False,
-        settings: NProbeSettings = None,
         mtu: int = 2048,
         sudo: bool = False,
+        **kwargs: dict,
     ):
+        interfaces_names = [ifc.name for ifc in interfaces]
+        settings: NProbeSettings = NProbeSettings(interfaces=interfaces_names, **kwargs)
         self._executor = executor
         if isinstance(executor, RemoteExecutor):
             connection: Connection = executor.get_connection()
+            self._fallback_executor = RemoteExecutor(
+                executor.get_host(), **connection.connect_kwargs
+            )
             stats_executor = RemoteExecutor(
                 executor.get_host(), **connection.connect_kwargs
             )
         else:
+            self._fallback_executor = LocalExecutor()
             stats_executor = LocalExecutor()
 
         self._process = None
@@ -109,7 +127,7 @@ class NProbe(ProbeInterface):
         self._enabled_plugins = []
         self._last_run_stats = None
         self._timeouts = (settings.active_timeout, settings.inactive_timeout)
-        self._settings = settings
+        self._settings: NProbeSettings = settings
         self._mtu = mtu
 
         assert_tool_is_installed("nprobe", executor)
@@ -139,7 +157,7 @@ class NProbe(ProbeInterface):
                     args.append(arg)
                     if isinstance(value, List):
                         args.append(f'"{",".join(value)}"')
-                    args.append(value)
+                    args.append(str(value))
 
         return " ".join(args)
 
@@ -228,7 +246,7 @@ class NProbe(ProbeInterface):
             executor=self._executor,
         ).run()
         lines = output.split("\n")
-        fields = [re.findall(r"%[^ ]+ ", line)[-1].strip() for line in lines if line]
+        fields = [re.findall(r"%[^ ]+", line)[1] for line in lines if line]
         return fields
 
     def get_special_fields(self):
@@ -270,6 +288,14 @@ class NProbe(ProbeInterface):
             )
             self._last_run_stats = None
             raise ProbeException("nprobe runtime error")
+
+        # Wait till nprobe finishes
+        Tool(
+            f"while pidof {self._cmd.split(' ', 1)[0]} > /dev/null; do :; done",
+            executor=self._executor,
+            sudo=self._sudo,
+            failure_verbosity="silent",
+        ).run()
 
         self._process = None
         self.host_statistics.stop()
