@@ -481,7 +481,7 @@ class Ipfixprobe(ProbeInterface, ABC):
 
         command = self._cmd.split(" ", 1)[0]
         Tool(
-            f"kill $(pidof -s {command})",
+            f"killall {command})",
             executor=self._fallback_executor,
             failure_verbosity="silent",
         ).run()
@@ -859,7 +859,7 @@ class IpfixprobeDpdk(Ipfixprobe):
         protocols: List[str],
         interfaces: List[InterfaceCfg],
         verbose: bool = False,
-        mtu: int = 1522,
+        mtu: int = 2048,
         sudo: bool = False,
         **kwargs: dict,
     ):
@@ -869,13 +869,15 @@ class IpfixprobeDpdk(Ipfixprobe):
         super().__init__(
             executor, target, protocols, interfaces, verbose, settings, sudo
         )
+        self._settings = settings
 
-    def _prepare_interfaces(self, settings: IpfixprobeDpdkSettings):
+    def _before_start(self):
         grep_regex: str = r"(?m)^.*using DPDK-compatible driver(\n[^\n]+)+\n"
-        for interface in settings.devices:
+        for interface in self._ifc_names.split(","):
             tool = Tool(
                 f"dpdk-devbind.py -s | grep -Pzo '{grep_regex}' | grep -q {interface}",
                 executor=self._executor,
+                sudo=self._sudo,
                 failure_verbosity="silent",
             )
             tool.run()
@@ -885,16 +887,20 @@ class IpfixprobeDpdk(Ipfixprobe):
             Tool(
                 "echo 1 > /sys/module/vfio/parameters/enable_unsafe_noiommu_mode",
                 executor=self._executor,
+                sudo=self._sudo,
             ).run()
             Tool(
-                f"dpdk-devbind.py -b vfio-pci {interface}", executor=self._executor
+                f"dpdk-devbind.py -b vfio-pci {interface}",
+                executor=self._executor,
+                sudo=self._sudo,
             ).run()
 
-        if settings.memory:
+        if self._settings.memory:
             Tool(
-                f"dpdk-hugepages.py --setup {settings.memory}M",
+                f"dpdk-hugepages.py --setup {self._settings.memory}M",
                 executor=self._executor,
                 failure_verbosity="no-exception",
+                sudo=self._sudo,
             ).run()
 
     def _prepare_cmd(
@@ -945,9 +951,14 @@ class IpfixprobeDpdk(Ipfixprobe):
 
         for interface in self._ifc_names.split(","):
             Tool(f"dpdk-devbind.py -b ice {interface}", executor=self._executor).run()
-            
+
         Tool("dpdk-hugepages.py --unmount", executor=self._executor).run()
-        Tool("dpdk-hugepages.py --clear", executor=self._executor, failure_verbosity="no-exception").run()
+        Tool(
+            "dpdk-hugepages.py --clear",
+            executor=self._executor,
+            failure_verbosity="no-exception",
+        ).run()
+
 
 class IpfixprobeNdp(Ipfixprobe):
     """Implementation of Ipfixprobe connector with ndp traffic capturing."""
