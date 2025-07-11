@@ -869,7 +869,65 @@ class IpfixprobeDpdk(Ipfixprobe):
         super().__init__(
             executor, target, protocols, interfaces, verbose, settings, sudo
         )
+        self._interface_to_drivers = self._get_interface_to_drivers()
         self._settings = settings
+        self._previous_driver: dict[str, str] = {}
+        assert_tool_is_installed("dpdk-devbind.py", executor)
+
+    def _get_interface_to_drivers(self) -> dict[str, tuple[str, str]]:
+        """Get mapping of interface to available drivers
+        In the available drivers the first one is the kernel driver and second one is the dpdk compatible driver
+
+        Returns:
+            dict[str, tuple[str, str]]: mapping from interface to drivers
+        """
+        dict_ = self._get_using_dkdk_driver()
+        dict_.update(self._get_using_kernel_driver())
+        return dict_
+
+    def _get_using_dkdk_driver(self):
+        grep_regex: str = r"(?m)^.*using DPDK-compatible driver(\n[^\n]+)+\n"
+        out, _ = Tool(
+            f"dpdk-devbind.py -s | grep -Pzo '{grep_regex}'",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+        interface_lines = [line for line in out.split("\n") if line.startswith("0")]
+        interface_to_driver: dict[str, tuple[str, str]] = {}
+        for line in interface_lines:
+            interface = line.split(" ", 1)[0].split(":", 1)[1]
+            dpdk_compatible = None
+            kernel = None
+            for value in line.split(" "):
+                if value.startswith("drv="):
+                    dpdk_compatible = value.split("=")[1]
+                if value.startswith("unused="):
+                    kernel = value.split("=")[1]
+            interface_to_driver[interface] = (kernel, dpdk_compatible)
+
+        return interface_to_driver
+
+    def _get_using_kernel_driver(self):
+        grep_regex: str = r"(?m)^.*using kernel driver(\n[^\n]+)+\n"
+        out, _ = Tool(
+            f"dpdk-devbind.py -s | grep -Pzo '{grep_regex}'",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+        interface_lines = [line for line in out.split("\n") if line.startswith("0")]
+        interface_to_driver: dict[str, tuple[str, str]] = {}
+        for line in interface_lines:
+            interface = line.split(" ", 1)[0].split(":", 1)[1]
+            dpdk_compatible = None
+            kernel = None
+            for value in line.split(" "):
+                if value.startswith("drv="):
+                    kernel = value.split("=")[1]
+                if value.startswith("unused="):
+                    dpdk_compatible = value.split("=")[1]
+            interface_to_driver[interface] = (kernel, dpdk_compatible)
+
+        return interface_to_driver
 
     def _before_start(self):
         grep_regex: str = r"(?m)^.*using DPDK-compatible driver(\n[^\n]+)+\n"
@@ -882,6 +940,7 @@ class IpfixprobeDpdk(Ipfixprobe):
             )
             tool.run()
             if tool.returncode() == 0:
+                # Already enabled dpdk driver
                 continue
 
             Tool(
@@ -890,7 +949,7 @@ class IpfixprobeDpdk(Ipfixprobe):
                 sudo=self._sudo,
             ).run()
             Tool(
-                f"dpdk-devbind.py -b vfio-pci {interface}",
+                f"dpdk-devbind.py -b {self._interface_to_drivers[interface][1]} {interface}",
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()
@@ -912,7 +971,6 @@ class IpfixprobeDpdk(Ipfixprobe):
             raise TypeError(
                 "In IpfixprobeDpdk settings should be IpfixprobeDpdkSettings."
             )
-        self._prepare_interfaces(settings)
 
         args = ["ipfixprobe"]
 
@@ -950,7 +1008,10 @@ class IpfixprobeDpdk(Ipfixprobe):
         super().stop()
 
         for interface in self._ifc_names.split(","):
-            Tool(f"dpdk-devbind.py -b ice {interface}", executor=self._executor).run()
+            Tool(
+                f"dpdk-devbind.py -b {self._interface_to_drivers[interface][0]} {interface}",
+                executor=self._executor,
+            ).run()
 
         Tool("dpdk-hugepages.py --unmount", executor=self._executor).run()
         Tool(

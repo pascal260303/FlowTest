@@ -90,6 +90,9 @@ class NProbeSettings(ABC):
     black_list: Optional[str] = None
     biflows_export_policy: Optional[int] = None
 
+    # zero copy driver options
+    rss_queues: int = 1
+
 
 class NProbe(ProbeInterface):
     host_statistics = None
@@ -106,6 +109,8 @@ class NProbe(ProbeInterface):
         **kwargs: dict,
     ):
         interfaces_names = [ifc.name for ifc in interfaces]
+        self._interfaces = interfaces_names
+        self._zero_copy = any(ifc.startswith("zc:") for ifc in self._interfaces)
         settings: NProbeSettings = NProbeSettings(interfaces=interfaces_names, **kwargs)
         self._executor = executor
         if isinstance(executor, RemoteExecutor):
@@ -122,15 +127,18 @@ class NProbe(ProbeInterface):
 
         self._process = None
         self._sudo = sudo
-        self._ifc_names = ",".join([ifc.name for ifc in interfaces])
         self._verbose = verbose
         self._enabled_plugins = []
         self._last_run_stats = None
         self._timeouts = (settings.active_timeout, settings.inactive_timeout)
         self._settings: NProbeSettings = settings
         self._mtu = mtu
+        self._target = target
+        self._protocols = protocols
 
         assert_tool_is_installed("nprobe", executor)
+        if self._zero_copy:
+            assert_tool_is_installed("pf_ringcfg", executor)
         self._cmd = self._prepare_cmd(target, protocols, settings)
         self.host_statistics = PidStat(stats_executor, self._cmd.split(" ", 1)[0])
 
@@ -146,9 +154,10 @@ class NProbe(ProbeInterface):
             cmd,
             "-n",
             f"{target.protocol}://{target.host}:{target.port}",
-            "-i",
-            self._ifc_names,
         ]
+
+        for interface in self._interfaces:
+            args.extend(["-i", interface])
 
         for setting, arg in SETTINGS_TO_ARGS.items():
             if hasattr(settings, setting):
@@ -161,20 +170,63 @@ class NProbe(ProbeInterface):
 
         return " ".join(args)
 
-    def _before_start(self):
-        for ifc in self._ifc_names.split(","):
+    def _switch_to_zc(self, interface_name: str):
+        driver, _ = Tool(
+            f"pf_ringcfg --list-interfaces | grep {interface_name} | grep -o 'Driver: [^ ]*'",
+            executor=self._executor,
+            sudo=self._sudo,
+            failure_verbosity="silent",
+        ).run()
+        driver = driver.split(" ")[1].strip()
+        if driver.endswith("_zc"):
+            driver = driver[:-3]
             Tool(
-                f"ip link set dev {ifc} up", executor=self._executor, sudo=self._sudo
-            ).run()
-            Tool(
-                f"ip link set dev {ifc} mtu {self._mtu}",
+                f"pf_ringcfg --configure-driver {driver}",
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()
+        Tool(
+            f"pf_ringcfg --configure-driver {driver} --rss-queues {self._settings.rss_queues}",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+
+    def _switch_back_zc(self, interface_name: str):
+        driver, _ = Tool(
+            f"pf_ringcfg --list-interfaces | grep {interface_name} | grep -o 'Driver: [^ ]*'",
+            executor=self._executor,
+            sudo=self._sudo,
+            failure_verbosity="silent",
+        ).run()
+        driver = driver.split(" ")[1]
+        if not driver.endswith("_zc"):
+            return
+        driver = driver[:-3]
+        Tool(
+            f"pf_ringcfg --configure-driver {driver}    ",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+
+    def _before_start(self):
+        for ifc in self._interfaces:
+            name = ifc.split(":", 1)[-1]
+            Tool(
+                f"ip link set dev {name} up", executor=self._executor, sudo=self._sudo
+            ).run()
+            Tool(
+                f"ip link set dev {name} mtu {self._mtu}",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            if ifc.startswith("zc:"):
+                self._switch_to_zc(name)
 
     def start(self):
         """Start the probe."""
-        logging.getLogger().info("Starting nprobe exporter on %s.", self._ifc_names)
+        logging.getLogger().info(
+            "Starting nprobe exporter on %s.", ",".join(self._interfaces)
+        )
         self._last_run_stats = None
 
         self._before_start()
@@ -206,11 +258,16 @@ class NProbe(ProbeInterface):
             err = res[0]
             logging.getLogger().error(
                 "Unable to start probe on %s. nprobe return code: %d, error: %s",
-                self._ifc_names,
+                ",".join(self._interfaces),
                 return_code,
                 err,
             )
             raise ProbeException("nprobe startup error")
+
+    def _after_stop(self):
+        for interface in self._interfaces:
+            if interface.startswith("zc:"):
+                self._switch_back_zc(interface.split(":")[-1])
 
     def _stop_process(self, pid):
         """Stop exporter process"""
@@ -238,6 +295,7 @@ class NProbe(ProbeInterface):
             failure_verbosity="silent",
             sudo=True,
         ).run()
+        self._after_stop()
 
     def supported_fields(self):
         """Get list of IPFIX fields the probe may export in its current configuration."""
@@ -365,4 +423,4 @@ class NProbe(ProbeInterface):
         # blacklist += compute_blacklist(ipv6_range, 6)
 
         self._settings.black_list = ",".join(str(net) for net in blacklist)
-        self._cmd = self._prepare_cmd
+        self._cmd = self._prepare_cmd(self._target, self._protocols, self._settings)
