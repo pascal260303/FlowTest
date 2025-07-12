@@ -56,6 +56,17 @@ BASIC_TEMPLATE = r'"%FLOW_START_MILLISECONDS %FLOW_END_MILLISECONDS %PROTOCOL %I
 @typed_dataclass
 @dataclass
 class CentoSettings(ABC):
+    """
+    These settings can be set in the probes.yml under `connector:`\\
+    For example with:
+    ```
+    connector:
+        sample_rate: "1:1"
+    ```
+    For information on possible values see `cento --help`\\
+    If it's not clear which setting affects which arg see `SETTINGS_TO_ARGS` dict above\\
+    Settings not in that dict are ignored
+    """
     # general options
     interfaces: List[str] = required_field()
     active_timeout: int = 300
