@@ -209,18 +209,10 @@ class NProbe(ProbeInterface):
         ).run()
 
     def _before_start(self):
-        for ifc in self._interfaces:
-            name = ifc.split(":", 1)[-1]
-            Tool(
-                f"ip link set dev {name} up", executor=self._executor, sudo=self._sudo
-            ).run()
-            Tool(
-                f"ip link set dev {name} mtu {self._mtu}",
-                executor=self._executor,
-                sudo=self._sudo,
-            ).run()
+        interface_names = {name.split("@")[0] for name in self._interfaces}
+        for ifc in interface_names:
             if ifc.startswith("zc:"):
-                self._switch_to_zc(name)
+                self._switch_to_zc(ifc.split(":", 1)[-1])
 
     def start(self):
         """Start the probe."""
@@ -265,7 +257,8 @@ class NProbe(ProbeInterface):
             raise ProbeException("nprobe startup error")
 
     def _after_stop(self):
-        for interface in self._interfaces:
+        interface_names = {name.split("@")[0] for name in self._interfaces}
+        for interface in interface_names:
             if interface.startswith("zc:"):
                 self._switch_back_zc(interface.split(":")[-1])
 
@@ -295,7 +288,6 @@ class NProbe(ProbeInterface):
             failure_verbosity="silent",
             sudo=True,
         ).run()
-        self._after_stop()
 
     def supported_fields(self):
         """Get list of IPFIX fields the probe may export in its current configuration."""
@@ -357,6 +349,7 @@ class NProbe(ProbeInterface):
 
         self._process = None
         self.host_statistics.stop()
+        self._after_stop()
 
     def cleanup(self):
         """Clean any artifacts which were created by the connector or the active probe itself."""
