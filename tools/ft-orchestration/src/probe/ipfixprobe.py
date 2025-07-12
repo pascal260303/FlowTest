@@ -481,7 +481,7 @@ class Ipfixprobe(ProbeInterface, ABC):
 
         command = self._cmd.split(" ", 1)[0]
         Tool(
-            f"killall {command})",
+            f"kill $(pidof {command})",
             executor=self._fallback_executor,
             failure_verbosity="silent",
         ).run()

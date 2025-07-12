@@ -71,6 +71,7 @@ class NProbeSettings(ABC):
     If it's not clear which setting affects which arg see `SETTINGS_TO_ARGS` dict above\\
     Settings not in that dict are ignored
     """
+
     # general options
     interfaces: List[str] = required_field()
     active_timeout: int = 300
@@ -329,7 +330,7 @@ class NProbe(ProbeInterface):
 
         command = self._cmd.split(" ", 1)[0]
         Tool(
-            f"killall {command})",
+            f"kill $(pidof {command})",
             executor=self._fallback_executor,
             failure_verbosity="silent",
         ).run()
