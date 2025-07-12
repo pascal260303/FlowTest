@@ -1,0 +1,25 @@
+name: Ruff
+on: [push, pull_request]
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: tj-actions/changed-files@v45
+        name: Get changed files
+        id: changed-files
+        with:
+          files: |
+            **.py
+      - if: ${{ steps.changed-files.outputs.any_changed == 'true' }}
+        uses: astral-sh/ruff-action@v3
+        with:
+            version: "0.9.3"
+            args: "check --fix"
+            src: ${{ steps.changed-files.outputs.all_changed_files }}
+      - if: ${{ steps.changed-files.outputs.any_changed == 'true' }}
+        uses: astral-sh/ruff-action@v3
+        with:
+            version: "0.9.3"
+            args: "format --check"
+            src: ${{ steps.changed-files.outputs.all_changed_files }}
