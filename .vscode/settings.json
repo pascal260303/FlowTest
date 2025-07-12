@@ -4,7 +4,7 @@
         "--config-path=/home/student/2025-bsc-kuppler-flowmeter/flowtest-configs",
         "--replicator=kuppler-2-xdp-zc",
         "--collector=ipfixcol-1:protocol=udp",
-        "--probe=nprobe",
+        "--probe=cento",
         "--disable-ansible",
         "--html=logs/report.html",
         "--self-contained-html",
