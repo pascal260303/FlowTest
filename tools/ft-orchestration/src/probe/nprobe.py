@@ -69,7 +69,9 @@ class NProbeSettings(ABC):
     hash_size: int = 131072
 
     # Exporter options
-    aggregation: Optional[str] = "0.0/1/1/1/0/0/0/0/0/0" # set the flow key to protocol, IP, port
+    aggregation: Optional[str] = (
+        "0.0/1/1/1/0/0/0/0/0/0"  # set the flow key to protocol, IP, port
+    )
     in_iface_idx: Optional[int] = None
     out_iface_idx: Optional[int] = None
     vlanid_as_iface_idx: Optional[str] = None

@@ -1,8 +1,6 @@
 from abc import ABC
 from dataclasses import dataclass, field
-import ipaddress
 import logging
-from os import PathLike
 from pathlib import Path
 import re
 import shutil
@@ -89,6 +87,7 @@ class CentoSettings(ABC):
 
     rss_queues: Optional[int] = 1
 
+
 class Cento(ProbeInterface):
     host_statistics = None
 
@@ -164,7 +163,7 @@ class Cento(ProbeInterface):
                         args.append(f'"{",".join(value)}"')
                     args.append(str(value))
 
-        for settings, arg in BOOL_ARGS.items():
+        for setting, arg in BOOL_ARGS.items():
             if hasattr(settings, setting):
                 value = getattr(settings, setting)
                 if value:
