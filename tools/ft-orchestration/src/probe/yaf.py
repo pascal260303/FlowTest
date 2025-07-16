@@ -1,12 +1,17 @@
 from abc import ABC
 from dataclasses import dataclass
 from typing import List, Optional
+from src.common.tool_is_installed import assert_tool_is_installed
 from src.common.typed_dataclass import typed_dataclass
 from src.config.common import InterfaceCfg
 from src.probe.interface import ProbeInterface
 from lbr_testsuite.executable import (
     Executor,
+    RemoteExecutor,
+    LocalExecutor,
 )
+from fabric import Connection
+from src.probe.pidstat import PidStat
 from src.probe.probe_target import ProbeTarget
 
 SETTINGS_TO_CONFIG = {"inactive_timeout": "idle_timeout"}
@@ -199,3 +204,34 @@ class Yaf(ProbeInterface):
             else None
         )
         self._settings = YafSettings(**kwargs)
+        self._executor = executor
+        if isinstance(executor, RemoteExecutor):
+            connection: Connection = executor.get_connection()
+            self._fallback_executor = RemoteExecutor(
+                executor.get_host(), **connection.connect_kwargs
+            )
+            stats_executor = RemoteExecutor(
+                executor.get_host(), **connection.connect_kwargs
+            )
+        else:
+            self._fallback_executor = LocalExecutor()
+            stats_executor = LocalExecutor()
+        if protocols:
+            raise NotImplementedError(
+                "To support protocol filtering a ndpi_proto_file must be created which is currently not implemented"
+            )
+
+        self._verbose = verbose
+        self._timeouts = (
+            self._settings.active_timeout,
+            self._settings.inactive_timeout,
+        )
+        self._mtu = mtu
+        self._sudo = sudo
+        self._interface = interfaces[0].name
+
+        self.host_statistics = PidStat(
+            stats_executor, "", self._sudo
+        )  # TODO: Insert cmd name
+
+        assert_tool_is_installed("yaf", executor)

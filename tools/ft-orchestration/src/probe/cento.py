@@ -198,11 +198,13 @@ class Cento(ProbeInterface):
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()
+            time.sleep(5)
         Tool(
             f"pf_ringcfg --configure-driver {driver} --rss-queues {self._settings.rss_queues}",
             executor=self._executor,
             sudo=self._sudo,
         ).run()
+        time.sleep(5)
 
     def _switch_back_zc(self, interface_name: str):
         driver, _ = Tool(

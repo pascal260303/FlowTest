@@ -1,6 +1,6 @@
 # Profile information which cannot be modified by the orchestration tool.
-name: Munich short
-description: Munich short
+name: Munich
+description: Munich
 marks: [university, small_mtu]
 requirements:
   speed: 100
