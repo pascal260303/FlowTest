@@ -73,7 +73,7 @@ class NProbeSettings(ABC):
     """
 
     # general options
-    interfaces: List[str] = required_field()
+    interface: str = required_field()
     active_timeout: int = 300
     inactive_timeout: int = 30
     queue_timeout: int = 15
@@ -125,21 +125,14 @@ class NProbe(ProbeInterface):
         interfaces_names = [ifc.name for ifc in interfaces]
         self._interfaces = interfaces_names
         self._zero_copy = any(ifc.startswith("zc:") for ifc in self._interfaces)
-        settings: NProbeSettings = NProbeSettings(interfaces=interfaces_names, **kwargs)
+        settings: NProbeSettings = NProbeSettings(
+            interface=interfaces_names[0], **kwargs
+        )
         self._executor = executor
-        if isinstance(executor, RemoteExecutor):
-            connection: Connection = executor.get_connection()
-            self._fallback_executor = RemoteExecutor(
-                executor.get_host(), **connection.connect_kwargs
-            )
-            stats_executor = RemoteExecutor(
-                executor.get_host(), **connection.connect_kwargs
-            )
-        else:
-            self._fallback_executor = LocalExecutor()
-            stats_executor = LocalExecutor()
 
-        self._process = None
+        self._fallback_executor, stats_executor = self._duplicate_executor(executor, 2)
+
+        self._processes: List[Daemon] = []
         self._sudo = sudo
         self._verbose = verbose
         self._enabled_plugins = []
@@ -157,7 +150,20 @@ class NProbe(ProbeInterface):
         self.host_statistics = PidStat(stats_executor, self._cmd.split(" ", 1)[0])
 
         self._local_workdir = tempfile.mkdtemp()
-        self._log_file = Path(self._local_workdir, "nprobe.log")
+        self._log_files = []
+
+    def _duplicate_executor(self, executor: Executor, num: int = 1) -> List[Executor]:
+        executors = []
+        for i in range(num):
+            if isinstance(executor, RemoteExecutor):
+                connection: Connection = executor.get_connection()
+                executors.append(
+                    RemoteExecutor(executor.get_host(), **connection.connect_kwargs)
+                )
+            else:
+                executors.append(LocalExecutor())
+
+        return executors
 
     def _prepare_cmd(
         self, target: ProbeTarget, protocols: List[str], settings: NProbeSettings
@@ -199,6 +205,7 @@ class NProbe(ProbeInterface):
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()
+            time.sleep(5)
         Tool(
             f"pf_ringcfg --configure-driver {driver} --rss-queues {self._settings.rss_queues}",
             executor=self._executor,
@@ -227,6 +234,12 @@ class NProbe(ProbeInterface):
         for ifc in interface_names:
             if ifc.startswith("zc:"):
                 self._switch_to_zc(ifc.split(":", 1)[-1])
+            queues, _ = Tool(
+                "ethtool -n ens17 | head -n1 | cut -c1",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            self._settings.rss_queues = int(queues)
 
     def start(self):
         """Start the probe."""
@@ -249,19 +262,30 @@ class NProbe(ProbeInterface):
 
         self.host_statistics.start()
 
-        self._process = Daemon(self._cmd, executor=self._executor, sudo=self._sudo)
-        # stderr is implicitly redirected to stdout
-        self._process.set_outputs(self._log_file)
-        self._process.start()
+        self._processes: List[Daemon] = []
+        executors = self._duplicate_executor(self._executor, self._settings.rss_queues)
+
+        for i in range(self._settings.rss_queues):
+            settings = self._settings
+            if self._zero_copy:
+                settings.interface = f"{settings.interface}@{1}"
+            cmd = self._prepare_cmd(self._target, self._protocols, settings)
+            process = Daemon(cmd, executor=executors[i], sudo=self._sudo)
+            self._processes.append(process)
+            log_file = Path(self._local_workdir, f"nprobe_{i}.log")
+            self._log_files.append(log_file)
+            # stderr is implicitly redirected to stdout
+            process.set_outputs(log_file)
+            process.start()
         time.sleep(1)
 
-        if not self._process.is_running():
-            res = self._process.stop()
-            return_code = self._process.returncode()
-            self._process = None
+        if not all(process.is_running() for process in self._processes):
+            res = [process.stop() for process in self._processes]
+            return_code = max([process.returncode for process in self._processes])
+            self._processes = []
 
             # stderr is redirected to stdout
-            err = res[0]
+            err = max(res, key=lambda t: len(t[0]))
             logging.getLogger().error(
                 "Unable to start probe on %s. nprobe return code: %d, error: %s",
                 ",".join(self._interfaces),
@@ -323,7 +347,7 @@ class NProbe(ProbeInterface):
     def stop(self):
         """Stop the probe."""
         # if process not running, method has no effect
-        if self._process is None:
+        if not self._processes:
             return
 
         logging.getLogger().info("Stopping nprobe exporter.")
@@ -337,17 +361,21 @@ class NProbe(ProbeInterface):
 
         stdout = []
         try:
-            stdout, _ = self._process.stop()
+            stdout, _ = max(
+                [process.stop() for process in self._processes], key=lambda t: len(t[0])
+            )
         except ExecutableProcessError:
             pass
 
-        if self._process.returncode() > 0:
+        returncode = max([process.returncode() for process in self._processes])
+        if returncode > 0:
             # stderr is redirected to stdout
             # Since stdout could be filled with normal output, print only last 1 line#
-            err = stdout[-1]
+            err = stdout[-1] if stdout else ""
+            returncode = max([process.returncode() for process in self._processes])
             logging.getLogger().error(
                 "nprobe runtime error: %s, error: %s",
-                self._process.returncode(),
+                returncode,
                 err,
             )
             self._last_run_stats = None
@@ -361,7 +389,7 @@ class NProbe(ProbeInterface):
             failure_verbosity="silent",
         ).run()
 
-        self._process = None
+        self._processes = []
         self.host_statistics.stop()
         self._after_stop()
 
@@ -379,7 +407,8 @@ class NProbe(ProbeInterface):
             Path to a local directory where logs should be stored.
         """
         try:
-            shutil.copy(self._log_file, directory)
+            for log_file in self._log_files:
+                shutil.copy(log_file, directory)
             self.host_statistics.get_csv(directory)
         except PermissionError as err:
             logging.getLogger().warning("Cannot download ipfixprobe log, %s", err)
