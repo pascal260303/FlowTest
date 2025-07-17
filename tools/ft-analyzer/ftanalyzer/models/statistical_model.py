@@ -185,6 +185,8 @@ class StatisticalModel:
         except Exception as err:
             raise SMException("Unable to read file with flows.") from err
 
+        self._zero_icmp_ports(self._flows)
+
         if stats.start_time > 0:
             self._ref["START_TIME"] = self._ref["START_TIME"] + stats.start_time
             self._ref["END_TIME"] = self._ref["END_TIME"] + stats.start_time
@@ -261,6 +263,11 @@ class StatisticalModel:
         return pd.read_csv(
             self._ref_path, engine="pyarrow", dtype=self.CSV_COLUMN_TYPES
         )
+
+    def _zero_icmp_ports(self, df: pd.DataFrame):
+        icmp_protocols = [1, 58]  # ICMP and ICMPv6
+        icmp_mask = df["PROTOCOL"].isin(icmp_protocols)
+        df.loc[icmp_mask, ["SRC_PORT", "DST_PORT"]] = 0
 
     def validate(
         self, rules: List[SMRule], check_complement: bool = False
