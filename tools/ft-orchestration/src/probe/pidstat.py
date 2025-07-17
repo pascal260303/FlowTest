@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from .interface import HostStats
+from src.probe.interface import HostStats
 from lbr_testsuite.executable import (
     Executor,
     Daemon,
