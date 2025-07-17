@@ -1,4 +1,5 @@
 from abc import ABC
+import copy
 from dataclasses import dataclass, field
 import ipaddress
 import logging
@@ -176,8 +177,7 @@ class NProbe(ProbeInterface):
             f"{target.protocol}://{target.host}:{target.port}",
         ]
 
-        for interface in self._interfaces:
-            args.extend(["-i", interface])
+        args.extend(["-i", settings.interface])
 
         for setting, arg in SETTINGS_TO_ARGS.items():
             if hasattr(settings, setting):
@@ -197,6 +197,9 @@ class NProbe(ProbeInterface):
             sudo=self._sudo,
             failure_verbosity="silent",
         ).run()
+        if len(driver.split(" ")) < 2:
+            return
+
         driver = driver.split(" ")[1].strip()
         if driver.endswith("_zc"):
             driver = driver[:-3]
@@ -225,7 +228,7 @@ class NProbe(ProbeInterface):
             return
         driver = driver[:-3]
         Tool(
-            f"pf_ringcfg --configure-driver {driver}    ",
+            f"nohup pf_ringcfg --configure-driver {driver}",
             executor=self._executor,
             sudo=self._sudo,
         ).run()
@@ -236,7 +239,7 @@ class NProbe(ProbeInterface):
             if ifc.startswith("zc:"):
                 self._switch_to_zc(ifc.split(":", 1)[-1])
             queues, _ = Tool(
-                "ethtool -n ens17 | head -n1 | cut -c1",
+                f"ethtool -n {ifc.split(':', 1)[-1]} | head -n1 | cut -c1",
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()
@@ -249,17 +252,21 @@ class NProbe(ProbeInterface):
         )
         self._last_run_stats = None
 
-        self._before_start()
-
         # check and stop running nprobe instance
         check_running_cmd = "pidof 'nprobe'"
         running_processes = Tool(
             check_running_cmd, executor=self._executor, failure_verbosity="silent"
         ).run()[0]
         if len(running_processes) > 0:
-            running_pid = int(running_processes.split()[0])
-            self._stop_process(running_pid)
-            time.sleep(2)
+            pids = running_processes.split()
+            for pid in pids:
+                if not pid:
+                    continue
+                running_pid = int(pid)
+                self._stop_process(running_pid)
+                time.sleep(2)
+
+        self._before_start()
 
         self.host_statistics.start()
 
@@ -267,9 +274,9 @@ class NProbe(ProbeInterface):
         executors = self._duplicate_executor(self._executor, self._settings.rss_queues)
 
         for i in range(self._settings.rss_queues):
-            settings = self._settings
+            settings = copy.copy(self._settings)
             if self._zero_copy:
-                settings.interface = f"{settings.interface}@{1}"
+                settings.interface = f"{settings.interface}@{i}"
             cmd = self._prepare_cmd(self._target, self._protocols, settings)
             process = Daemon(cmd, executor=executors[i], sudo=self._sudo)
             self._processes.append(process)
@@ -282,7 +289,9 @@ class NProbe(ProbeInterface):
 
         if not all(process.is_running() for process in self._processes):
             res = [process.stop() for process in self._processes]
-            return_code = max([process.returncode for process in self._processes])
+            return_code = max(
+                [int(process.returncode()) for process in self._processes]
+            )
             self._processes = []
 
             # stderr is redirected to stdout
@@ -296,10 +305,7 @@ class NProbe(ProbeInterface):
             raise ProbeException("nprobe startup error")
 
     def _after_stop(self):
-        interface_names = {name.split("@")[0] for name in self._interfaces}
-        for interface in interface_names:
-            if interface.startswith("zc:"):
-                self._switch_back_zc(interface.split(":")[-1])
+        pass
 
     def _stop_process(self, pid):
         """Stop exporter process"""
@@ -353,27 +359,22 @@ class NProbe(ProbeInterface):
 
         logging.getLogger().info("Stopping nprobe exporter.")
 
-        command = self._cmd.split(" ", 1)[0]
-        Tool(
-            f"kill $(pidof {command})",
-            executor=self._fallback_executor,
-            failure_verbosity="silent",
-        ).run()
-
         stdout = []
-        try:
-            stdout, _ = max(
-                [process.stop() for process in self._processes], key=lambda t: len(t[0])
-            )
-        except ExecutableProcessError:
-            pass
+        for process in self._processes:
+            try:
+                stdout.append(process.stop())
+            except ExecutableProcessError:
+                pass
 
-        returncode = max([process.returncode() for process in self._processes])
+        returncode = max([int(process.returncode()) for process in self._processes])
         if returncode > 0:
             # stderr is redirected to stdout
             # Since stdout could be filled with normal output, print only last 1 line#
-            err = stdout[-1] if stdout else ""
-            returncode = max([process.returncode() for process in self._processes])
+            if stdout:
+                stdout, _ = max(stdout, key=lambda t: len(t[0]))
+                err = stdout[-1] if stdout else ""
+            else:
+                err = ""
             logging.getLogger().error(
                 "nprobe runtime error: %s, error: %s",
                 returncode,

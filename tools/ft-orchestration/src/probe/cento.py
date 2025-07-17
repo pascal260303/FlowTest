@@ -190,6 +190,9 @@ class Cento(ProbeInterface):
             sudo=self._sudo,
             failure_verbosity="silent",
         ).run()
+        if len(driver.split(" ")) < 2:
+            return
+
         driver = driver.split(" ")[1].strip()
         if driver.endswith("_zc"):
             driver = driver[:-3]
@@ -235,17 +238,21 @@ class Cento(ProbeInterface):
             "Starting cento exporter on %s.", ",".join(self._interfaces)
         )
 
-        self._before_start()
-
         # check and stop running cento instance
         check_running_cmd = "pidof 'cento'"
         running_processes = Tool(
             check_running_cmd, executor=self._executor, failure_verbosity="silent"
         ).run()[0]
         if len(running_processes) > 0:
-            running_pid = int(running_processes.split()[0])
-            self._stop_process(running_pid)
-            time.sleep(2)
+            pids = running_processes.split()
+            for pid in pids:
+                if not pid:
+                    continue
+                running_pid = int(pid)
+                self._stop_process(running_pid)
+                time.sleep(2)
+
+        self._before_start()
 
         self.host_statistics.start()
 
@@ -271,10 +278,7 @@ class Cento(ProbeInterface):
             raise ProbeException("cento startup error")
 
     def _after_stop(self):
-        interface_names = {name.split("@")[0] for name in self._interfaces}
-        for interface in interface_names:
-            if interface.startswith("zc:"):
-                self._switch_back_zc(interface.split(":")[-1])
+        pass
 
     def _stop_process(self, pid):
         """Stop exporter process"""
@@ -327,13 +331,6 @@ class Cento(ProbeInterface):
             return
 
         logging.getLogger().info("Stopping cento exporter.")
-
-        command = self._cmd.split(" ", 1)[0]
-        Tool(
-            f"kill $(pidof {command})",
-            executor=self._fallback_executor,
-            failure_verbosity="silent",
-        ).run()
 
         stdout = []
         try:
