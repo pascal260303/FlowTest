@@ -51,7 +51,7 @@ class YafSettings(ABC):
         groupby: Optional[str] = None
         rotate: Optional[str] = None
         lock: Optional[str] = None
-        udp_temp_timeout: Optional[str] = None
+        udp_temp_timeout: Optional[int] = 600
 
     output: Optional[OutputOptions] = None
 
@@ -74,13 +74,13 @@ class YafSettings(ABC):
     @typed_dataclass
     @dataclass
     class ExportOptions(ABC):
-        silk: Optional[bool] = None
-        uniflow: Optional[bool] = None
-        force_ip6: Optional[bool] = None
-        flow_stats: Optional[bool] = None
+        silk: Optional[bool] = False
+        uniflow: bool = True
+        force_ip6: Optional[bool] = False
+        flow_stats: Optional[bool] = False
         delta: bool = True  # Required for packet and byte counter
-        mac: Optional[bool] = None
-        metadata: Optional[bool] = None
+        mac: Optional[bool] = False
+        metadata: Optional[bool] = False
 
     export: Optional[ExportOptions] = None
 
@@ -102,8 +102,8 @@ class YafSettings(ABC):
     export_payload: Optional[bool] = None
     export_payload_applabels: Optional[str] = None
     udp_payload: Optional[bool] = None
-    stats: Optional[str] = None
-    no_tombstone: Optional[bool] = None
+    stats: int = 0
+    no_tombstone: Optional[bool] = True
     tombstone_configured_id: Optional[int] = None
     ingress: Optional[int] = None
     egress: Optional[int] = None
@@ -268,7 +268,7 @@ class Yaf(ProbeInterface):
             return sep.join(lua)
 
         with open(self._config_file, "w") as f:
-            f.write("-- Generated yaf.conf (Lua format for --config)\n\n")
+            f.write("-- Generated settings.conf (Lua format for --config)\n\n")
             f.write(dataclass_to_lua_table(settings))
             f.write("\n")
 
@@ -277,7 +277,6 @@ class Yaf(ProbeInterface):
         args.extend(["-c", config_file])
         if self._verbose:
             args.append("--verbose")
-        args.append(f"--ipfix={self._settings.output.protocol}")
 
         return " ".join(args)
 

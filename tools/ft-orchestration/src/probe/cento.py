@@ -89,7 +89,7 @@ class CentoSettings(ABC):
     active_poll: Optional[bool] = False
     tunnel: Optional[bool] = False
     skip_fragments: Optional[bool] = False
-    uniflows: Optional[bool] = False
+    uniflows: bool = True
     send_dont_wait: Optional[bool] = False
     hw_timestamp: Optional[bool] = False
 
