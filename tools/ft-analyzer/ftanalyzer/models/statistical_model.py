@@ -729,7 +729,7 @@ class StatisticalModel:
                 # aggregate OnePacketFlow events within this window
                 total_bytes = sum(e.bytes for e in one_packet_events)
                 total_packets = sum(e.packets for e in one_packet_events)
-                total_flows = len(one_packet_events)
+                total_flows = np.uint64(len(one_packet_events))
 
                 singleton_data_rate = (
                     (total_bytes * 8) / duration_s if duration_s > 0 else 0.0
@@ -779,11 +779,11 @@ class StatisticalModel:
                 else:
                     current_data_rate += e.data_rate
                     current_packet_rate += e.packet_rate
-                    current_flow_count += e.flow_rate
+                    current_flow_rate += e.flow_rate
                     if isinstance(e, FlowStartEvent):
-                        current_flow_count += 1
+                        current_flow_count += np.uint64(1)
                     elif isinstance(e, FlowEndEvent):
-                        current_flow_count -= 1
+                        current_flow_count -= np.uint64(1)
 
             self._sim.set_time(event.time)
             simultaneous_events = [event]
@@ -793,8 +793,10 @@ class StatisticalModel:
         duration_s = self._sim.convert_to_seconds(duration_ms)
 
         if duration_s > 0:
+            # aggregate OnePacketFlow events within this window
             total_bytes = sum(e.bytes for e in one_packet_events)
             total_packets = sum(e.packets for e in one_packet_events)
+            total_flows = np.uint64(len(one_packet_events))
 
             singleton_data_rate = (
                 (total_bytes * 8) / duration_s if duration_s > 0 else 0.0
@@ -803,14 +805,30 @@ class StatisticalModel:
                 total_packets / duration_s if duration_s > 0 else 0.0
             )
 
+            singleton_flow_rate = total_flows / duration_s if duration_s > 0 else 0.0
+
+            # Compose final rates
             total_data_rate = current_data_rate + singleton_data_rate
             total_packet_rate = current_packet_rate + singleton_packet_rate
+            total_flow_count = current_flow_count + total_flows
+            total_flow_rate = current_flow_rate + singleton_flow_rate
 
             self._update_statistic_objects(
                 statistic_objects,
                 data_rate=total_data_rate,
                 packet_rate=total_packet_rate,
+                flow_count=total_flow_count,
+                flow_rate=total_flow_rate,
             )
+
+            host_stats_event: HostStatsEvent = next(
+                (e for e in simultaneous_events if isinstance(e, HostStatsEvent)),
+                None,
+            )
+            if host_stats_event:
+                self._update_statistic_objects(
+                    statistic_objects, **host_stats_event.row._asdict()
+                )
 
     def _update_statistic_objects(
         self,

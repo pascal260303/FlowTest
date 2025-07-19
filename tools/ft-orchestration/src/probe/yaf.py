@@ -257,6 +257,8 @@ class Yaf(ProbeInterface):
                 key = field.name
                 if is_dataclass(val):
                     nested = dataclass_to_lua_table(val, sep=", ")
+                    if not nested:
+                        continue
                     lua.append(f"{key} = {{{nested}}}")
                 else:
                     literal = to_lua_literal(val)

@@ -27,3 +27,4 @@ profiles/
 
 # temp dirs
 ft_generator_tests_tmp_dir/
+.vscode/settings.json
