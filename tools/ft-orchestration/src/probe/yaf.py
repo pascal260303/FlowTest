@@ -494,20 +494,17 @@ class YafZC(Yaf):
             interfaces=[],
             **kwargs,
         )
+        self._rss_queues = rss_queues
         self._yaf_settings = self._settings
         self._interfaces = [interface.name for interface in interfaces]
-        inf_names = ",".join(self._interfaces)
-        self._yafzbalance_settings = YafZCBalanceSettings(
-            in_=inf_names, cluster=cluster, num=num, core=core, time_=time_, stats=stats
-        )
 
         self._yaf_instances: List[Yaf] = []
-        self._executors = self._duplicate_executor(self._executor, num)
+        self._executors = self._duplicate_executor(self._executor, rss_queues)
         inf_speed = interfaces[0].speed
-        for i in range(num):
-            in_cluster = f"{cluster}:{i}"
+        for i in range(rss_queues):
+            in_inf = f"{self._interfaces[0]}@{i}"
             instance = Yaf(
-                interfaces=[InterfaceCfg(in_cluster, inf_speed)],
+                interfaces=[InterfaceCfg(in_inf, inf_speed)],
                 target=target,
                 protocols=protocols,
                 executor=self._executors[i],
@@ -518,10 +515,6 @@ class YafZC(Yaf):
                 instance._local_workdir, f"settings_{i}.conf"
             )
             self._yaf_instances.append(instance)
-        self._rss_queues = rss_queues
-        self._cmd = self._prepare_zc_cmd()
-        self._log_file = path.join(self._local_workdir, "yafzcbalance.log")
-        assert_tool_is_installed("yafzcbalance", self._executor)
 
     def _duplicate_executor(self, executor: Executor, num: int = 1) -> List[Executor]:
         executors = []
@@ -536,18 +529,6 @@ class YafZC(Yaf):
 
         return executors
 
-    def _prepare_zc_cmd(self) -> str:
-        args = ["yafzcbalance"]
-        for opt in fields(self._yafzbalance_settings):
-            key = opt.name
-            val = getattr(self._yafzbalance_settings, key)
-            if val is None:
-                continue
-            if key.endswith("_"):
-                key = key[:-1]
-            args.extend([f"--{key}", f"'{val}'"])
-        return " ".join(args)
-
     def _before_start(self):
         for ifc in self._interfaces:
             if ifc.startswith("zc:"):
@@ -555,48 +536,9 @@ class YafZC(Yaf):
 
     def start(self):
         """Start the probe."""
-        logging.getLogger().info(
-            "Starting yafzcbalance on %s.", ",".join(self._interfaces)
-        )
-
-        # check and stop running yaf instance
-        check_running_cmd = "pidof 'yafzcbalance'"
-        running_processes = Tool(
-            check_running_cmd, executor=self._executor, failure_verbosity="silent"
-        ).run()[0]
-        if len(running_processes) > 0:
-            pids = running_processes.split()
-            for pid in pids:
-                if not pid:
-                    continue
-                running_pid = int(pid)
-                self._stop_process(running_pid)
-                time.sleep(2)
-
         self._before_start()
 
         self.host_statistics.start()
-
-        self._process = Daemon(self._cmd, executor=self._executor, sudo=self._sudo)
-        # stderr is implicitly redirected to stdout
-        self._process.set_outputs(self._log_file)
-        self._process.start()
-        time.sleep(1)
-
-        if not self._process.is_running():
-            res = self._process.stop()
-            return_code = self._process.returncode()
-            self._process = None
-
-            # stderr is redirected to stdout
-            err = res[0]
-            logging.getLogger().error(
-                "Unable to start yafzcbalance on %s. yaf return code: %d, error: %s",
-                ",".join(self._settings.input.inf),
-                return_code,
-                err,
-            )
-            raise ProbeException("yafzcbalance startup error")
 
         max_restarts = 10
         restarts = 0
@@ -628,9 +570,6 @@ class YafZC(Yaf):
 
     def stop(self):
         """Stop the probe."""
-        # if process not running, method has no effect
-        if self._process is None:
-            return
 
         for instance in self._yaf_instances:
             instance.stop()
@@ -643,33 +582,6 @@ class YafZC(Yaf):
             failure_verbosity="silent",
         ).run()
 
-        logging.getLogger().info("Stopping yafzcbalance.")
-
-        stdout = []
-        try:
-            stdout, _ = self._process.stop()
-        except ExecutableProcessError:
-            pass
-
-        # Wait till yafzcbalance finishes
-        Tool(
-            f"while pidof {self._cmd.split(' ', 1)[0]} > /dev/null; do :; done",
-            executor=self._fallback_executor,
-            sudo=self._sudo,
-            failure_verbosity="silent",
-        ).run()
-
-        if self._process.returncode() > 0:
-            # stderr is redirected to stdout
-            # Since stdout could be filled with normal output, print only last 1 line#
-            err = stdout[-1] if stdout else ""
-            logging.getLogger().error(
-                "yaf runtime error: %s, error: %s",
-                self._process.returncode(),
-                err,
-            )
-
-        self._process = None
         self.host_statistics.stop()
 
         self._after_stop()
@@ -701,6 +613,8 @@ class YafZC(Yaf):
         return driver.split(" ")[1].strip()
 
     def _switch_to_zc(self, interface_name: str):
+        if "@" in interface_name:
+            interface_name = interface_name.split("@", 1)[0]
         driver = self._get_driver(interface_name)
         if not driver:
             return
