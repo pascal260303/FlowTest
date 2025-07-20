@@ -201,8 +201,7 @@ class NProbe(ProbeInterface):
             return
 
         driver = driver.split(" ")[1].strip()
-        if driver.endswith("_zc"):
-            driver = driver[:-3]
+        if not driver.endswith("_zc"):
             Tool(
                 f"pf_ringcfg --configure-driver {driver}",
                 executor=self._executor,
@@ -210,11 +209,10 @@ class NProbe(ProbeInterface):
             ).run()
             time.sleep(5)
         Tool(
-            f"pf_ringcfg --configure-driver {driver} --rss-queues {self._settings.rss_queues}",
+            f"ethtool --set-channels {interface_name} combined {self._settings.rss_queues}",
             executor=self._executor,
             sudo=self._sudo,
         ).run()
-        time.sleep(5)
 
     def _switch_back_zc(self, interface_name: str):
         driver, _ = Tool(

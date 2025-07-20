@@ -53,6 +53,8 @@ class PidStat(HostStats):
 
         pidstat_args = "-rushHvt"
 
+        self._process = None
+
         self._cmd = f"""
         pidstat {pidstat_args} -C {watch_cmd} | sed -E -e 's/^# //g' -e 's/[ ]+/;/g' -e 's/%/percent_/g' | tail -n2 > {self._outfile}
         sleep 1
@@ -88,6 +90,8 @@ class PidStat(HostStats):
             raise Exception("pidstat startup error")
 
     def stop(self):
+        if self._process is None:
+            return
         try:
             self._process.stop()
         except ExecutableProcessError:

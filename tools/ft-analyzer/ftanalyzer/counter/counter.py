@@ -72,7 +72,7 @@ class Counter(StatisticObject, ABC):
         Returns:
             np.float64: the standard deviation
         """
-        return math.sqrt(self.get_variance())
+        return math.sqrt(max(self.get_variance(), 0))
 
     def get_cvar(self) -> np.float64:
         """Returns the co-variance of the observed variable

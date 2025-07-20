@@ -27,6 +27,18 @@ from src.probe.probe_target import ProbeTarget
 @typed_dataclass
 @dataclass
 class YafSettings(ABC):
+    """
+    These settings can be set in the probes.yml under `connector:`\\
+    For example with:
+    ```
+    connector:
+        time_elements: 1
+        input:
+            type: "pcap"
+    ```
+    For information on possible values see /\<yaf_compile_dir\>/etc/yaf.init or https://tools.netsa.cert.org/yaf2/yaf.init.html
+    """
+
     @typed_dataclass
     @dataclass
     class InputOptions(ABC):
@@ -158,6 +170,17 @@ class YafSettings(ABC):
     log: Optional[LoggingOptions] = None
 
 
+@typed_dataclass
+@dataclass
+class YafZCBalanceSettings(ABC):
+    in_: Optional[str] = None
+    cluster: int = 99
+    num: int = 1
+    core: Optional[int] = None
+    time_: Optional[int] = None
+    stats: Optional[int] = None
+
+
 class Yaf(ProbeInterface):
     host_statistics = None
 
@@ -176,7 +199,7 @@ class Yaf(ProbeInterface):
         if len(interfaces) > 1:
             raise NotImplementedError
         kwargs["input"] = YafSettings.InputOptions(
-            inf=interfaces[0].name, **(kwargs.get("input", {}))
+            inf=interfaces[0].name if interfaces else None, **(kwargs.get("input", {}))
         )
         kwargs["output"] = YafSettings.OutputOptions(
             host=target.host,
@@ -219,7 +242,6 @@ class Yaf(ProbeInterface):
         )
         self._mtu = mtu
         self._sudo = sudo
-        self._interface = interfaces[0].name
 
         assert_tool_is_installed("yaf", executor)
 
@@ -231,8 +253,6 @@ class Yaf(ProbeInterface):
         self._rsync = Rsync(executor)
 
     def _write_config(self, settings: YafSettings):
-        # TODO: Implement
-
         def to_lua_literal(value) -> str:
             match value:
                 case bool():
@@ -295,29 +315,30 @@ class Yaf(ProbeInterface):
                 sudo=self._sudo,
             ).run()
 
-    def start(self):
+    def start(self, start_stats: bool = True, stop_running: bool = True):
         """Start the probe."""
         logging.getLogger().info(
             "Starting yaf exporter on %s.", self._settings.input.inf
         )
 
-        # check and stop running yaf instance
-        check_running_cmd = "pidof 'yaf'"
-        running_processes = Tool(
-            check_running_cmd, executor=self._executor, failure_verbosity="silent"
-        ).run()[0]
-        if len(running_processes) > 0:
-            pids = running_processes.split()
-            for pid in pids:
-                if not pid:
-                    continue
-                running_pid = int(pid)
-                self._stop_process(running_pid)
-                time.sleep(2)
-
+        if stop_running:
+            # check and stop running yaf instance
+            check_running_cmd = "pidof 'yaf'"
+            running_processes = Tool(
+                check_running_cmd, executor=self._executor, failure_verbosity="silent"
+            ).run()[0]
+            if len(running_processes) > 0:
+                pids = running_processes.split()
+                for pid in pids:
+                    if not pid:
+                        continue
+                    running_pid = int(pid)
+                    self._stop_process(running_pid)
+                    time.sleep(2)
         self._before_start()
 
-        self.host_statistics.start()
+        if start_stats:
+            self.host_statistics.start()
 
         self._process = Daemon(self._cmd, executor=self._executor, sudo=self._sudo)
         # stderr is implicitly redirected to stdout
@@ -394,13 +415,8 @@ class Yaf(ProbeInterface):
         except ExecutableProcessError:
             pass
 
-        # Wait till yaf finishes
-        Tool(
-            f"while pidof {self._cmd.split(' ', 1)[0]} > /dev/null; do :; done",
-            executor=self._executor,
-            sudo=self._sudo,
-            failure_verbosity="silent",
-        ).run()
+        while self._process.is_running():
+            time.sleep(0.1)
 
         if self._process.returncode() > 0:
             # stderr is redirected to stdout
@@ -454,3 +470,262 @@ class Yaf(ProbeInterface):
 
     def set_prefilter(self, ip_ranges: list[str]) -> None:
         raise NotImplementedError
+
+
+class YafZC(Yaf):
+    def __init__(
+        self,
+        executor: Executor,
+        target: ProbeException,
+        protocols: List[str],
+        interfaces: List[InterfaceCfg],
+        cluster: int = 99,
+        num: int = 1,
+        core=None,
+        time_=None,
+        stats=None,
+        rss_queues: int = 1,
+        **kwargs,
+    ):
+        super().__init__(
+            executor,
+            target,
+            protocols,
+            interfaces=[],
+            **kwargs,
+        )
+        self._yaf_settings = self._settings
+        self._interfaces = [interface.name for interface in interfaces]
+        inf_names = ",".join(self._interfaces)
+        self._yafzbalance_settings = YafZCBalanceSettings(
+            in_=inf_names, cluster=cluster, num=num, core=core, time_=time_, stats=stats
+        )
+
+        self._yaf_instances: List[Yaf] = []
+        self._executors = self._duplicate_executor(self._executor, num)
+        inf_speed = interfaces[0].speed
+        for i in range(num):
+            in_cluster = f"{cluster}:{i}"
+            instance = Yaf(
+                interfaces=[InterfaceCfg(in_cluster, inf_speed)],
+                target=target,
+                protocols=protocols,
+                executor=self._executors[i],
+                **kwargs,
+            )
+            instance._log_file = path.join(instance._local_workdir, f"yaf_{i}.log")
+            instance._config_file = path.join(
+                instance._local_workdir, f"settings_{i}.conf"
+            )
+            self._yaf_instances.append(instance)
+        self._rss_queues = rss_queues
+        self._cmd = self._prepare_zc_cmd()
+        self._log_file = path.join(self._local_workdir, "yafzcbalance.log")
+        assert_tool_is_installed("yafzcbalance", self._executor)
+
+    def _duplicate_executor(self, executor: Executor, num: int = 1) -> List[Executor]:
+        executors = []
+        for i in range(num):
+            if isinstance(executor, RemoteExecutor):
+                connection: Connection = executor.get_connection()
+                executors.append(
+                    RemoteExecutor(executor.get_host(), **connection.connect_kwargs)
+                )
+            else:
+                executors.append(LocalExecutor())
+
+        return executors
+
+    def _prepare_zc_cmd(self) -> str:
+        args = ["yafzcbalance"]
+        for opt in fields(self._yafzbalance_settings):
+            key = opt.name
+            val = getattr(self._yafzbalance_settings, key)
+            if val is None:
+                continue
+            if key.endswith("_"):
+                key = key[:-1]
+            args.extend([f"--{key}", f"'{val}'"])
+        return " ".join(args)
+
+    def _before_start(self):
+        for ifc in self._interfaces:
+            if ifc.startswith("zc:"):
+                self._switch_to_zc(ifc.split(":", 1)[-1])
+
+    def start(self):
+        """Start the probe."""
+        logging.getLogger().info(
+            "Starting yafzcbalance on %s.", ",".join(self._interfaces)
+        )
+
+        # check and stop running yaf instance
+        check_running_cmd = "pidof 'yafzcbalance'"
+        running_processes = Tool(
+            check_running_cmd, executor=self._executor, failure_verbosity="silent"
+        ).run()[0]
+        if len(running_processes) > 0:
+            pids = running_processes.split()
+            for pid in pids:
+                if not pid:
+                    continue
+                running_pid = int(pid)
+                self._stop_process(running_pid)
+                time.sleep(2)
+
+        self._before_start()
+
+        self.host_statistics.start()
+
+        self._process = Daemon(self._cmd, executor=self._executor, sudo=self._sudo)
+        # stderr is implicitly redirected to stdout
+        self._process.set_outputs(self._log_file)
+        self._process.start()
+        time.sleep(1)
+
+        if not self._process.is_running():
+            res = self._process.stop()
+            return_code = self._process.returncode()
+            self._process = None
+
+            # stderr is redirected to stdout
+            err = res[0]
+            logging.getLogger().error(
+                "Unable to start yafzcbalance on %s. yaf return code: %d, error: %s",
+                ",".join(self._settings.input.inf),
+                return_code,
+                err,
+            )
+            raise ProbeException("yafzcbalance startup error")
+
+        max_restarts = 10
+        restarts = 0
+
+        for instance in self._yaf_instances:
+            while not (
+                hasattr(instance, "_process") and instance._process.is_running()
+            ):
+                try:
+                    instance.start(False, False)
+                except ExecutableProcessError as e:
+                    with open(instance._log_file, "r") as f:
+                        content = "\n".join(f.readlines())
+                    if restarts == max_restarts:
+                        logging.error("Reached max restart counter")
+                        logging.error(content)
+                        raise e
+                    elif (
+                        f"Please check that cluster {self._yafzbalance_settings.cluster} is running"
+                        in content
+                    ):
+                        # try start again but wait before next start
+                        logging.info("Trying to start yaf again")
+                        restarts += 1
+                        time.sleep(3)
+                    else:
+                        logging.error(content)
+                        raise e
+
+    def stop(self):
+        """Stop the probe."""
+        # if process not running, method has no effect
+        if self._process is None:
+            return
+
+        for instance in self._yaf_instances:
+            instance.stop()
+
+        # wait for all yaf instances to finish
+        Tool(
+            "while pidof yaf > /dev/null; do :; done",
+            executor=self._fallback_executor,
+            sudo=self._sudo,
+            failure_verbosity="silent",
+        ).run()
+
+        logging.getLogger().info("Stopping yafzcbalance.")
+
+        stdout = []
+        try:
+            stdout, _ = self._process.stop()
+        except ExecutableProcessError:
+            pass
+
+        # Wait till yafzcbalance finishes
+        Tool(
+            f"while pidof {self._cmd.split(' ', 1)[0]} > /dev/null; do :; done",
+            executor=self._fallback_executor,
+            sudo=self._sudo,
+            failure_verbosity="silent",
+        ).run()
+
+        if self._process.returncode() > 0:
+            # stderr is redirected to stdout
+            # Since stdout could be filled with normal output, print only last 1 line#
+            err = stdout[-1] if stdout else ""
+            logging.getLogger().error(
+                "yaf runtime error: %s, error: %s",
+                self._process.returncode(),
+                err,
+            )
+
+        self._process = None
+        self.host_statistics.stop()
+
+        self._after_stop()
+
+    def _after_stop(self):
+        pass  # don't need to unload zc driver, acts like normal driver
+
+    def cleanup(self):
+        super().cleanup()
+        for instance in self._yaf_instances:
+            instance.cleanup()
+
+    def download_logs(self, directory: str):
+        open(self._config_file, "+w").close()
+        super().download_logs(directory)
+        for instance in self._yaf_instances:
+            instance.download_logs(directory)
+
+    def _get_driver(self, interface_name):
+        driver, _ = Tool(
+            f"pf_ringcfg --list-interfaces | grep {interface_name} | grep -o 'Driver: [^ ]*'",
+            executor=self._executor,
+            sudo=self._sudo,
+            failure_verbosity="silent",
+        ).run()
+        if len(driver.split(" ")) < 2:
+            return
+
+        return driver.split(" ")[1].strip()
+
+    def _switch_to_zc(self, interface_name: str):
+        driver = self._get_driver(interface_name)
+        if not driver:
+            return
+        if not driver.endswith("_zc"):
+            Tool(
+                f"pf_ringcfg --configure-driver {driver}",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            time.sleep(5)
+        Tool(
+            f"ethtool --set-channels {interface_name} combined {self._rss_queues}",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+
+    def _switch_back_zc(self, interface_name: str):
+        driver = self._get_driver(interface_name)
+        if not driver:
+            return
+        if not driver.endswith("_zc"):
+            return
+        driver = driver[:-3]
+        Tool(
+            f"nohup pf_ringcfg --configure-driver {driver}",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
