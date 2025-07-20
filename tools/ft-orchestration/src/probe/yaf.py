@@ -170,17 +170,6 @@ class YafSettings(ABC):
     log: Optional[LoggingOptions] = None
 
 
-@typed_dataclass
-@dataclass
-class YafZCBalanceSettings(ABC):
-    in_: Optional[str] = None
-    cluster: int = 99
-    num: int = 1
-    core: Optional[int] = None
-    time_: Optional[int] = None
-    stats: Optional[int] = None
-
-
 class Yaf(ProbeInterface):
     host_statistics = None
 
@@ -479,11 +468,6 @@ class YafZC(Yaf):
         target: ProbeException,
         protocols: List[str],
         interfaces: List[InterfaceCfg],
-        cluster: int = 99,
-        num: int = 1,
-        core=None,
-        time_=None,
-        stats=None,
         rss_queues: int = 1,
         **kwargs,
     ):
@@ -540,33 +524,8 @@ class YafZC(Yaf):
 
         self.host_statistics.start()
 
-        max_restarts = 10
-        restarts = 0
-
         for instance in self._yaf_instances:
-            while not (
-                hasattr(instance, "_process") and instance._process.is_running()
-            ):
-                try:
-                    instance.start(False, False)
-                except ExecutableProcessError as e:
-                    with open(instance._log_file, "r") as f:
-                        content = "\n".join(f.readlines())
-                    if restarts == max_restarts:
-                        logging.error("Reached max restart counter")
-                        logging.error(content)
-                        raise e
-                    elif (
-                        f"Please check that cluster {self._yafzbalance_settings.cluster} is running"
-                        in content
-                    ):
-                        # try start again but wait before next start
-                        logging.info("Trying to start yaf again")
-                        restarts += 1
-                        time.sleep(3)
-                    else:
-                        logging.error(content)
-                        raise e
+            instance.start(False, False)
 
     def stop(self):
         """Stop the probe."""
@@ -595,8 +554,6 @@ class YafZC(Yaf):
             instance.cleanup()
 
     def download_logs(self, directory: str):
-        open(self._config_file, "+w").close()
-        super().download_logs(directory)
         for instance in self._yaf_instances:
             instance.download_logs(directory)
 
