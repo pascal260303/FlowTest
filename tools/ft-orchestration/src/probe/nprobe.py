@@ -203,7 +203,7 @@ class NProbe(ProbeInterface):
         driver = driver.split(" ")[1].strip()
         if not driver.endswith("_zc"):
             Tool(
-                f"pf_ringcfg --configure-driver {driver}",
+                f"pf_ringcfg --configure-driver {driver} --rss-queues 0",
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()

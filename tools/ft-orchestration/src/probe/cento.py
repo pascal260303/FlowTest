@@ -197,7 +197,7 @@ class Cento(ProbeInterface):
         if driver.endswith("_zc"):
             driver = driver[:-3]
             Tool(
-                f"pf_ringcfg --configure-driver {driver}",
+                f"pf_ringcfg --configure-driver {driver} --rss-queues 0",
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()

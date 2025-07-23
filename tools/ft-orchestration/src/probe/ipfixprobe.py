@@ -891,6 +891,7 @@ class IpfixprobeDpdk(Ipfixprobe):
             f"dpdk-devbind.py -s | grep -Pzo '{grep_regex}'",
             executor=self._executor,
             sudo=self._sudo,
+            failure_verbosity="silent",
         ).run()
         interface_lines = [line for line in out.split("\n") if line.startswith("0")]
         interface_to_driver: dict[str, tuple[str, str]] = {}
@@ -913,6 +914,7 @@ class IpfixprobeDpdk(Ipfixprobe):
             f"dpdk-devbind.py -s | grep -Pzo '{grep_regex}'",
             executor=self._executor,
             sudo=self._sudo,
+            failure_verbosity="silent",
         ).run()
         interface_lines = [line for line in out.split("\n") if line.startswith("0")]
         interface_to_driver: dict[str, tuple[str, str]] = {}
