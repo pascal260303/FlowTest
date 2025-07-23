@@ -267,7 +267,7 @@ class FlowReplicator:
             ).name
             _TEMP_FILES.append(output_file)
 
-        chunksize = max(100, chunksize / loops)
+        chunksize = int(max(100, chunksize / loops))
 
         if output_file.startswith("tmp_ref_"):
             _TEMP_FILES.append(output_file)

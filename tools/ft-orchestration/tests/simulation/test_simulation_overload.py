@@ -326,6 +326,6 @@ def test_simulation_overload(
     )
 
     if not report.is_passing():
-        assert False, (
-            f"evaluation of test: {request.function.__name__}[{test_id}] failed"
+        pytest.fail(
+            f"evaluation of test: {request.function.__name__}[{test_id}] failed", False
         )

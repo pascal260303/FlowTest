@@ -17,7 +17,7 @@ import time
 
 import pytest
 from ftanalyzer.models.sm_data_types import SMRule
-from ftanalyzer.models.statistical_model import StatisticalModel
+from ftanalyzer.models.statistical_model import StatisticalModel, StatisticalReport
 from ftanalyzer.replicator.flow_replicator import FlowReplicator
 from lbr_testsuite.topology.topology import select_topologies
 from src.collector.collector_builder import CollectorBuilder
@@ -48,7 +48,7 @@ def validate(
     stats: GeneratorStats,
     log_dir: os.PathLike,
     host_stats_file: os.PathLike,
-) -> bool:
+) -> tuple[bool, StatisticalReport]:
     """Perform statistical and/or precise model evaluation of the test scenario.
 
     Parameters
@@ -78,10 +78,9 @@ def validate(
         host_stats=host_stats_file,
     )
     stats_report = model.validate([SMRule(analysis.metrics)])
-    stats_report.print_results()
     print("")
 
-    return stats_report.is_passing()
+    return stats_report.is_passing(), stats_report
 
 
 def setup_replicator(
@@ -219,7 +218,7 @@ def test_simulation_threshold(
     request.addfinalizer(cleanup)
     request.addfinalizer(finalizer_download_logs)
 
-    def run_single_test(loops: int, speed: MbpsSpeed):
+    def run_single_test(loops: int, speed: MbpsSpeed) -> tuple[bool, StatisticalReport]:
         logging.getLogger().info(
             "running test with speed: %s Mbps (loops: %s)", speed.speed, loops
         )
@@ -259,7 +258,7 @@ def test_simulation_threshold(
         if not probe_instance.host_statistics.local_file:
             probe_instance.host_statistics.get_csv(tmp_dir)
 
-        ret = validate(
+        ret, report = validate(
             analysis=scenario.test.analysis,
             flows_file=flows_file,
             ref_file=replicated_ref,
@@ -268,7 +267,7 @@ def test_simulation_threshold(
             host_stats_file=probe_instance.host_statistics.local_file,
         )
 
-        return ret
+        return ret, report
 
     # general configuration
     probe_conf = scenario.test.get_probe_conf(
@@ -304,7 +303,7 @@ def test_simulation_threshold(
         generator_conf.timestamps.flow_max_interpacket_gap = f"{inactive_t - 1}s"
 
         # run test
-        result = run_single_test(
+        result, report = run_single_test(
             max(1, int(speed_current / scenario.default.mbps)), MbpsSpeed(speed_current)
         )
         if result:
@@ -333,6 +332,7 @@ def test_simulation_threshold(
         gc.collect()
 
     passed = scenario.test.mbps_required <= speed_min
+    report.print_results()
     HTMLReportData.simulation_summary_report.update_stats("sim_threshold", passed)
 
     logging.getLogger().info(
@@ -340,6 +340,8 @@ def test_simulation_threshold(
         speed_min,
         scenario.test.mbps_accuracy,
     )
-    assert passed, (
-        f"throughput ({speed_min} Mbps) is less than required ({scenario.test.mbps_required} Mbps)"
-    )
+    if passed:
+        pytest.fail(
+            f"throughput ({speed_min} Mbps) is less than required ({scenario.test.mbps_required} Mbps)",
+            False,
+        )
