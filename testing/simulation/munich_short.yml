@@ -70,3 +70,25 @@ sim_general:
           diff: 0.5
         - key: DURATION
           diff: 0.5
+
+sim_threshold:
+  - id: munich_throughput_short
+    marks: []
+    mbps_accuracy: 50
+    mbps_required: 50000
+    loops: 10
+    analysis:
+      use_statistic_counter: true
+      metrics:
+        - key: PACKETS
+          diff: 0.0
+        - key: BYTES
+          diff: 0.0
+        - key: FLOWS
+          diff: 0.0
+        - key: PACKETS / S
+          diff: 0.5
+        - key: MB / S
+          diff: 0.5
+        - key: DURATION
+          diff: 0.5
