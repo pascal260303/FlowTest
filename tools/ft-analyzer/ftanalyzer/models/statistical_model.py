@@ -26,6 +26,7 @@ from ftanalyzer.common.fast_analyzer_wrapper import (
     validate_statistical_model,
 )
 from ftanalyzer.common.pandas_multiprocessing import PandasMultiprocessingHelper
+from ftanalyzer.events.events import ExportEvent
 from ftanalyzer.models.sm_data_types import (
     SMException,
     SMMetric,
@@ -113,6 +114,8 @@ class StatisticalModel:
         "DST_PORT": np.uint16,
         "PACKETS": np.uint64,
         "BYTES": np.uint64,
+        "EXPORT_TIME": np.uint64,
+        "MSG_LENGTH": np.uint64,
     }
 
     AGGREGATE_FLOWS = {
@@ -120,6 +123,8 @@ class StatisticalModel:
         "END_TIME": "max",
         "PACKETS": "sum",
         "BYTES": "sum",
+        "EXPORT_TIME": "first",
+        "MSG_LENGTH": "first",
     }
 
     def __init__(
@@ -629,6 +634,7 @@ class StatisticalModel:
             "ct_flow_rate": ContinuousCounter("flow rate", self._sim),
             "ct_cpu_usage": ContinuousCounter("CPU usage in percent", self._sim),
             "ct_ram_usage": ContinuousCounter("RAM Usage in percent", self._sim),
+            "ct_export_rate": ContinuousCounter("Export Rate in flows/s", self._sim),
             "tsc_data_rate": TimeSeriesCounter(
                 "data rate in Gb/s",
                 self._sim,
@@ -666,6 +672,12 @@ class StatisticalModel:
                 self._generator_stats.start_time,
                 self._generator_stats.end_time,
             ),
+            "tsc_export_rate": TimeSeriesCounter(
+                "Export Rate in flows/s",
+                self._sim,
+                self._generator_stats.start_time,
+                self._generator_stats.end_time,
+            ),
         }
 
         metric_mapping: dict[str, List[str]] = {
@@ -675,6 +687,7 @@ class StatisticalModel:
             "flow_rate": ["ct_flow_rate", "tsc_flow_rate"],
             "percent_CPU": ["ct_cpu_usage", "tsc_cpu_usage"],
             "percent_MEM": ["ct_ram_usage", "tsc_mem_usage"],
+            "export_rate": ["ct_export_rate", "tsc_export_rate"],
         }
 
         return (statistic_objects, metric_mapping)
@@ -707,6 +720,7 @@ class StatisticalModel:
             return  # No events to process
 
         last_time: np.uint64 = self._sim.get_time()
+        last_export: np.uint64 = self._sim.get_time()
         self._sim.set_time(current_event.time)
 
         simultaneous_events = [current_event]
@@ -719,6 +733,7 @@ class StatisticalModel:
             # Compute the duration between the last time and the current group of events
             duration_ms = self._sim.get_time_diff(last_time)
             duration_s = self._sim.convert_to_seconds(duration_ms)
+            since_last_export: np.uint64 = self._sim.get_time_diff(last_export)
 
             # Only advance stats if time progressed
             if (
@@ -756,6 +771,20 @@ class StatisticalModel:
                     flow_rate=total_flow_rate,
                 )
 
+                export_event: ExportEvent = next(
+                    (e for e in simultaneous_events if isinstance(e, ExportEvent)), None
+                )
+                if export_event:
+                    self._update_statistic_objects(
+                        statistic_objects,
+                        export_rate=export_event.flows
+                        / self._sim.convert_to_seconds(since_last_export),
+                    )
+                    last_export = self._sim.get_time()
+                elif since_last_export >= 1000:
+                    self._update_statistic_objects(statistic_objects, export_rate=0.0)
+                    last_export = self._sim.get_time()
+
                 host_stats_event: HostStatsEvent = next(
                     (e for e in simultaneous_events if isinstance(e, HostStatsEvent)),
                     None,
@@ -772,7 +801,7 @@ class StatisticalModel:
 
             # apply each event's effect to current rates
             for e in simultaneous_events:
-                if isinstance(e, HostStatsEvent):
+                if isinstance(e, HostStatsEvent) or isinstance(e, ExportEvent):
                     pass
                 elif isinstance(e, OnePacketFlow):
                     one_packet_events.append(e)

@@ -19,6 +19,8 @@ CSV_COLUMN_TYPES = {
     "DST_PORT": np.uint16,
     "PACKETS": np.uint64,
     "BYTES": np.uint64,
+    "EXPORT_TIME": np.uint64,
+    "MSG_LENGTH": np.uint64,
 }
 
 STATS_CSV_COLUMN_TYPES = {
@@ -123,6 +125,17 @@ class OnePacketFlow(Event):
         self.time = time
 
 
+class ExportEvent(Event):
+    flows: np.uint64
+    bytes: np.uint64
+    time = 0
+
+    def __init__(self, export_time, flows, bits):
+        self.time = export_time * 1000
+        self.flows = flows
+        self.bytes = bits / np.uint64(8)
+
+
 class HostStatsEvent(Event):
     """Event Holding Statistics fetched from Host OS
 
@@ -153,9 +166,11 @@ def create_event_queue(
     one_packet_path = os.path.join(out_dir, "flows_one_packet.csv")
     sorted_by_start_path = os.path.join(out_dir, "flows_sorted_by_start.csv")
     sorted_by_end_path = os.path.join(out_dir, "flows_sorted_by_end.csv")
+    sorted_by_export_path = os.path.join(out_dir, "flows_sorted_by_export.csv")
 
     # Load and split
     df = pd.read_csv(flows_csv_path, dtype=CSV_COLUMN_TYPES)
+    df.fillna(0)
 
     # Filer host stats file by time
     start = math.floor(df["START_TIME"].min() / 1000)
@@ -181,13 +196,42 @@ def create_event_queue(
     multi_df.sort_values("START_TIME").to_csv(sorted_by_start_path, index=False)
     multi_df.sort_values("END_TIME").to_csv(sorted_by_end_path, index=False)
 
+    # Export Events
+    if "EXPORT_TIME" in df.columns:
+        df.groupby("EXPORT_TIME", as_index=False).agg(
+            MSG_LENGTH_SUM=("MSG_LENGTH", lambda x: x.drop_duplicates().sum()),
+            FLOWS=("MSG_LENGTH", "count"),
+        ).sort_values("EXPORT_TIME").to_csv(sorted_by_export_path, index=False)
+    else:
+        with open(sorted_by_export_path, "w+") as f:
+            f.write("EXPORT_TIME,FLOWS,MSG_LENGTH_SUM")
+
     return heapq.merge(
         read_one_packet_events(one_packet_path),
         read_start_events(sorted_by_start_path),
         read_end_events(sorted_by_end_path),
+        read_export_events(sorted_by_export_path),
         read_host_stats_events(hosts_stats_file),
         key=lambda e: e.time,
     )
+
+
+def read_export_events(path: os.PathLike):
+    for chunk in pd.read_csv(
+        path,
+        dtype={
+            "EXPORT_TIME": np.uint64,
+            "FLOWS": np.uint64,
+            "MSG_LENGTH_SUM": np.uint64,
+        },
+        chunksize=100_000,
+    ):
+        for row in chunk.itertuples(index=False):
+            yield ExportEvent(
+                bits=np.uint64(row.MSG_LENGTH_SUM),
+                flows=np.uint64(row.FLOWS),
+                export_time=np.uint64(row.EXPORT_TIME),
+            )
 
 
 def read_host_stats_events(path: os.PathLike):
