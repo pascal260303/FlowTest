@@ -9,6 +9,7 @@
         "--html=logs/report.html",
         "--self-contained-html",
         "--continue-on-collection-errors",
+        "--capture=tee-sys",
         "-m simulation and (small_mtu)",
     ],
     "python.testing.unittestEnabled": false,
