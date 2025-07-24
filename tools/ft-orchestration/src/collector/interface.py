@@ -68,7 +68,7 @@ class CollectorInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_reader(self):
+    def get_reader(self) -> "CollectorOutputReaderInterface":
         """Return flow reader.
 
         Flow reader implements ``__iter__`` and ``__next__`` methods for

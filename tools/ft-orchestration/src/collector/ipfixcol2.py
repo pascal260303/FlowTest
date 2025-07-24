@@ -26,8 +26,12 @@ from lbr_testsuite.executable import (
     LocalExecutor,
 )
 from lbr_testsuite.executable.rsync import RsyncException
-from src.collector.fdsdump import Fdsdump
-from src.collector.interface import CollectorException, CollectorInterface
+from src.collector.interface import (
+    CollectorException,
+    CollectorInterface,
+    CollectorOutputReaderInterface,
+)
+from src.collector.jq import JQ
 from src.common.tool_is_installed import assert_tool_is_installed
 
 
@@ -123,7 +127,7 @@ class Ipfixcol2(CollectorInterface):
             f"ipfixcol2 {self._verbosity} -c {Path(self._conf_dir, self.CONFIG_FILE)}"
         )
         self._process = None
-        self._fdsdump = None
+        self._jq = None
         self._input_plugin = input_plugin
         self._port = port
 
@@ -314,7 +318,7 @@ class Ipfixcol2(CollectorInterface):
             f"rmdir {self._rsync.get_data_directory()}", executor=self._rsync._executor
         )
 
-    def get_reader(self):
+    def get_reader(self) -> CollectorOutputReaderInterface:
         """Return flow reader fdsdump.
 
         Flow reader implements ``__iter__`` and ``__next__`` methods for
@@ -336,12 +340,12 @@ class Ipfixcol2(CollectorInterface):
         """
 
         # pylint: disable=protected-access
-        if self._fdsdump is not None and self._fdsdump._process is not None:
-            self._fdsdump._stop()
-        self._fdsdump = None
+        if self._jq is not None and self._jq._process is not None:
+            self._jq._stop()
+        self._jq = None
 
-        self._fdsdump = Fdsdump(
+        self._jq = JQ(
             self._executor, str(Path(self._rsync.get_data_directory(), self.FDS_FILE))
         )
 
-        return self._fdsdump
+        return self._jq
