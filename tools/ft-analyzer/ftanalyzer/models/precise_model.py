@@ -50,6 +50,7 @@ class PreciseModel(StatisticalModel):
         flows: str,
         reference: Union[str, pd.DataFrame],
         active_timeout: int,
+        inactive_timeout: int,
         stats: GeneratorStats,
         log_dir: PathLike,
         host_stats: PathLike,
@@ -89,6 +90,7 @@ class PreciseModel(StatisticalModel):
             biflows_ts_correction=biflows_ts_correction,
             use_statistical_counter=use_statistical_counter,
             host_stats=host_stats,
+            inactive_timeout=inactive_timeout,
         )
         self._report = None
         self._active_timeout = active_timeout * 1000

@@ -10,6 +10,8 @@ class ContinuousCounter(Counter):
         sim: SimState,
         factor: float = 1,
         has_negatives: bool = False,
+        measure_start_time: np.uint64 = None,
+        measure_end_time: np.uint64 = None,
     ):
         """Constructor
 
@@ -20,6 +22,12 @@ class ContinuousCounter(Counter):
         super().__init__(
             variable, "counter type: continuous-time counter", has_negatives
         )
+        if not measure_start_time:
+            measure_start_time = sim.get_time()
+        if not measure_end_time:
+            measure_end_time = np.infty
+        self._measure_start_time = measure_start_time
+        self._measure_end_time = measure_end_time
         self.last_sample_time: np.uint64 = np.uint64(0)
         self.first_sample_time: np.uint64 = np.uint64(0)
         self.last_sample_size: np.float64 = np.float64(0)
@@ -46,6 +54,11 @@ class ContinuousCounter(Counter):
             return np.float64(0)
 
     def count(self, x: np.float64) -> None:
+        if (
+            self._sim.get_time() < self._measure_start_time
+            or self._sim.get_time() > self._measure_end_time
+        ):
+            return
         x = x * self._factor
         super().count(x)
 

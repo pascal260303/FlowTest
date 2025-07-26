@@ -42,6 +42,8 @@ class PMFlow:
     BYTES: int
     START_TIME: int
     END_TIME: int
+    EXPORT_TIME: int = 0
+    MSG_LENGTH: int = 0
     TIME_DIFF: int = 0
     FLOW_COUNT: int = 0
     index_x: int = None

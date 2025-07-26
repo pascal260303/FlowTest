@@ -54,6 +54,7 @@ def validate(
     flows_file: str,
     ref_file: str,
     active_timeout: int,
+    inactive_timeout: int,
     stats: GeneratorStats,
     biflows: bool,
     log_dir: os.PathLike,
@@ -90,6 +91,7 @@ def validate(
             flows_file,
             ref_file,
             active_timeout,
+            inactive_timeout,
             stats,
             log_dir,
             biflows_ts_correction=biflows,
@@ -121,6 +123,7 @@ def validate(
             log_dir,
             use_statistical_counter=analysis.use_statistic_counter,
             host_stats=host_stats_file,
+            inactive_timeout=inactive_timeout,
         )
         precise_report = None
         metrics = analysis.metrics
@@ -367,6 +370,7 @@ def test_simulation_general(
         biflows=device.get_biflow_export(),
         log_dir=log_dir,
         host_stats_file=probe_instance.host_statistics.local_file,
+        inactive_timeout=inactive_t,
     )
 
     print("")

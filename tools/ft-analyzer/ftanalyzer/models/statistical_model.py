@@ -137,6 +137,7 @@ class StatisticalModel:
         merge: bool = False,
         use_statistical_counter: bool = False,
         biflows_ts_correction: bool = False,
+        inactive_timeout: int = 50,
     ) -> None:
         """Read provided files and converts it to data frames.
 
@@ -227,6 +228,7 @@ class StatisticalModel:
         self._flows_ip_addresses_converted = False
         self._ref_ip_addresses_converted = isinstance(reference, pd.DataFrame)
         self._stat_counter = use_statistical_counter
+        self._inactive_timeout = inactive_timeout
 
         if use_statistical_counter:
             # statistic objects
@@ -625,58 +627,112 @@ class StatisticalModel:
         Returns:
             tuple[dict[str, StatisticObject], dict[str, List[str]]]: the two dicts in a tuple
         """
+        start_time = np.uint64(
+            self._generator_stats.start_time + 10000
+        )  # ten seconds transient phase
+        end_time = np.uint64(
+            self._generator_stats.end_time - 10000
+        )  # ten seconds end phase
         statistic_objects: dict[str, StatisticObject] = {
             "ct_data_rate": ContinuousCounter(
-                "data rate in Gb/s", self._sim, 1 / (10**9)
+                "data rate in Gb/s",
+                self._sim,
+                1 / (10**9),
+                measure_start_time=start_time,
+                measure_end_time=end_time,
             ),
-            "ct_packet_rate": ContinuousCounter("packets per second", self._sim),
-            "ct_flow_count": ContinuousCounter("active flows", self._sim),
-            "ct_flow_rate": ContinuousCounter("flow rate", self._sim),
-            "ct_cpu_usage": ContinuousCounter("CPU usage in percent", self._sim),
-            "ct_ram_usage": ContinuousCounter("RAM Usage in percent", self._sim),
-            "ct_export_rate": ContinuousCounter("Export Rate in flows/s", self._sim),
+            "ct_packet_rate": ContinuousCounter(
+                "packets per second",
+                self._sim,
+                measure_start_time=start_time,
+                measure_end_time=end_time,
+            ),
+            "ct_flow_count": ContinuousCounter(
+                "active flows",
+                self._sim,
+                measure_start_time=start_time,
+                measure_end_time=end_time,
+            ),
+            "ct_flow_rate": ContinuousCounter(
+                "flow rate",
+                self._sim,
+                measure_start_time=start_time,
+                measure_end_time=end_time,
+            ),
+            "ct_cpu_usage": ContinuousCounter(
+                "CPU usage in percent",
+                self._sim,
+                measure_start_time=start_time,
+                measure_end_time=end_time,
+            ),
+            "ct_ram_usage": ContinuousCounter(
+                "RAM Usage in percent",
+                self._sim,
+                measure_start_time=start_time,
+                measure_end_time=end_time,
+            ),
+            "ct_export_rate": ContinuousCounter(
+                "Export Rate in flows/s",
+                self._sim,
+                measure_start_time=start_time + self._inactive_timeout * 1000,
+                measure_end_time=self._generator_stats.end_time,
+            ),
             "tsc_data_rate": TimeSeriesCounter(
                 "data rate in Gb/s",
                 self._sim,
                 self._generator_stats.start_time,
                 self._generator_stats.end_time,
                 1 / (10**9),
+                measure_start_time=start_time,
+                measure_end_time=end_time,
             ),
             "tsc_packet_rate": TimeSeriesCounter(
                 "packets per second",
                 self._sim,
                 self._generator_stats.start_time,
                 self._generator_stats.end_time,
+                measure_start_time=start_time,
+                measure_end_time=end_time,
             ),
             "tsc_flow_count": TimeSeriesCounter(
                 "active flows",
                 self._sim,
                 self._generator_stats.start_time,
                 self._generator_stats.end_time,
+                measure_start_time=start_time,
+                measure_end_time=end_time,
             ),
             "tsc_flow_rate": TimeSeriesCounter(
                 "flow rate",
                 self._sim,
                 self._generator_stats.start_time,
                 self._generator_stats.end_time,
+                measure_start_time=start_time,
+                measure_end_time=end_time,
             ),
             "tsc_cpu_usage": TimeSeriesCounter(
                 "CPU usage in percent",
                 self._sim,
                 self._generator_stats.start_time,
                 self._generator_stats.end_time,
+                measure_start_time=start_time,
+                measure_end_time=end_time,
             ),
             "tsc_mem_usage": TimeSeriesCounter(
                 "RAM Usage in percent",
                 self._sim,
                 self._generator_stats.start_time,
                 self._generator_stats.end_time,
+                measure_start_time=start_time,
+                measure_end_time=end_time,
             ),
             "tsc_export_rate": TimeSeriesCounter(
                 "Export Rate in flows/s",
                 self._sim,
                 self._generator_stats.start_time,
                 self._generator_stats.end_time,
+                measure_start_time=start_time + self._inactive_timeout * 1000,
+                measure_end_time=self._generator_stats.end_time,
             ),
         }
 

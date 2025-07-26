@@ -315,6 +315,7 @@ def test_simulation_overload(
         log_dir,
         use_statistical_counter=scenario.test.analysis.use_statistic_counter,
         host_stats=probe_instance.host_statistics.local_file,
+        inactive_timeout=inactive_t,
     )
     report = model.validate(
         [SMRule(scenario.test.analysis.metrics, segment) for segment in segments]

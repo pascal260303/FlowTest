@@ -21,6 +21,8 @@ class TimeSeriesCounter(DiscreteCounter):
         end_time: np.uint64,
         factor=1.0,
         target_sample_count=10000,
+        measure_start_time=None,
+        measure_end_time=None,
     ):
         """
         Args:
@@ -39,6 +41,14 @@ class TimeSeriesCounter(DiscreteCounter):
         self._agg_start_time: np.uint64 | None = None
         self._agg_sum = 0.0
         self._agg_count = 0
+        self._measure_start_time = (
+            self._sim.convert_to_seconds(measure_start_time)
+            if measure_start_time
+            else None
+        )
+        self._measure_end_time = (
+            self._sim.convert_to_seconds(measure_end_time) if measure_end_time else None
+        )
 
     def count(self, x: np.float64) -> None:
         x = x * self._factor
@@ -137,6 +147,12 @@ class TimeSeriesCounter(DiscreteCounter):
             linewidth=1.5,
             label=self._observed_variable,
         )
+        if self._measure_start_time:
+            plt.axvline(
+                self._measure_start_time - df["time_sec"].iloc[0], color="green"
+            )
+        if self._measure_end_time:
+            plt.axvline(self._measure_end_time - df["time_sec"].iloc[0], color="red")
         plt.xlabel(time_unit)
         plt.ylabel(self._observed_variable)
         plt.title(f"Time Series of {self._observed_variable}")

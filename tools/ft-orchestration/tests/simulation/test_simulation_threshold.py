@@ -48,6 +48,7 @@ def validate(
     stats: GeneratorStats,
     log_dir: os.PathLike,
     host_stats_file: os.PathLike,
+    inactive_timeout: int,
 ) -> tuple[bool, StatisticalReport]:
     """Perform statistical and/or precise model evaluation of the test scenario.
 
@@ -76,6 +77,7 @@ def validate(
         log_dir,
         use_statistical_counter=analysis.use_statistic_counter,
         host_stats=host_stats_file,
+        inactive_timeout=inactive_timeout,
     )
     stats_report = model.validate([SMRule(analysis.metrics)])
     print("")
@@ -265,6 +267,7 @@ def test_simulation_threshold(
             stats=stats,
             log_dir=log_dir,
             host_stats_file=probe_instance.host_statistics.local_file,
+            inactive_timeout=inactive_t,
         )
 
         return ret, report
