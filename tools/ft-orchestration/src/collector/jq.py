@@ -70,21 +70,12 @@ class JQ(CollectorOutputReaderInterface):
         self._file = stdout.strip()
         tmp_file = path.join(self._rsync.get_data_directory(), "flows.json")
         self._cmd_json = f"ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)}"
+        fields = ", ".join([f'.\\"{field}\\"' for field in CSV_HEADER_TO_ANALYZER_HEADER.keys()])
+        header = ",".join([f'"{field}"' for field in CSV_HEADER_TO_ANALYZER_HEADER.keys()])
         self._cmd_csv = f"""set -e
 ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} > {tmp_file}
-HEADER=$(head -n 1 {tmp_file} | jq -r '
-  .["iana:sourceIPAddress"] = (.["iana:sourceIPv4Address"] // .["iana:sourceIPv6Address"]) |
-  .["iana:destinationIPAddress"] = (.["iana:destinationIPv4Address"] // .["iana:destinationIPv6Address"]) |
-  del(
-    .["iana:sourceIPv4Address"],
-    .["iana:sourceIPv6Address"],
-    .["iana:destinationIPv4Address"],
-    .["iana:destinationIPv6Address"]
-  ) |
-  keys_unsorted | @csv
-')
-echo ${{HEADER}}
-jq -r "
+echo {header}
+cat {tmp_file} | jq -r "
   .[\\"iana:sourceIPAddress\\"] = (.\\"iana:sourceIPv4Address\\" // .\\"iana:sourceIPv6Address\\") |
   .[\\"iana:destinationIPAddress\\"] = (.\\"iana:destinationIPv4Address\\" // .\\"iana:destinationIPv6Address\\") |
   del(
@@ -93,8 +84,8 @@ jq -r "
     .\\"iana:destinationIPv4Address\\",
     .\\"iana:destinationIPv6Address\\"
   ) |
-  [.$(echo ${{HEADER}} | sed 's/,/, ./g')] | @csv
-" {tmp_file}
+  [{fields}] | @csv
+"
 rm {tmp_file}"""
         """Reads fds file and output as json with ipfixcol2, then converts json with `jq` to csv\\
         In the csv output the columns `iana:sourceIPv4Address` and `iana:sourceIPv6Address` are merged to `iana:sourceIPAddress`\\
