@@ -70,7 +70,8 @@ class JQ(CollectorOutputReaderInterface):
         self._file = stdout.strip()
         tmp_file = path.join(self._rsync.get_data_directory(), "flows.json")
         self._cmd_json = f"ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)}"
-        self._cmd_csv = f"""(ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} > {tmp_file}
+        self._cmd_csv = f"""set -e
+ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} > {tmp_file}
 HEADER=$(head -n 1 {tmp_file} | jq -r '
   .["iana:sourceIPAddress"] = (.["iana:sourceIPv4Address"] // .["iana:sourceIPv6Address"]) |
   .["iana:destinationIPAddress"] = (.["iana:destinationIPv4Address"] // .["iana:destinationIPv6Address"]) |
@@ -94,7 +95,7 @@ cat {tmp_file} | jq -r "
   ) |
   [.$(echo ${{HEADER}} | sed 's/,/, ./g')] | @csv
 "
-rm {tmp_file})"""
+rm {tmp_file}"""
         """Reads fds file and output as json with ipfixcol2, then converts json with `jq` to csv\\
         In the csv output the columns `iana:sourceIPv4Address` and `iana:sourceIPv6Address` are merged to `iana:sourceIPAddress`\\
         The same is done for `iana:destinationIPAddress`
@@ -296,16 +297,16 @@ rm {tmp_file})"""
         start = time.time()
         # write csv
         stdout, stderr = Tool(
-            f"{self._cmd_csv} >> {tmp_file}", executor=self._executor
+            f"({self._cmd_csv}) >> {tmp_file}", executor=self._executor
         ).run()
         end = time.time()
         logging.getLogger().info("CSV output saved in %.2f seconds.", (end - start))
 
         start = time.time()
         tmp_dir = tempfile.mkdtemp()
-        rsync.pull_path(tmp_file, tmp_dir)
+        flows_file = rsync.pull_path(tmp_file, tmp_dir)
         end = time.time()
-        df = pd.read_csv(path.join(tmp_dir, filename))
+        df = pd.read_csv(flows_file)
         # Filter columns
         df = df[list(CSV_HEADER_TO_ANALYZER_HEADER.keys())]
         # rename columns

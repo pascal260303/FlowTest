@@ -10,8 +10,8 @@ sampling: 1
 
 # default configuration describing the setup during profile collection
 default:
-  pps: 708150
-  mbps: 7075
+  pps: 86291
+  mbps: 790
   generator: []
   #  ipv4:
   #    fragmentation_probability: 0.05%
