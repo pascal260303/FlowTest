@@ -289,7 +289,14 @@ def test_simulation_threshold(
         if scenario.test.speed_max is not None
         else scenario.requirements.speed * 1000
     )
-    speed_current = speed_max
+    # start in the middle
+    speed_current = int((speed_max + speed_min) / 2)
+    # round up to required accuracy
+    if speed_current % scenario.test.mbps_accuracy > 0:
+        speed_current = speed_current + (
+            scenario.test.mbps_accuracy
+            - speed_current % scenario.test.mbps_accuracy
+        )
     while True:
         # setup log path
         current_log_dir = os.path.join(log_dir, str(speed_current))
