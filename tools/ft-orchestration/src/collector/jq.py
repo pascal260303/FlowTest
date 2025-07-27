@@ -84,7 +84,7 @@ HEADER=$(head -n 1 {tmp_file} | jq -r '
   keys_unsorted | @csv
 ')
 echo ${{HEADER}}
-cat {tmp_file} | jq -r "
+jq -r "
   .[\\"iana:sourceIPAddress\\"] = (.\\"iana:sourceIPv4Address\\" // .\\"iana:sourceIPv6Address\\") |
   .[\\"iana:destinationIPAddress\\"] = (.\\"iana:destinationIPv4Address\\" // .\\"iana:destinationIPv6Address\\") |
   del(
@@ -94,7 +94,7 @@ cat {tmp_file} | jq -r "
     .\\"iana:destinationIPv6Address\\"
   ) |
   [.$(echo ${{HEADER}} | sed 's/,/, ./g')] | @csv
-"
+" {tmp_file}
 rm {tmp_file}"""
         """Reads fds file and output as json with ipfixcol2, then converts json with `jq` to csv\\
         In the csv output the columns `iana:sourceIPv4Address` and `iana:sourceIPv6Address` are merged to `iana:sourceIPAddress`\\

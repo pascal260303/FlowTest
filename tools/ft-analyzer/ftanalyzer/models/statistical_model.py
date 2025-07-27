@@ -7,6 +7,7 @@ SPDX-License-Identifier: BSD-3-Clause
 """
 
 import atexit
+from concurrent.futures import ProcessPoolExecutor
 import ipaddress
 import logging
 import operator
@@ -232,27 +233,49 @@ class StatisticalModel:
 
         if use_statistical_counter:
             # statistic objects
-            self._sim = SimState(self._generator_stats.start_time)
-
-            output_dir = tempfile.mkdtemp()
-
-            self._statistic_objects, self._metric_to_obj = (
-                self._setup_statsitic_objects()
+            self._executor = ProcessPoolExecutor()
+            self._future_sim = self._executor.submit(
+                self._run_sim,
+                host_stats,
+                self._generator_stats.start_time,
+                self._generator_stats.end_time,
+                inactive_timeout,
+                self._flows_path,
             )
-            event_queue = create_event_queue(self._flows_path, host_stats, output_dir)
-            self._process_events(event_queue, self._statistic_objects)
 
-            shutil.rmtree(output_dir, ignore_errors=True)
-            output_dir = tempfile.mkdtemp()
-
-            self._ref_statisitic_objetcs, _ = self._setup_statsitic_objects()
-            ref_event_queue = create_event_queue(self._ref_path, "", output_dir)
-            self._process_events(ref_event_queue, self._ref_statisitic_objetcs)
-
-            shutil.rmtree(output_dir, ignore_errors=True)
+            self._future_ref = self._executor.submit(
+                self._run_sim,
+                "",
+                self._generator_stats.start_time,
+                self._generator_stats.end_time,
+                inactive_timeout,
+                self._ref_path,
+            )
         else:
-            self._statistic_objects = {}
-            self._ref_statisitic_objetcs = {}
+            self._executor = None
+            self._future_ref = None
+            self._future_sim = None
+
+    @staticmethod
+    def _run_sim(
+        host_stats: GeneratorStats,
+        start_time: np.uint64,
+        end_time: np.uint64,
+        inactive_timeout: int,
+        flows_file: PathLike,
+    ):
+        output_dir = tempfile.mkdtemp()
+
+        sim = SimState(start_time)
+        statistic_objects, metric_to_obj = setup_statsitic_objects(
+            sim, start_time, end_time, inactive_timeout
+        )
+        event_queue = create_event_queue(flows_file, host_stats, output_dir)
+        process_events(event_queue, statistic_objects, metric_to_obj, sim)
+
+        shutil.rmtree(output_dir, ignore_errors=True)
+
+        return statistic_objects
 
     def __del__(self):
         try:
@@ -382,9 +405,11 @@ class StatisticalModel:
                     )
                 )
 
-        for objects in zip(
-            self._statistic_objects.values(), self._ref_statisitic_objetcs.values()
-        ):
+        statistic_objects = self._future_sim.result() if self._future_sim else {}
+        ref_statistic_objects = self._future_ref.result() if self._future_ref else {}
+        if self._executor:
+            self._executor.shutdown()
+        for objects in zip(statistic_objects.values(), ref_statistic_objects.values()):
             report.add_statistic_object(*objects)
 
         return report
@@ -617,267 +642,185 @@ class StatisticalModel:
             mask_flow,
         )
 
-    def _setup_statsitic_objects(
-        self,
-    ) -> tuple[dict[str, StatisticObject], dict[str, List[str]]]:
-        """Create two dicts.
-        The first one maps strings to StatisticObjects.
-        The second one maps a metric name to a list of strings, that are from the first dict
 
-        Returns:
-            tuple[dict[str, StatisticObject], dict[str, List[str]]]: the two dicts in a tuple
-        """
-        start_time = np.uint64(
-            self._generator_stats.start_time + 10000
-        )  # ten seconds transient phase
-        end_time = np.uint64(
-            self._generator_stats.end_time - 10000
-        )  # ten seconds end phase
-        statistic_objects: dict[str, StatisticObject] = {
-            "ct_data_rate": ContinuousCounter(
-                "data rate in Gb/s",
-                self._sim,
-                1 / (10**9),
-                measure_start_time=start_time,
-                measure_end_time=end_time,
-            ),
-            "ct_packet_rate": ContinuousCounter(
-                "packets per second",
-                self._sim,
-                measure_start_time=start_time,
-                measure_end_time=end_time,
-            ),
-            "ct_flow_count": ContinuousCounter(
-                "active flows",
-                self._sim,
-                measure_start_time=start_time,
-                measure_end_time=end_time,
-            ),
-            "ct_flow_rate": ContinuousCounter(
-                "flow rate",
-                self._sim,
-                measure_start_time=start_time,
-                measure_end_time=end_time,
-            ),
-            "ct_cpu_usage": ContinuousCounter(
-                "CPU usage in percent",
-                self._sim,
-                measure_start_time=start_time,
-                measure_end_time=end_time,
-            ),
-            "ct_ram_usage": ContinuousCounter(
-                "RAM Usage in percent",
-                self._sim,
-                measure_start_time=start_time,
-                measure_end_time=end_time,
-            ),
-            "ct_export_rate": ContinuousCounter(
-                "Export Rate in flows/s",
-                self._sim,
-                measure_start_time=start_time + self._inactive_timeout * 1000,
-                measure_end_time=self._generator_stats.end_time,
-            ),
-            "tsc_data_rate": TimeSeriesCounter(
-                "data rate in Gb/s",
-                self._sim,
-                self._generator_stats.start_time,
-                self._generator_stats.end_time,
-                1 / (10**9),
-                measure_start_time=start_time,
-                measure_end_time=end_time,
-            ),
-            "tsc_packet_rate": TimeSeriesCounter(
-                "packets per second",
-                self._sim,
-                self._generator_stats.start_time,
-                self._generator_stats.end_time,
-                measure_start_time=start_time,
-                measure_end_time=end_time,
-            ),
-            "tsc_flow_count": TimeSeriesCounter(
-                "active flows",
-                self._sim,
-                self._generator_stats.start_time,
-                self._generator_stats.end_time,
-                measure_start_time=start_time,
-                measure_end_time=end_time,
-            ),
-            "tsc_flow_rate": TimeSeriesCounter(
-                "flow rate",
-                self._sim,
-                self._generator_stats.start_time,
-                self._generator_stats.end_time,
-                measure_start_time=start_time,
-                measure_end_time=end_time,
-            ),
-            "tsc_cpu_usage": TimeSeriesCounter(
-                "CPU usage in percent",
-                self._sim,
-                self._generator_stats.start_time,
-                self._generator_stats.end_time,
-                measure_start_time=start_time,
-                measure_end_time=end_time,
-            ),
-            "tsc_mem_usage": TimeSeriesCounter(
-                "RAM Usage in percent",
-                self._sim,
-                self._generator_stats.start_time,
-                self._generator_stats.end_time,
-                measure_start_time=start_time,
-                measure_end_time=end_time,
-            ),
-            "tsc_export_rate": TimeSeriesCounter(
-                "Export Rate in flows/s",
-                self._sim,
-                self._generator_stats.start_time,
-                self._generator_stats.end_time,
-                measure_start_time=start_time + self._inactive_timeout * 1000,
-                measure_end_time=self._generator_stats.end_time,
-            ),
-        }
+def setup_statsitic_objects(
+    sim: SimState, start_time: np.uint64, end_time: np.uint64, inactive_timeout: int
+) -> tuple[dict[str, StatisticObject], dict[str, List[str]]]:
+    """Create two dicts.
+    The first one maps strings to StatisticObjects.
+    The second one maps a metric name to a list of strings, that are from the first dict
 
-        metric_mapping: dict[str, List[str]] = {
-            "data_rate": ["ct_data_rate", "ct_data_rate_bibit", "tsc_data_rate"],
-            "packet_rate": ["ct_packet_rate", "tsc_packet_rate"],
-            "flow_count": ["ct_flow_count", "tsc_flow_count"],
-            "flow_rate": ["ct_flow_rate", "tsc_flow_rate"],
-            "percent_CPU": ["ct_cpu_usage", "tsc_cpu_usage"],
-            "percent_MEM": ["ct_ram_usage", "tsc_mem_usage"],
-            "export_rate": ["ct_export_rate", "tsc_export_rate"],
-        }
+    Returns:
+        tuple[dict[str, StatisticObject], dict[str, List[str]]]: the two dicts in a tuple
+    """
+    start_time_offset = np.uint64(start_time + 10000)  # ten seconds transient phase
+    end_time_offset = np.uint64(end_time - 10000)  # ten seconds end phase
+    statistic_objects: dict[str, StatisticObject] = {
+        "ct_data_rate": ContinuousCounter(
+            "data rate in Gb/s",
+            sim,
+            1 / (10**9),
+            measure_start_time=start_time_offset,
+            measure_end_time=end_time_offset,
+        ),
+        "ct_packet_rate": ContinuousCounter(
+            "packets per second",
+            sim,
+            measure_start_time=start_time_offset,
+            measure_end_time=end_time_offset,
+        ),
+        "ct_flow_count": ContinuousCounter(
+            "active flows",
+            sim,
+            measure_start_time=start_time_offset,
+            measure_end_time=end_time_offset,
+        ),
+        "ct_flow_rate": ContinuousCounter(
+            "flow rate",
+            sim,
+            measure_start_time=start_time_offset,
+            measure_end_time=end_time_offset,
+        ),
+        "ct_cpu_usage": ContinuousCounter(
+            "CPU usage in percent",
+            sim,
+            measure_start_time=start_time_offset,
+            measure_end_time=end_time_offset,
+        ),
+        "ct_ram_usage": ContinuousCounter(
+            "RAM Usage in percent",
+            sim,
+            measure_start_time=start_time_offset,
+            measure_end_time=end_time_offset,
+        ),
+        "ct_export_rate": ContinuousCounter(
+            "Export Rate in flows/s",
+            sim,
+            measure_start_time=start_time_offset + inactive_timeout * 1000,
+            measure_end_time=end_time,
+        ),
+        "tsc_data_rate": TimeSeriesCounter(
+            "data rate in Gb/s",
+            sim,
+            start_time_offset,
+            end_time_offset,
+            1 / (10**9),
+            measure_start_time=start_time_offset,
+            measure_end_time=end_time_offset,
+        ),
+        "tsc_packet_rate": TimeSeriesCounter(
+            "packets per second",
+            sim,
+            start_time,
+            end_time,
+            measure_start_time=start_time_offset,
+            measure_end_time=end_time_offset,
+        ),
+        "tsc_flow_count": TimeSeriesCounter(
+            "active flows",
+            sim,
+            start_time,
+            end_time,
+            measure_start_time=start_time_offset,
+            measure_end_time=end_time_offset,
+        ),
+        "tsc_flow_rate": TimeSeriesCounter(
+            "flow rate",
+            sim,
+            start_time,
+            end_time,
+            measure_start_time=start_time_offset,
+            measure_end_time=end_time_offset,
+        ),
+        "tsc_cpu_usage": TimeSeriesCounter(
+            "CPU usage in percent",
+            sim,
+            start_time,
+            end_time,
+            measure_start_time=start_time_offset,
+            measure_end_time=end_time_offset,
+        ),
+        "tsc_mem_usage": TimeSeriesCounter(
+            "RAM Usage in percent",
+            sim,
+            start_time,
+            end_time,
+            measure_start_time=start_time_offset,
+            measure_end_time=end_time_offset,
+        ),
+        "tsc_export_rate": TimeSeriesCounter(
+            "Export Rate in flows/s",
+            sim,
+            start_time,
+            end_time,
+            measure_start_time=start_time_offset + inactive_timeout * 1000,
+            measure_end_time=end_time,
+        ),
+    }
 
-        return (statistic_objects, metric_mapping)
+    metric_mapping: dict[str, List[str]] = {
+        "data_rate": ["ct_data_rate", "ct_data_rate_bibit", "tsc_data_rate"],
+        "packet_rate": ["ct_packet_rate", "tsc_packet_rate"],
+        "flow_count": ["ct_flow_count", "tsc_flow_count"],
+        "flow_rate": ["ct_flow_rate", "tsc_flow_rate"],
+        "percent_CPU": ["ct_cpu_usage", "tsc_cpu_usage"],
+        "percent_MEM": ["ct_ram_usage", "tsc_mem_usage"],
+        "export_rate": ["ct_export_rate", "tsc_export_rate"],
+    }
 
-    def _process_events(
-        self,
-        event_queue: Iterable[Event],
-        statistic_objects: dict[str, StatisticObject],
-    ) -> None:
-        """
-        Process a stream of flow events, calculating data rates and packet rates
-        over event-driven time windows.
+    return (statistic_objects, metric_mapping)
 
-        OnePacketFlow events are aggregated into the current time window until
-        a non-zero duration interval is reached. Multiple events at the same
-        timestamp are processed together to avoid zero-duration artifacts.
-        """
 
-        one_packet_events: list[OnePacketFlow] = []
-        current_data_rate = 0.0
-        current_packet_rate = 0.0
-        current_flow_count = np.uint64(0)
-        current_flow_rate = 0.0
+def process_events(
+    event_queue: Iterable[Event],
+    statistic_objects: dict[str, StatisticObject],
+    metric_mapping: dict[str, List[str]],
+    sim: SimState,
+) -> None:
+    """
+    Process a stream of flow events, calculating data rates and packet rates
+    over event-driven time windows.
 
-        # Prime the iterator
-        event_iter = iter(event_queue)
-        try:
-            current_event = next(event_iter)
-        except StopIteration:
-            return  # No events to process
+    OnePacketFlow events are aggregated into the current time window until
+    a non-zero duration interval is reached. Multiple events at the same
+    timestamp are processed together to avoid zero-duration artifacts.
+    """
 
-        last_time: np.uint64 = self._sim.get_time()
-        last_export: np.uint64 = self._sim.get_time()
-        self._sim.set_time(current_event.time)
+    one_packet_events: list[OnePacketFlow] = []
+    current_data_rate = 0.0
+    current_packet_rate = 0.0
+    current_flow_count = np.uint64(0)
+    current_flow_rate = 0.0
 
-        simultaneous_events = [current_event]
+    # Prime the iterator
+    event_iter = iter(event_queue)
+    try:
+        current_event = next(event_iter)
+    except StopIteration:
+        return  # No events to process
 
-        for event in event_iter:
-            if event.time == self._sim.get_time():
-                simultaneous_events.append(event)
-                continue
+    last_time: np.uint64 = sim.get_time()
+    last_export: np.uint64 = sim.get_time()
+    sim.set_time(current_event.time)
 
-            # Compute the duration between the last time and the current group of events
-            duration_ms = self._sim.get_time_diff(last_time)
-            duration_s = self._sim.convert_to_seconds(duration_ms)
-            since_last_export: np.uint64 = self._sim.get_time_diff(last_export)
+    simultaneous_events = [current_event]
 
-            # Only advance stats if time progressed
-            if (
-                duration_ms > 0
-                and not all_instance_of(simultaneous_events, OnePacketFlow)
-                or duration_ms > 100
-            ):
-                # aggregate OnePacketFlow events within this window
-                total_bytes = sum(e.bytes for e in one_packet_events)
-                total_packets = sum(e.packets for e in one_packet_events)
-                total_flows = np.uint64(len(one_packet_events))
+    for event in event_iter:
+        if event.time == sim.get_time():
+            simultaneous_events.append(event)
+            continue
 
-                singleton_data_rate = (
-                    (total_bytes * 8) / duration_s if duration_s > 0 else 0.0
-                )
-                singleton_packet_rate = (
-                    total_packets / duration_s if duration_s > 0 else 0.0
-                )
+        # Compute the duration between the last time and the current group of events
+        duration_ms = sim.get_time_diff(last_time)
+        duration_s = sim.convert_to_seconds(duration_ms)
+        since_last_export: np.uint64 = sim.get_time_diff(last_export)
 
-                singleton_flow_rate = (
-                    total_flows / duration_s if duration_s > 0 else 0.0
-                )
-
-                # Compose final rates
-                total_data_rate = current_data_rate + singleton_data_rate
-                total_packet_rate = current_packet_rate + singleton_packet_rate
-                total_flow_count = current_flow_count + total_flows
-                total_flow_rate = current_flow_rate + singleton_flow_rate
-
-                self._update_statistic_objects(
-                    statistic_objects,
-                    data_rate=total_data_rate,
-                    packet_rate=total_packet_rate,
-                    flow_count=total_flow_count,
-                    flow_rate=total_flow_rate,
-                )
-
-                export_event: ExportEvent = next(
-                    (e for e in simultaneous_events if isinstance(e, ExportEvent)), None
-                )
-                if export_event:
-                    self._update_statistic_objects(
-                        statistic_objects,
-                        export_rate=export_event.flows
-                        / self._sim.convert_to_seconds(since_last_export),
-                    )
-                    last_export = self._sim.get_time()
-                elif since_last_export >= 1000:
-                    self._update_statistic_objects(statistic_objects, export_rate=0.0)
-                    last_export = self._sim.get_time()
-
-                host_stats_event: HostStatsEvent = next(
-                    (e for e in simultaneous_events if isinstance(e, HostStatsEvent)),
-                    None,
-                )
-                if host_stats_event:
-                    self._update_statistic_objects(
-                        statistic_objects, **host_stats_event.row._asdict()
-                    )
-
-                # reset one-packet events after processing
-                one_packet_events.clear()
-                # move forward in time
-                last_time = self._sim.get_time()
-
-            # apply each event's effect to current rates
-            for e in simultaneous_events:
-                if isinstance(e, HostStatsEvent) or isinstance(e, ExportEvent):
-                    pass
-                elif isinstance(e, OnePacketFlow):
-                    one_packet_events.append(e)
-                else:
-                    current_data_rate += e.data_rate
-                    current_packet_rate += e.packet_rate
-                    current_flow_rate += e.flow_rate
-                    if isinstance(e, FlowStartEvent):
-                        current_flow_count += np.uint64(1)
-                    elif isinstance(e, FlowEndEvent):
-                        current_flow_count -= np.uint64(1)
-
-            self._sim.set_time(event.time)
-            simultaneous_events = [event]
-
-        # Final flush
-        duration_ms = self._sim.get_time_diff(last_time)
-        duration_s = self._sim.convert_to_seconds(duration_ms)
-
-        if duration_s > 0:
+        # Only advance stats if time progressed
+        if (
+            duration_ms > 0
+            and not all_instance_of(simultaneous_events, OnePacketFlow)
+            or duration_ms > 100
+        ):
             # aggregate OnePacketFlow events within this window
             total_bytes = sum(e.bytes for e in one_packet_events)
             total_packets = sum(e.packets for e in one_packet_events)
@@ -898,36 +841,117 @@ class StatisticalModel:
             total_flow_count = current_flow_count + total_flows
             total_flow_rate = current_flow_rate + singleton_flow_rate
 
-            self._update_statistic_objects(
+            update_statistic_objects(
                 statistic_objects,
+                metric_mapping,
                 data_rate=total_data_rate,
                 packet_rate=total_packet_rate,
                 flow_count=total_flow_count,
                 flow_rate=total_flow_rate,
             )
 
+            export_event: ExportEvent = next(
+                (e for e in simultaneous_events if isinstance(e, ExportEvent)), None
+            )
+            if export_event:
+                update_statistic_objects(
+                    statistic_objects,
+                    metric_mapping,
+                    export_rate=export_event.flows
+                    / sim.convert_to_seconds(since_last_export),
+                )
+                last_export = sim.get_time()
+            elif since_last_export >= 1000:
+                update_statistic_objects(
+                    statistic_objects, metric_mapping, export_rate=0.0
+                )
+                last_export = sim.get_time()
+
             host_stats_event: HostStatsEvent = next(
                 (e for e in simultaneous_events if isinstance(e, HostStatsEvent)),
                 None,
             )
             if host_stats_event:
-                self._update_statistic_objects(
-                    statistic_objects, **host_stats_event.row._asdict()
+                update_statistic_objects(
+                    statistic_objects, metric_mapping, **host_stats_event.row._asdict()
                 )
 
-    def _update_statistic_objects(
-        self,
-        statistic_objects: dict[str, StatisticObject],
-        **kwargs: dict | None,
-    ):
-        for key, rate in kwargs.items():
-            if rate is None:
-                continue
-            stat_obj_names = self._metric_to_obj.get(key, [])
-            for stat_obj_name in stat_obj_names:
-                stat_obj = statistic_objects.get(stat_obj_name)
-                if stat_obj is not None:
-                    stat_obj.count(rate)
+            # reset one-packet events after processing
+            one_packet_events.clear()
+            # move forward in time
+            last_time = sim.get_time()
+
+        # apply each event's effect to current rates
+        for e in simultaneous_events:
+            if isinstance(e, HostStatsEvent) or isinstance(e, ExportEvent):
+                pass
+            elif isinstance(e, OnePacketFlow):
+                one_packet_events.append(e)
+            else:
+                current_data_rate += e.data_rate
+                current_packet_rate += e.packet_rate
+                current_flow_rate += e.flow_rate
+                if isinstance(e, FlowStartEvent):
+                    current_flow_count += np.uint64(1)
+                elif isinstance(e, FlowEndEvent):
+                    current_flow_count -= np.uint64(1)
+
+        sim.set_time(event.time)
+        simultaneous_events = [event]
+
+    # Final flush
+    duration_ms = sim.get_time_diff(last_time)
+    duration_s = sim.convert_to_seconds(duration_ms)
+
+    if duration_s > 0:
+        # aggregate OnePacketFlow events within this window
+        total_bytes = sum(e.bytes for e in one_packet_events)
+        total_packets = sum(e.packets for e in one_packet_events)
+        total_flows = np.uint64(len(one_packet_events))
+
+        singleton_data_rate = (total_bytes * 8) / duration_s if duration_s > 0 else 0.0
+        singleton_packet_rate = total_packets / duration_s if duration_s > 0 else 0.0
+
+        singleton_flow_rate = total_flows / duration_s if duration_s > 0 else 0.0
+
+        # Compose final rates
+        total_data_rate = current_data_rate + singleton_data_rate
+        total_packet_rate = current_packet_rate + singleton_packet_rate
+        total_flow_count = current_flow_count + total_flows
+        total_flow_rate = current_flow_rate + singleton_flow_rate
+
+        update_statistic_objects(
+            statistic_objects,
+            metric_mapping,
+            data_rate=total_data_rate,
+            packet_rate=total_packet_rate,
+            flow_count=total_flow_count,
+            flow_rate=total_flow_rate,
+        )
+
+        host_stats_event: HostStatsEvent = next(
+            (e for e in simultaneous_events if isinstance(e, HostStatsEvent)),
+            None,
+        )
+        if host_stats_event:
+            update_statistic_objects(
+                statistic_objects, metric_mapping, **host_stats_event.row._asdict()
+            )
+
+
+def update_statistic_objects(
+    statistic_objects: dict[str, StatisticObject],
+    metric_mapping: dict[str, List[str]],
+    **kwargs: dict | None,
+):
+    for key, rate in kwargs.items():
+        if rate is None:
+            continue
+        stat_obj_names = metric_mapping.get(key, [])
+        for stat_obj_name in stat_obj_names:
+            stat_obj = statistic_objects.get(stat_obj_name)
+            if stat_obj is not None:
+                stat_obj.count(rate)
 
 
 def all_instance_of(iterable: Iterable, cls):
