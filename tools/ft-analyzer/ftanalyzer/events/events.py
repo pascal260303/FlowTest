@@ -20,6 +20,7 @@ CSV_COLUMN_TYPES = {
     "PACKETS": np.uint64,
     "BYTES": np.uint64,
     "EXPORT_TIME": np.uint64,
+    "SEQ_NUMBER": np.uint32,
     "MSG_LENGTH": np.uint64,
 }
 
@@ -198,13 +199,13 @@ def create_event_queue(
 
     # Export Events
     if "EXPORT_TIME" in df.columns:
-        df.groupby("EXPORT_TIME", as_index=False).agg(
-            MSG_LENGTH_SUM=("MSG_LENGTH", lambda x: x.drop_duplicates().sum()),
+        df.groupby(["EXPORT_TIME", "SEQ_NUMBER"], as_index=False).agg(
+            MSG_LENGTH=("MSG_LENGTH", "first"),
             FLOWS=("MSG_LENGTH", "count"),
         ).sort_values("EXPORT_TIME").to_csv(sorted_by_export_path, index=False)
     else:
         with open(sorted_by_export_path, "w+") as f:
-            f.write("EXPORT_TIME,FLOWS,MSG_LENGTH_SUM")
+            f.write("EXPORT_TIME,SEQ_NUMBER,FLOWS,MSG_LENGTH")
 
     return heapq.merge(
         read_one_packet_events(one_packet_path),
@@ -221,14 +222,15 @@ def read_export_events(path: os.PathLike):
         path,
         dtype={
             "EXPORT_TIME": np.uint64,
+            "SEQ_NUMBER": np.uint32,
             "FLOWS": np.uint64,
-            "MSG_LENGTH_SUM": np.uint64,
+            "MSG_LENGTH": np.uint64,
         },
         chunksize=100_000,
     ):
         for row in chunk.itertuples(index=False):
             yield ExportEvent(
-                bits=np.uint64(row.MSG_LENGTH_SUM),
+                bits=np.uint64(row.MSG_LENGTH),
                 flows=np.uint64(row.FLOWS),
                 export_time=np.uint64(row.EXPORT_TIME),
             )

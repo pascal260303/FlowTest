@@ -116,6 +116,7 @@ class StatisticalModel:
         "PACKETS": np.uint64,
         "BYTES": np.uint64,
         "EXPORT_TIME": np.uint64,
+        "SEQ_NUMBER": np.uint32,
         "MSG_LENGTH": np.uint64,
     }
 
@@ -125,6 +126,7 @@ class StatisticalModel:
         "PACKETS": "sum",
         "BYTES": "sum",
         "EXPORT_TIME": "first",
+        "SEQ_NUMBER": "first",
         "MSG_LENGTH": "first",
     }
 
@@ -675,12 +677,12 @@ def setup_statsitic_objects(
             measure_start_time=start_time_offset,
             measure_end_time=end_time_offset,
         ),
-        "ct_flow_rate": ContinuousCounter(
-            "flow rate",
-            sim,
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
-        ),
+        # "ct_flow_rate": ContinuousCounter(
+        #    "flow rate",
+        #    sim,
+        #    measure_start_time=start_time_offset,
+        #    measure_end_time=end_time_offset,
+        # ),
         "ct_cpu_usage": ContinuousCounter(
             "CPU usage in percent",
             sim,
@@ -693,8 +695,20 @@ def setup_statsitic_objects(
             measure_start_time=start_time_offset,
             measure_end_time=end_time_offset,
         ),
-        "ct_export_rate": ContinuousCounter(
+        "ct_export_rate_f": ContinuousCounter(
             "Export Rate in flows/s",
+            sim,
+            measure_start_time=start_time_offset + inactive_timeout * 1000,
+            measure_end_time=end_time,
+        ),
+        "ct_export_rate_p": ContinuousCounter(
+            "Export Rate in packets/s",
+            sim,
+            measure_start_time=start_time_offset + inactive_timeout * 1000,
+            measure_end_time=end_time,
+        ),
+        "ct_flows_per_export_packet": ContinuousCounter(
+            "Flows per exported Packet in flows/packet",
             sim,
             measure_start_time=start_time_offset + inactive_timeout * 1000,
             measure_end_time=end_time,
@@ -748,8 +762,24 @@ def setup_statsitic_objects(
             measure_start_time=start_time_offset,
             measure_end_time=end_time_offset,
         ),
-        "tsc_export_rate": TimeSeriesCounter(
+        "tsc_export_rate_f": TimeSeriesCounter(
             "Export Rate in flows/s",
+            sim,
+            start_time,
+            end_time,
+            measure_start_time=start_time_offset + inactive_timeout * 1000,
+            measure_end_time=end_time,
+        ),
+        "tsc_export_rate_p": TimeSeriesCounter(
+            "Export Rate in packets/s",
+            sim,
+            start_time,
+            end_time,
+            measure_start_time=start_time_offset + inactive_timeout * 1000,
+            measure_end_time=end_time,
+        ),
+        "tsc_flows_per_export_packet": TimeSeriesCounter(
+            "Flows per exported Packet in flows/packet",
             sim,
             start_time,
             end_time,
@@ -765,7 +795,12 @@ def setup_statsitic_objects(
         "flow_rate": ["ct_flow_rate", "tsc_flow_rate"],
         "percent_CPU": ["ct_cpu_usage", "tsc_cpu_usage"],
         "percent_MEM": ["ct_ram_usage", "tsc_mem_usage"],
-        "export_rate": ["ct_export_rate", "tsc_export_rate"],
+        "export_rate_f": ["ct_export_rate_f", "tsc_export_rate_f"],
+        "export_rate_p": ["ct_export_rate_p", "tsc_export_rate_p"],
+        "export_flows_p_packet": [
+            "tsc_flows_per_export_packet",
+            "ct_flows_per_export_packet",
+        ],
     }
 
     return (statistic_objects, metric_mapping)
@@ -850,20 +885,32 @@ def process_events(
                 flow_rate=total_flow_rate,
             )
 
-            export_event: ExportEvent = next(
-                (e for e in simultaneous_events if isinstance(e, ExportEvent)), None
-            )
-            if export_event:
+            export_events: List[ExportEvent] = [
+                e for e in simultaneous_events if isinstance(e, ExportEvent)
+            ]
+            if export_events:
+                time_since_export_s = sim.convert_to_seconds(since_last_export)
+                export_flows = sum(e.flows for e in export_events)
+                export_bytes = sum(e.bytes for e in export_events)
+                export_packets = len(export_events)
+                export_flows_p_packet = export_flows / export_packets
                 update_statistic_objects(
                     statistic_objects,
                     metric_mapping,
-                    export_rate=export_event.flows
-                    / sim.convert_to_seconds(since_last_export),
+                    export_rate_f=export_flows / time_since_export_s,
+                    export_rate_b=export_bytes / time_since_export_s,
+                    export_rate_p=export_packets / time_since_export_s,
+                    export_flows_p_packet=export_flows_p_packet,
                 )
                 last_export = sim.get_time()
             elif since_last_export >= 1000:
                 update_statistic_objects(
-                    statistic_objects, metric_mapping, export_rate=0.0
+                    statistic_objects,
+                    metric_mapping,
+                    export_rate_f=0.0,
+                    export_rate_b=0.0,
+                    export_rate_p=0.0,
+                    export_flows_p_packet=0.0,
                 )
                 last_export = sim.get_time()
 
