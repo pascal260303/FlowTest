@@ -294,8 +294,7 @@ def test_simulation_threshold(
     # round up to required accuracy
     if speed_current % scenario.test.mbps_accuracy > 0:
         speed_current = speed_current + (
-            scenario.test.mbps_accuracy
-            - speed_current % scenario.test.mbps_accuracy
+            scenario.test.mbps_accuracy - speed_current % scenario.test.mbps_accuracy
         )
     while True:
         # setup log path

@@ -24,6 +24,14 @@ CSV_COLUMN_TYPES = {
     "MSG_LENGTH": np.uint64,
 }
 
+CSV_AGGREGATE_TYPES = {
+    "START_TIME": np.uint64,
+    "END_TIME": np.uint64,
+    "PACKETS": np.uint64,
+    "BYTES": np.uint64,
+    "FLOWS": np.uint64,
+}
+
 STATS_CSV_COLUMN_TYPES = {
     "Time": np.uint64,
     "UID": np.uint64,
@@ -94,12 +102,14 @@ class FlowStartEvent(Event):
     packet_rate: float
     time = 0
     flow_rate: float
+    flows: int
 
-    def __init__(self, data_rate, packet_rate, start_time, flow_rate):
+    def __init__(self, data_rate, packet_rate, start_time, flow_rate, flows):
         self.data_rate = data_rate
         self.packet_rate = packet_rate
         self.time = start_time
         self.flow_rate = flow_rate
+        self.flows = flows
 
 
 class FlowEndEvent(Event):
@@ -107,23 +117,27 @@ class FlowEndEvent(Event):
     packet_rate: float
     time = 0
     flow_rate: float
+    flows: int
 
-    def __init__(self, data_rate, packet_rate, end_time, flow_rate):
+    def __init__(self, data_rate, packet_rate, end_time, flow_rate, flows):
         self.data_rate = -data_rate
         self.packet_rate = -packet_rate
         self.time = end_time
         self.flow_rate = -flow_rate
+        self.flows = -flows
 
 
 class OnePacketFlow(Event):
     bytes: np.uint64
     packets: np.uint64
     time = 0
+    flows: np.uint64
 
-    def __init__(self, bytes, packets, time):
+    def __init__(self, bytes, packets, time, flows):
         self.bytes = bytes
         self.packets = packets
         self.time = time
+        self.flows = flows
 
 
 class ExportEvent(Event):
@@ -188,12 +202,26 @@ def create_event_queue(
 
     stats_df.to_csv(hosts_stats_file, sep=";", index=False)
 
+    agg_dict = {
+        "PACKETS": ("PACKETS", "sum"),
+        "BYTES": ("BYTES", "sum"),
+        "FLOWS": ("PACKETS", "count"),
+    }
     # One-packet flows
-    one_packet_df = df[df["PACKETS"] == 1].sort_values("START_TIME")
-    one_packet_df.to_csv(one_packet_path, index=False)
+    (
+        df[df["PACKETS"] == 1]
+        .groupby("START_TIME", as_index=False)
+        .agg(**agg_dict)
+        .sort_values("START_TIME")
+        .to_csv(one_packet_path, index=False)
+    )
 
     # Multi-packet flows
-    multi_df = df[df["PACKETS"] > 1]
+    multi_df = (
+        df[df["PACKETS"] > 1]
+        .groupby(["START_TIME", "END_TIME"], as_index=False)
+        .agg(**agg_dict)
+    )
     multi_df.sort_values("START_TIME").to_csv(sorted_by_start_path, index=False)
     multi_df.sort_values("END_TIME").to_csv(sorted_by_end_path, index=False)
 
@@ -245,21 +273,25 @@ def read_host_stats_events(path: os.PathLike):
 
 
 def read_one_packet_events(path: str) -> Iterator[OnePacketFlow]:
-    for chunk in pd.read_csv(path, dtype=CSV_COLUMN_TYPES, chunksize=100_000):
+    CSV_AGGREGATE_TYPES_NO_END = {
+        k: v for k, v in CSV_AGGREGATE_TYPES.items() if k != "END_TIME"
+    }
+    for chunk in pd.read_csv(path, dtype=CSV_AGGREGATE_TYPES_NO_END, chunksize=100_000):
         for row in chunk.itertuples(index=False):
             yield OnePacketFlow(
                 bytes=np.uint64(row.BYTES),
                 packets=np.uint64(row.PACKETS),
                 time=np.uint64(row.START_TIME),
+                flows=row.FLOWS,
             )
 
 
 def read_start_events(path: str) -> Iterator[FlowStartEvent]:
-    for chunk in pd.read_csv(path, dtype=CSV_COLUMN_TYPES, chunksize=100_000):
+    for chunk in pd.read_csv(path, dtype=CSV_AGGREGATE_TYPES, chunksize=100_000):
         durations = (chunk.END_TIME - chunk.START_TIME + 1) / 1_000
         data_rates = (chunk.BYTES * 8) / durations
         packet_rates = chunk.PACKETS / durations
-        flow_rates = 1 / durations
+        flow_rates = chunk.FLOWS / durations
         for row, dr, pr, fr in zip(
             chunk.itertuples(index=False), data_rates, packet_rates, flow_rates
         ):
@@ -268,15 +300,16 @@ def read_start_events(path: str) -> Iterator[FlowStartEvent]:
                 packet_rate=pr,
                 start_time=np.uint64(row.START_TIME),
                 flow_rate=fr,
+                flows=row.FLOWS,
             )
 
 
 def read_end_events(path: str) -> Iterator[FlowEndEvent]:
-    for chunk in pd.read_csv(path, dtype=CSV_COLUMN_TYPES, chunksize=100_000):
+    for chunk in pd.read_csv(path, dtype=CSV_AGGREGATE_TYPES, chunksize=100_000):
         durations = (chunk.END_TIME - chunk.START_TIME + 1) / 1_000
         data_rates = (chunk.BYTES * 8) / durations
         packet_rates = chunk.PACKETS / durations
-        flow_rates = 1 / durations
+        flow_rates = chunk.FLOWS / durations
         for row, dr, pr, fr in zip(
             chunk.itertuples(index=False), data_rates, packet_rates, flow_rates
         ):
@@ -285,4 +318,5 @@ def read_end_events(path: str) -> Iterator[FlowEndEvent]:
                 packet_rate=pr,
                 end_time=np.uint64(row.END_TIME),
                 flow_rate=fr,
+                flows=row.FLOWS,
             )

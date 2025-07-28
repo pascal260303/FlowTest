@@ -7,7 +7,7 @@ SPDX-License-Identifier: BSD-3-Clause
 """
 
 import atexit
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import ipaddress
 import logging
 import operator
@@ -45,10 +45,14 @@ from ftanalyzer.events import (
     Event,
     HostStatsEvent,
     OnePacketFlow,
-    FlowEndEvent,
-    FlowStartEvent,
     create_event_queue,
 )
+import sys
+
+
+def is_debugger_active():
+    return sys.gettrace() is not None
+
 
 _TEMP_FILES = []
 
@@ -235,7 +239,9 @@ class StatisticalModel:
 
         if use_statistical_counter:
             # statistic objects
-            self._executor = ProcessPoolExecutor()
+            self._executor = (
+                ThreadPoolExecutor() if is_debugger_active() else ProcessPoolExecutor()
+            )
             self._future_sim = self._executor.submit(
                 self._run_sim,
                 host_stats,
@@ -859,7 +865,7 @@ def process_events(
             # aggregate OnePacketFlow events within this window
             total_bytes = sum(e.bytes for e in one_packet_events)
             total_packets = sum(e.packets for e in one_packet_events)
-            total_flows = np.uint64(len(one_packet_events))
+            total_flows = np.uint64(sum(e.flows for e in one_packet_events))
 
             singleton_data_rate = (
                 (total_bytes * 8) / duration_s if duration_s > 0 else 0.0
@@ -938,10 +944,7 @@ def process_events(
                 current_data_rate += e.data_rate
                 current_packet_rate += e.packet_rate
                 current_flow_rate += e.flow_rate
-                if isinstance(e, FlowStartEvent):
-                    current_flow_count += np.uint64(1)
-                elif isinstance(e, FlowEndEvent):
-                    current_flow_count -= np.uint64(1)
+                current_flow_count += e.flows
 
         sim.set_time(event.time)
         simultaneous_events = [event]
@@ -954,7 +957,7 @@ def process_events(
         # aggregate OnePacketFlow events within this window
         total_bytes = sum(e.bytes for e in one_packet_events)
         total_packets = sum(e.packets for e in one_packet_events)
-        total_flows = np.uint64(len(one_packet_events))
+        total_flows = np.uint64(sum(e.flows for e in one_packet_events))
 
         singleton_data_rate = (total_bytes * 8) / duration_s if duration_s > 0 else 0.0
         singleton_packet_rate = total_packets / duration_s if duration_s > 0 else 0.0

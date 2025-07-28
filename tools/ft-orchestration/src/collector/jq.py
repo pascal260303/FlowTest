@@ -71,8 +71,12 @@ class JQ(CollectorOutputReaderInterface):
         self._file = stdout.strip()
         tmp_file = path.join(self._rsync.get_data_directory(), "flows.json")
         self._cmd_json = f"ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)}"
-        fields = ", ".join([f'.\\"{field}\\"' for field in CSV_HEADER_TO_ANALYZER_HEADER.keys()])
-        header = ",".join([f'"{field}"' for field in CSV_HEADER_TO_ANALYZER_HEADER.keys()])
+        fields = ", ".join(
+            [f'.\\"{field}\\"' for field in CSV_HEADER_TO_ANALYZER_HEADER.keys()]
+        )
+        header = ",".join(
+            [f'"{field}"' for field in CSV_HEADER_TO_ANALYZER_HEADER.keys()]
+        )
         self._cmd_csv = f"""set -e
 ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} > {tmp_file}
 echo {header}
