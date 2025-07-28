@@ -81,11 +81,11 @@ sim_threshold:
       use_statistic_counter: true
       metrics:
         - key: PACKETS
-          diff: 0.0
+          diff: 0.001
         - key: BYTES
-          diff: 0.0
+          diff: 0.001
         - key: FLOWS
-          diff: 0.0
+          diff: 0.001
         - key: PACKETS / S
           diff: 0.5
         - key: MB / S
