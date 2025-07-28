@@ -32,6 +32,7 @@ CSV_HEADER_TO_ANALYZER_HEADER = {
     "iana:flowStartMilliseconds": "START_TIME",
     "iana:flowEndMilliseconds": "END_TIME",
     "ipfix:exportTime": "EXPORT_TIME",
+    "ipfix:seqNumber": "SEQ_NUMBER",
     "ipfix:msgLength": "MSG_LENGTH",
 }
 
