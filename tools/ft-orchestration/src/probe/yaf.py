@@ -183,6 +183,7 @@ class Yaf(ProbeInterface):
         mtu: int = 2048,
         sudo: bool = False,
         inactive_timeout: int = 50,
+        cache_size=None,
         **kwargs: dict,
     ):
         if len(interfaces) > 1:
@@ -206,7 +207,11 @@ class Yaf(ProbeInterface):
         kwargs["pcap"] = YafSettings.PCAPOptions(**(kwargs.get("pcap", {})))
         kwargs["tls"] = YafSettings.TLSOptions(**(kwargs.get("tls", {})))
         kwargs["log"] = YafSettings.LoggingOptions(**(kwargs.get("log", {})))
-        self._settings = YafSettings(idle_timeout=inactive_timeout, **kwargs)
+        self._settings = YafSettings(
+            idle_timeout=inactive_timeout,
+            maxflows=2**cache_size if cache_size else None,
+            **kwargs,
+        )
         self._executor = executor
         if isinstance(executor, RemoteExecutor):
             connection: Connection = executor.get_connection()

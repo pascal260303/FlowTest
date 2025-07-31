@@ -88,6 +88,7 @@ class ProbeInterface(ABC):
         mtu,
         active_timeout,
         inactive_timeout,
+        cache_size,
         **kwargs,
     ):
         """Initialize the local or remote probe interface as object

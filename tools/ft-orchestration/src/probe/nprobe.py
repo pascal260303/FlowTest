@@ -121,13 +121,16 @@ class NProbe(ProbeInterface):
         verbose: bool = False,
         mtu: int = 2048,
         sudo: bool = False,
+        cache_size=None,
         **kwargs: dict,
     ):
         interfaces_names = [ifc.name for ifc in interfaces]
         self._interfaces = interfaces_names
         self._zero_copy = any(ifc.startswith("zc:") for ifc in self._interfaces)
         settings: NProbeSettings = NProbeSettings(
-            interface=interfaces_names[0], **kwargs
+            interface=interfaces_names[0],
+            max_num_flows=2**cache_size if cache_size else None,
+            **kwargs,
         )
         self._executor = executor
 

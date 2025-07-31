@@ -112,6 +112,7 @@ class Cento(ProbeInterface):
         verbose: bool = False,
         mtu: int = 2048,
         sudo: bool = False,
+        cache_size=None,
         **kwargs: dict,
     ):
         interfaces_names = [ifc.name for ifc in interfaces]
