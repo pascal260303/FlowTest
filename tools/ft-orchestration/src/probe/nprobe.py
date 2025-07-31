@@ -408,7 +408,7 @@ class NProbe(ProbeInterface):
         """
         try:
             for log_file in self._log_files:
-                shutil.copy(log_file, directory)
+                shutil.move(log_file, directory)
             self.host_statistics.get_csv(directory)
         except PermissionError as err:
             logging.getLogger().warning("Cannot download ipfixprobe log, %s", err)

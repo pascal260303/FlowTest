@@ -441,8 +441,8 @@ class Yaf(ProbeInterface):
             Path to a local directory where logs should be stored.
         """
         try:
-            shutil.copy(self._log_file, directory)
-            shutil.copy(self._config_file, directory)
+            shutil.move(self._log_file, directory)
+            shutil.move(self._config_file, directory)
             self.host_statistics.get_csv(directory)
         except PermissionError as err:
             logging.getLogger().warning("Cannot download ipfixprobe log, %s", err)

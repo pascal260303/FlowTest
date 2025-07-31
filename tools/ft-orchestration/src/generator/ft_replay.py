@@ -610,7 +610,7 @@ class FtReplay(Replicator):
         cache_rsync = Rsync(self._executor, data_dir=path.dirname(self._report))
         try:
             report = cache_rsync.pull_path(self._report, self._work_dir)
-            shutil.copy(report, report_path)
+            shutil.move(report, report_path)
             self._report_pull_failed = False
         except AssertionError:
             self._report_path = report_path
@@ -653,10 +653,10 @@ class FtReplay(Replicator):
         Path(directory).mkdir(parents=True, exist_ok=True)
         for file in log_files:
             if Path(file).exists():
-                shutil.copy(file, directory)
+                shutil.move(file, directory)
 
         if self._verbose:
-            shutil.copy(self._config_file, directory)
+            shutil.move(self._config_file, directory)
 
     def stats(self) -> GeneratorStats:
         """Get stats of last generator run.
@@ -684,7 +684,7 @@ class FtReplay(Replicator):
         if self._report_pull_failed:
             cache_rsync = Rsync(self._executor, data_dir=path.dirname(self._report))
             report = cache_rsync.pull_path(self._report, self._work_dir)
-            shutil.copy(report, self._report_path)
+            shutil.move(report, self._report_path)
 
         return GeneratorStats(pkts, bts, start_time, end_time)
 

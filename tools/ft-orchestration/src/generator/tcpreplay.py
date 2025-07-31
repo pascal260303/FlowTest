@@ -251,7 +251,7 @@ class TcpReplay(PcapPlayer):
 
         self.start(pcap, speed, loop_count)
 
-        shutil.copy(report, report_path)
+        shutil.move(report, report_path)
 
     def stats(self) -> GeneratorStats:
         """Get stats based on process from ``start`` method.
@@ -321,7 +321,7 @@ class TcpReplay(PcapPlayer):
         """
 
         Path(directory).mkdir(parents=True, exist_ok=True)
-        shutil.copy(self._log_file, directory)
+        shutil.move(self._log_file, directory)
 
     @staticmethod
     def _get_speed_arg(speed: ReplaySpeed) -> str:
