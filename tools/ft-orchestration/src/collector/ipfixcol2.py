@@ -9,7 +9,6 @@ as FDS file.
 """
 
 import logging
-import os
 import shutil
 import tempfile
 import xml.etree.ElementTree as ET
@@ -308,7 +307,6 @@ class Ipfixcol2(CollectorInterface):
                 self._rsync.pull_path(log_file, directory)
             except RsyncException as err:
                 logging.getLogger().warning("%s", err)
-        shutil.move(os.path.join(self._log_dir, "flows.csv"), directory)
         shutil.move(self._log_file, directory)
 
     def cleanup(self):
