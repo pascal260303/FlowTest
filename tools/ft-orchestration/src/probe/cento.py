@@ -118,6 +118,13 @@ class Cento(ProbeInterface):
         interfaces_names = [ifc.name for ifc in interfaces]
         self._interfaces = interfaces_names
         self._zero_copy = any(ifc.startswith("zc:") for ifc in self._interfaces)
+
+        if "max_hash_size" not in kwargs and cache_size:
+            kwargs["hash_size"] = min(
+                2**cache_size, kwargs.get("hash_size", float("inf"))
+            )
+            kwargs["max_hash_size"] = 2**cache_size
+
         settings: CentoSettings = CentoSettings(
             interfaces=interfaces_names,
             verbose=verbose,

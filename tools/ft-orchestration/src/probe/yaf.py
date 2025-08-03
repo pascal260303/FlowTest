@@ -207,9 +207,12 @@ class Yaf(ProbeInterface):
         kwargs["pcap"] = YafSettings.PCAPOptions(**(kwargs.get("pcap", {})))
         kwargs["tls"] = YafSettings.TLSOptions(**(kwargs.get("tls", {})))
         kwargs["log"] = YafSettings.LoggingOptions(**(kwargs.get("log", {})))
+
+        if "maxflows" not in kwargs and cache_size:
+            kwargs["maxflows"] = 2**cache_size
+
         self._settings = YafSettings(
             idle_timeout=inactive_timeout,
-            maxflows=2**cache_size if cache_size else None,
             **kwargs,
         )
         self._executor = executor

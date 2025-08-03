@@ -127,9 +127,12 @@ class NProbe(ProbeInterface):
         interfaces_names = [ifc.name for ifc in interfaces]
         self._interfaces = interfaces_names
         self._zero_copy = any(ifc.startswith("zc:") for ifc in self._interfaces)
+
+        if "max_num_flows" not in kwargs and cache_size:
+            kwargs["max_num_flows"] = 2**cache_size
+
         settings: NProbeSettings = NProbeSettings(
             interface=interfaces_names[0],
-            max_num_flows=2**cache_size if cache_size else None,
             **kwargs,
         )
         self._executor = executor

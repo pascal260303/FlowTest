@@ -25,6 +25,7 @@ default:
 # individual tests for general simulation scenario
 sim_general:
   - id: one_packet_precise
+    speed_multiplier: 1.0
     marks: [precise]
     analysis:
       model: "precise"
@@ -32,6 +33,7 @@ sim_general:
 
   - id: one_packet_statistical
     marks: []
+    mbps: 748
     analysis:
       model: "statistical"
       use_statistic_counter: true

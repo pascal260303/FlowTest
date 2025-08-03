@@ -45,6 +45,7 @@ class ProbeCfg(YAMLWizard):
     connectors: list[dict] = field(default_factory=list)
     active_timeout: Optional[int] = None
     inactive_timeout: Optional[int] = None
+    cache_size: Optional[int] = None
 
     def get_args(self, probe_type: str) -> dict:
         """Get arguments which can be passed directly to the probe builder.
@@ -68,6 +69,8 @@ class ProbeCfg(YAMLWizard):
             ret["active_timeout"] = self.active_timeout
         if self.inactive_timeout:
             ret["inactive_timeout"] = self.inactive_timeout
+        if self.cache_size:
+            ret["cache_size"] = self.cache_size
         for connector in self.connectors:
             if connector.get("type", "") == probe_type:
                 del connector["type"]
