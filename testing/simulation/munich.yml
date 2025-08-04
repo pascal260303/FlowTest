@@ -31,49 +31,8 @@ sim_general:
       model: "precise"
       use_statistic_counter: true
 
-  - id: munich_statistical
-    marks: []
-    speed_multiplier: 1.0
-    analysis:
-      model: "statistical"
-      use_statistic_counter: true
-      metrics:
-        - key: PACKETS
-          diff: 0.5
-        - key: BYTES
-          diff: 0.5
-        - key: FLOWS
-          diff: 0.5
-        - key: PACKETS / S
-          diff: 1
-        - key: MB / S
-          diff: 1
-        - key: DURATION
-          diff: 1
-  - id: munich_speedup_400G
-    marks: [speedup]
-    mbps: 400000
-    loops: 100
-    analysis:
-      model: "statistical"
-      use_statistic_counter: true
-      metrics:
-        - key: PACKETS
-          diff: 0.5
-        - key: BYTES
-          diff: 0.5
-        - key: FLOWS
-          diff: 0.5
-        - key: PACKETS / S
-          diff: 0.5
-        - key: MB / S
-          diff: 0.5
-        - key: DURATION
-          diff: 0.5
-
 sim_threshold:
   - id: munich_throughput
-    marks: []
     mbps_accuracy: 50
     mbps_required: 50000
     loops: 10

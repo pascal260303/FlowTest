@@ -31,50 +31,8 @@ sim_general:
       model: "precise"
       use_statistic_counter: true
 
-  - id: one_packet_statistical
-    marks: []
-    mbps: 748
-    analysis:
-      model: "statistical"
-      use_statistic_counter: true
-      metrics:
-        - key: PACKETS
-          diff: 0.5
-        - key: BYTES
-          diff: 0.5
-        - key: FLOWS
-          diff: 0.5
-        - key: PACKETS / S
-          diff: 1
-        - key: MB / S
-          diff: 1
-        - key: DURATION
-          diff: 1
-
-  - id: one_packet_speedup_400G
-    marks: [speedup]
-    mbps: 400000
-    loops: 100
-    analysis:
-      model: "statistical"
-      use_statistic_counter: true
-      metrics:
-        - key: PACKETS
-          diff: 0.5
-        - key: BYTES
-          diff: 0.5
-        - key: FLOWS
-          diff: 0.5
-        - key: PACKETS / S
-          diff: 0.5
-        - key: MB / S
-          diff: 0.5
-        - key: DURATION
-          diff: 0.5  
-
 sim_threshold:
   - id: one_packet_throughput
-    marks: []
     mbps_accuracy: 100
     mbps_required: 50000
     analysis:

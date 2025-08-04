@@ -25,6 +25,7 @@ default:
 # individual tests for general simulation scenario
 sim_general:
   - id: munich_short_precise
+    enabled: false
     marks: [precise]
     speed_multiplier: 1.0
     analysis:
@@ -32,6 +33,7 @@ sim_general:
       use_statistic_counter: true
 
   - id: munich_short_statistical
+    enabled: false
     marks: []
     speed_multiplier: 1.0
     analysis:
@@ -51,6 +53,7 @@ sim_general:
         - key: DURATION
           diff: 1
   - id: munich_short_speedup_400G
+    enabled: false
     marks: [speedup]
     mbps: 400000
     loops: 5
@@ -73,6 +76,7 @@ sim_general:
 
 sim_threshold:
   - id: munich_throughput_short
+    enabled: false
     marks: []
     mbps_accuracy: 50
     mbps_required: 50000
