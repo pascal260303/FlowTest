@@ -35,7 +35,8 @@ sim_general:
 sim_threshold:
   - id: one_packet_throughput
     mbps_accuracy: 100
-    mbps_required: 50000
+    mbps_required: 5000
+    speed_max: 25000
     analysis:
       use_statistic_counter: true
       metrics:
@@ -54,7 +55,8 @@ sim_threshold:
   - id: one_packet_limit_cache_size
     marks: []
     mbps_accuracy: 100
-    mbps_required: 50000
+    mbps_required: 5000
+    speed_max: 25000
     probe:
       cache_size: 14 # exponent to the power of 2
     analysis:
@@ -76,7 +78,8 @@ sim_threshold:
   - id: one_packet_short_timeout
     marks: []
     mbps_accuracy: 100
-    mbps_required: 50000
+    mbps_required: 5000
+    speed_max: 25000
     probe:
       active_timeout: 10
       inactive_timeout: 10
@@ -99,7 +102,8 @@ sim_threshold:
   - id: one_packet_one_min_timeout
     marks: []
     mbps_accuracy: 100
-    mbps_required: 50000
+    mbps_required: 5000
+    speed_max: 25000
     probe:
       active_timeout: 60
       inactive_timeout: 60
