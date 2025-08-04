@@ -22,6 +22,7 @@ sim_general:
   - id: hospital_precise
     marks: [precise]
     speed_multiplier: 1.0
+    loops: 3
     analysis:
       model: "precise"
       use_statistic_counter: true
@@ -30,7 +31,6 @@ sim_threshold:
   - id: hospital_throughput
     mbps_accuracy: 50
     mbps_required: 50000
-    loops: 10
     analysis:
       use_statistic_counter: true
       metrics:
