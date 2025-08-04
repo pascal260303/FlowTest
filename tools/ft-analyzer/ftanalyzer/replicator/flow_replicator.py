@@ -18,6 +18,7 @@ from pathlib import Path
 import re
 from dataclasses import dataclass
 import tempfile
+import time
 from typing import Any, Iterable, List, Optional, Union
 
 import numpy as np
@@ -261,6 +262,8 @@ class FlowReplicator:
         FlowReplicatorException
             When source CSV file cannot be read.
         """
+        start = time.time()
+
         if not output_file:
             output_file = tempfile.NamedTemporaryFile(
                 delete=False, suffix=".csv", prefix="tmp_ref_"
@@ -349,6 +352,8 @@ class FlowReplicator:
                 )
                 first_write = False
 
+        end = time.time()
+        logging.getLogger().info("CSV replicated in %.2f seconds.", (end - start))
         return output_file
 
     @staticmethod

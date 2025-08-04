@@ -331,6 +331,7 @@ class StatisticalModel:
         SMException
             When duplicated metrics in a single validation rule are present.
         """
+        start = time.time()
 
         if self._fast_model is not None:
             return validate_statistical_model(self._fast_model, rules, check_complement)
@@ -419,6 +420,11 @@ class StatisticalModel:
             self._executor.shutdown()
         for objects in zip(statistic_objects.values(), ref_statistic_objects.values()):
             report.add_statistic_object(*objects)
+
+        end = time.time()
+        logging.getLogger().info(
+            "Statistically validated in %.2f seconds.", (end - start)
+        )
 
         return report
 

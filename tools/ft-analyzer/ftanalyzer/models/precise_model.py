@@ -6,9 +6,11 @@ SPDX-License-Identifier: BSD-3-Clause
 
 """
 
+import logging
 import operator
 from functools import reduce
 from os import PathLike
+import time
 from typing import List, Optional, Union
 
 import pandas as pd
@@ -128,6 +130,8 @@ class PreciseModel(StatisticalModel):
             Report containing results of individual performed tests.
         """
 
+        start = time.time()
+
         self._report = PreciseReport()
         if segments is None:
             segments = [None]
@@ -187,6 +191,9 @@ class PreciseModel(StatisticalModel):
                 drop=True
             )
             self._report_flows(flows, PMTestCategory.UNEXPECTED)
+
+        end = time.time()
+        logging.getLogger().info("Precisely validated in %.2f seconds.", (end - start))
 
         return self._report
 
