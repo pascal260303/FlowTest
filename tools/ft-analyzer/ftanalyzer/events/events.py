@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import atexit
 import heapq
+import logging
 import math
 import os
 import shutil
@@ -184,11 +185,17 @@ def create_event_queue(
     sorted_by_end_path = os.path.join(out_dir, "flows_sorted_by_end.csv")
     sorted_by_export_path = os.path.join(out_dir, "flows_sorted_by_export.csv")
 
+    with open(flows_path, "r") as f:
+        header_line = f.readline()
+
+    wanted_columns = set(CSV_COLUMN_TYPES.keys())
+    available_columns = set(header_line.strip().split(","))
+
     # Load and split
     df = pd.read_csv(
         flows_path,
         dtype=CSV_COLUMN_TYPES,
-        usecols=CSV_COLUMN_TYPES.keys(),
+        usecols=wanted_columns & available_columns,
         engine="pyarrow",
     )
 
@@ -196,10 +203,18 @@ def create_event_queue(
     start = math.floor(df["START_TIME"].min() / 1000)
     end = math.ceil(df["END_TIME"].max() / 1000)
 
-    stats_df: pd.DataFrame = pd.read_csv(
-        hosts_stats_file, sep=";", dtype=STATS_CSV_COLUMN_TYPES, engine="pyarrow"
-    )
-    stats_df = stats_df[(stats_df["Time"] >= start) & (stats_df["Time"] <= end)]
+    try:
+        stats_df: pd.DataFrame = pd.read_csv(
+            hosts_stats_file,
+            sep=";",
+            dtype=STATS_CSV_COLUMN_TYPES,
+            engine="pyarrow",
+            usecols=STATS_CSV_COLUMN_TYPES.keys(),
+        )
+        stats_df = stats_df[(stats_df["Time"] >= start) & (stats_df["Time"] <= end)]
+    except Exception as e:
+        logging.error(e)
+        stats_df = pd.DataFrame([], columns=STATS_CSV_COLUMN_TYPES.keys())
 
     agg_dict = {col: "sum" for col in SUM_PIDSTAT_COLS}
     agg_dict.update({col: "first" for col in TAKE_PIDSTAT_COLS})
