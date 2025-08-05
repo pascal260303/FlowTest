@@ -12,6 +12,7 @@ sampling: 1.0
 default:
   pps: 103500
   mbps: 721
+  generator: []
   probe:
     protocols: [as, dns, ipv4, http, eth, vlan, mpls, tls]
     active_timeout: 300
