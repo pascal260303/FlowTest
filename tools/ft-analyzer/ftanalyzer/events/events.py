@@ -8,15 +8,16 @@ import tempfile
 from typing import Iterator
 import numpy as np
 import pandas as pd
+import gc
 
 CSV_COLUMN_TYPES = {
     "START_TIME": np.uint64,
     "END_TIME": np.uint64,
-    "PROTOCOL": np.uint8,
-    "SRC_IP": str,
-    "DST_IP": str,
-    "SRC_PORT": np.uint16,
-    "DST_PORT": np.uint16,
+    # "PROTOCOL": np.uint8,
+    # "SRC_IP": str,
+    # "DST_IP": str,
+    # "SRC_PORT": np.uint16,
+    # "DST_PORT": np.uint16,
     "PACKETS": np.uint64,
     "BYTES": np.uint64,
     "EXPORT_TIME": np.uint64,
@@ -34,44 +35,44 @@ CSV_AGGREGATE_TYPES = {
 
 STATS_CSV_COLUMN_TYPES = {
     "Time": np.uint64,
-    "UID": np.uint64,
-    "PID": np.uint64,
-    "percent_usr": np.float64,
-    "percent_system": np.float64,
-    "percent_guest": np.float64,
-    "percent_wait": np.float64,
+    # "UID": np.uint64,
+    # "PID": np.uint64,
+    # "percent_usr": np.float64,
+    # "percent_system": np.float64,
+    # "percent_guest": np.float64,
+    # "percent_wait": np.float64,
     "percent_CPU": np.float64,
-    "CPU": np.uint64,
-    "minflt/s": np.float64,
-    "majflt/s": np.float64,
-    "VSZ": np.uint64,
-    "RSS": np.uint64,
+    # "CPU": np.uint64,
+    # "minflt/s": np.float64,
+    # "majflt/s": np.float64,
+    # "VSZ": np.uint64,
+    # "RSS": np.uint64,
     "percent_MEM": np.float64,
-    "StkSize": np.uint64,
-    "StkRef": np.uint64,
-    "threads": np.uint64,
-    "fd-nr": np.uint64,
-    "Command": str,
+    # "StkSize": np.uint64,
+    # "StkRef": np.uint64,
+    # "threads": np.uint64,
+    # "fd-nr": np.uint64,
+    # "Command": str,
 }
 
 SUM_PIDSTAT_COLS = [
-    "percent_usr",
-    "percent_system",
-    "percent_guest",
-    "percent_wait",
+    # "percent_usr",
+    # "percent_system",
+    # "percent_guest",
+    # "percent_wait",
     "percent_CPU",
-    "minflt/s",
-    "majflt/s",
-    "fd-nr",
+    # "minflt/s",
+    # "majflt/s",
+    # "fd-nr",
 ]
 TAKE_PIDSTAT_COLS = [
-    "RSS",
-    "VSZ",
+    # "RSS",
+    # "VSZ",
     "percent_MEM",
-    "threads",
-    "UID",
-    "Command",
-    "CPU",
+    # "threads",
+    # "UID",
+    # "Command",
+    # "CPU",
     "Time",
 ]
 
@@ -166,7 +167,7 @@ class HostStatsEvent(Event):
 
 
 def create_event_queue(
-    flows_csv_path: os.PathLike, hosts_stats_file: os.PathLike, out_dir: str = None
+    flows_path: os.PathLike, hosts_stats_file: os.PathLike, out_dir: str = None
 ) -> Iterator[Event]:
     if not out_dir:
         out_dir = tempfile.mkdtemp(prefix="flows_split_")
@@ -184,15 +185,19 @@ def create_event_queue(
     sorted_by_export_path = os.path.join(out_dir, "flows_sorted_by_export.csv")
 
     # Load and split
-    df = pd.read_csv(flows_csv_path, dtype=CSV_COLUMN_TYPES)
-    df.fillna(0)
+    df = pd.read_csv(
+        flows_path,
+        dtype=CSV_COLUMN_TYPES,
+        usecols=CSV_COLUMN_TYPES.keys(),
+        engine="pyarrow",
+    )
 
     # Filer host stats file by time
     start = math.floor(df["START_TIME"].min() / 1000)
     end = math.ceil(df["END_TIME"].max() / 1000)
 
     stats_df: pd.DataFrame = pd.read_csv(
-        hosts_stats_file, sep=";", dtype=STATS_CSV_COLUMN_TYPES
+        hosts_stats_file, sep=";", dtype=STATS_CSV_COLUMN_TYPES, engine="pyarrow"
     )
     stats_df = stats_df[(stats_df["Time"] >= start) & (stats_df["Time"] <= end)]
 
@@ -216,15 +221,6 @@ def create_event_queue(
         .to_csv(one_packet_path, index=False)
     )
 
-    # Multi-packet flows
-    multi_df = (
-        df[df["PACKETS"] > 1]
-        .groupby(["START_TIME", "END_TIME"], as_index=False)
-        .agg(**agg_dict)
-    )
-    multi_df.sort_values("START_TIME").to_csv(sorted_by_start_path, index=False)
-    multi_df.sort_values("END_TIME").to_csv(sorted_by_end_path, index=False)
-
     # Export Events
     if "EXPORT_TIME" in df.columns:
         df.groupby(["EXPORT_TIME", "SEQ_NUMBER"], as_index=False).agg(
@@ -234,6 +230,20 @@ def create_event_queue(
     else:
         with open(sorted_by_export_path, "w+") as f:
             f.write("EXPORT_TIME,SEQ_NUMBER,FLOWS,MSG_LENGTH")
+
+    # Multi-packet flows
+    multi_df = (
+        df[df["PACKETS"] > 1]
+        .groupby(["START_TIME", "END_TIME"], as_index=False)
+        .agg(**agg_dict)
+    )
+    del df
+    gc.collect()
+    multi_df.sort_values("START_TIME").to_csv(sorted_by_start_path, index=False)
+    gc.collect()
+    multi_df.sort_values("END_TIME").to_csv(sorted_by_end_path, index=False)
+    del multi_df
+    gc.collect()
 
     return heapq.merge(
         read_one_packet_events(one_packet_path),
@@ -254,6 +264,7 @@ def read_export_events(path: os.PathLike):
             "FLOWS": np.uint64,
             "MSG_LENGTH": np.uint64,
         },
+        usecols=["EXPORT_TIME", "SEQ_NUMBER", "FLOWS", "MSG_LENGTH"],
         chunksize=100_000,
     ):
         for row in chunk.itertuples(index=False):
@@ -266,7 +277,11 @@ def read_export_events(path: os.PathLike):
 
 def read_host_stats_events(path: os.PathLike):
     for chunk in pd.read_csv(
-        path, chunksize=100_000, sep=";", dtype=STATS_CSV_COLUMN_TYPES
+        path,
+        chunksize=100_000,
+        sep=";",
+        dtype=STATS_CSV_COLUMN_TYPES,
+        usecols=STATS_CSV_COLUMN_TYPES.keys(),
     ):
         for row in chunk.itertuples(index=False):
             yield HostStatsEvent(row)
@@ -276,7 +291,12 @@ def read_one_packet_events(path: str) -> Iterator[OnePacketFlow]:
     CSV_AGGREGATE_TYPES_NO_END = {
         k: v for k, v in CSV_AGGREGATE_TYPES.items() if k != "END_TIME"
     }
-    for chunk in pd.read_csv(path, dtype=CSV_AGGREGATE_TYPES_NO_END, chunksize=100_000):
+    for chunk in pd.read_csv(
+        path,
+        dtype=CSV_AGGREGATE_TYPES_NO_END,
+        chunksize=100_000,
+        usecols=CSV_AGGREGATE_TYPES_NO_END.keys(),
+    ):
         for row in chunk.itertuples(index=False):
             yield OnePacketFlow(
                 bytes=np.uint64(row.BYTES),
@@ -287,7 +307,12 @@ def read_one_packet_events(path: str) -> Iterator[OnePacketFlow]:
 
 
 def read_start_events(path: str) -> Iterator[FlowStartEvent]:
-    for chunk in pd.read_csv(path, dtype=CSV_AGGREGATE_TYPES, chunksize=100_000):
+    for chunk in pd.read_csv(
+        path,
+        dtype=CSV_AGGREGATE_TYPES,
+        chunksize=100_000,
+        usecols=CSV_AGGREGATE_TYPES.keys(),
+    ):
         durations = (chunk.END_TIME - chunk.START_TIME + 1) / 1_000
         data_rates = (chunk.BYTES * 8) / durations
         packet_rates = chunk.PACKETS / durations
@@ -305,7 +330,12 @@ def read_start_events(path: str) -> Iterator[FlowStartEvent]:
 
 
 def read_end_events(path: str) -> Iterator[FlowEndEvent]:
-    for chunk in pd.read_csv(path, dtype=CSV_AGGREGATE_TYPES, chunksize=100_000):
+    for chunk in pd.read_csv(
+        path,
+        dtype=CSV_AGGREGATE_TYPES,
+        chunksize=100_000,
+        usecols=CSV_AGGREGATE_TYPES.keys(),
+    ):
         durations = (chunk.END_TIME - chunk.START_TIME + 1) / 1_000
         data_rates = (chunk.BYTES * 8) / durations
         packet_rates = chunk.PACKETS / durations

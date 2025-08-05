@@ -8,6 +8,7 @@ SPDX-License-Identifier: BSD-3-Clause
 
 import atexit
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+import gc
 import ipaddress
 import logging
 import operator
@@ -183,6 +184,7 @@ class StatisticalModel:
         try:
             logging.getLogger().debug("reading file with flows=%s", flows)
             # ports could be empty in flows with protocol like ICMP
+            self._flows_path = flows
             flows = pd.read_csv(flows, engine="pyarrow", dtype=self.CSV_COLUMN_TYPES)
             flows["SRC_PORT"] = flows["SRC_PORT"].fillna(0)
             flows["DST_PORT"] = flows["DST_PORT"].fillna(0)
@@ -193,6 +195,7 @@ class StatisticalModel:
                 self._ref = pd.read_csv(
                     reference, engine="pyarrow", dtype=self.CSV_COLUMN_TYPES
                 )
+                self._ref_path = reference
             else:
                 self._ref = reference
         except Exception as err:
@@ -219,15 +222,23 @@ class StatisticalModel:
             self._merge_flows(biflows_ts_correction)
 
         # write dataframes back to file and read later when needed
-        self._flows_path = tempfile.NamedTemporaryFile(delete=False, suffix=".csv").name
+        if not (hasattr(self, "_flows_path") and self._flows_path):
+            self._flows_path = tempfile.NamedTemporaryFile(
+                delete=False, suffix=".csv"
+            ).name
         self._flows.to_csv(self._flows_path, index=False)
         del self._flows
+        gc.collect()
 
         _TEMP_FILES.append(self._flows_path)
 
-        self._ref_path = tempfile.NamedTemporaryFile(delete=False, suffix=".csv").name
+        if not (hasattr(self, "_ref_path") and self._ref_path):
+            self._ref_path = tempfile.NamedTemporaryFile(
+                delete=False, suffix=".csv"
+            ).name
         self._ref.to_csv(self._ref_path, index=False)
         del self._ref
+        gc.collect()
 
         _TEMP_FILES.append(self._ref_path)
 
