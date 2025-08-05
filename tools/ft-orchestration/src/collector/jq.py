@@ -1,12 +1,11 @@
 import json
 import logging
-from os import path
 from pathlib import Path
 import tempfile
 import time
 import xml.etree.ElementTree as ET
 
-import pandas as pd
+import numpy as np
 from src.collector.interface import (
     CollectorOutputReaderException,
     CollectorOutputReaderInterface,
@@ -34,6 +33,21 @@ CSV_HEADER_TO_ANALYZER_HEADER = {
     "ipfix:exportTime": "EXPORT_TIME",
     "ipfix:seqNumber": "SEQ_NUMBER",
     "ipfix:msgLength": "MSG_LENGTH",
+}
+
+CSV_DTYPES = {
+    "BYTES": np.uint64,
+    "PACKETS": np.uint64,
+    "PROTOCOL": np.uint8,
+    "SRC_PORT": np.uint16,
+    "SRC_IP": str,
+    "DST_PORT": np.uint16,
+    "DST_IP": str,
+    "START_TIME": np.uint64,
+    "END_TIME": np.uint64,
+    "EXPORT_TIME": np.uint32,
+    "SEQ_NUMBER": np.uint32,
+    "MSG_LENGTH": np.uint64,
 }
 
 
@@ -275,36 +289,29 @@ ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} | jq -r "
         csv_file: str
             Path to CSV file. Local file, CSV will be downloaded when collector running on remote.
         """
+        header = CSV_HEADER_TO_ANALYZER_HEADER.values()
 
-        rsync = Rsync(self._executor)
-        filename = path.basename(csv_file)
-        tmp_file = path.join(rsync.get_data_directory(), filename)
-        header = ",".join(
-            [f'"{field}"' for field in CSV_HEADER_TO_ANALYZER_HEADER.keys()]
-        )
+        batch_size = 100_000
+        buffer = []
 
         logging.getLogger().info(
             "Preparing CSV output by calling ipfixcol2 + jq command..."
         )
         start = time.time()
-        Tool(f"echo '{header}' > {tmp_file}", executor=self._executor).run()
         # write csv
-        Tool(f"({self._cmd_csv}) >> {tmp_file}", executor=self._executor).run()
+        process = AsyncTool(self._cmd_csv, executor=self._executor)
+        process.run()
+
+        with open(csv_file, mode="w", buffering=1024**2) as f:
+            f.write(",".join(header) + "\n")
+            for line in process.stdout:
+                buffer.append(line + "\n")
+                if len(buffer) >= batch_size:
+                    f.writelines(buffer)
+                    buffer = []
+
+            if buffer:
+                f.writelines(buffer)
+
         end = time.time()
         logging.getLogger().info("CSV output saved in %.2f seconds.", (end - start))
-
-        start = time.time()
-        tmp_dir = tempfile.mkdtemp()
-        flows_file = rsync.pull_path(tmp_file, tmp_dir)
-        end = time.time()
-        df = pd.read_csv(flows_file)
-        # Filter columns
-        df = df[list(CSV_HEADER_TO_ANALYZER_HEADER.keys())]
-        # rename columns
-        df = df.rename(columns=CSV_HEADER_TO_ANALYZER_HEADER)
-
-        df.to_csv(csv_file, index=False)
-
-        logging.getLogger().info(
-            "CSV output downloaded in %.2f seconds.", (end - start)
-        )
