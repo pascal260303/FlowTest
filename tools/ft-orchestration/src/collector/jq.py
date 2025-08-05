@@ -5,6 +5,7 @@ import tempfile
 import time
 import xml.etree.ElementTree as ET
 
+import fabric
 import numpy as np
 from src.collector.interface import (
     CollectorOutputReaderException,
@@ -290,28 +291,29 @@ ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} | jq -r "
             Path to CSV file. Local file, CSV will be downloaded when collector running on remote.
         """
         header = CSV_HEADER_TO_ANALYZER_HEADER.values()
+        conn: fabric.Connection = self._executor._connection
+        user = conn.user
+        host = conn.host
+        kwargs = conn.connect_kwargs
 
-        batch_size = 100_000
-        buffer = []
+        if "key_filename" in kwargs:
+            key_filename = kwargs["key_filename"]
+            ssh_cmd = (
+                f"ssh -i {key_filename} {user}@{host} '{self._cmd_csv}' >> {csv_file}"
+            )
+        else:
+            password = kwargs["password"]
+            ssh_cmd = f"sshpass -p {password} ssh {user}@{host} '{self._cmd_csv}' >> {csv_file}"
 
         logging.getLogger().info(
             "Preparing CSV output by calling ipfixcol2 + jq command..."
         )
         start = time.time()
         # write csv
-        process = AsyncTool(self._cmd_csv, executor=self._executor)
-        process.run()
-
-        with open(csv_file, mode="w", buffering=1024**2) as f:
+        with open(csv_file, mode="w") as f:
             f.write(",".join(header) + "\n")
-            for line in process.stdout:
-                buffer.append(line + "\n")
-                if len(buffer) >= batch_size:
-                    f.writelines(buffer)
-                    buffer = []
 
-            if buffer:
-                f.writelines(buffer)
+        Tool(ssh_cmd).run()
 
         end = time.time()
         logging.getLogger().info("CSV output saved in %.2f seconds.", (end - start))
