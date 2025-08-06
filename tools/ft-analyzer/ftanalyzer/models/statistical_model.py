@@ -191,10 +191,7 @@ class StatisticalModel:
             self._flows: pd.DataFrame = flows.astype(self.CSV_COLUMN_TYPES)
 
             if isinstance(reference, str):
-                logging.getLogger().debug("reading file with references=%s", reference)
-                self._ref = pd.read_csv(
-                    reference, engine="pyarrow", dtype=self.CSV_COLUMN_TYPES
-                )
+                self._ref = None
                 self._ref_path = reference
             else:
                 self._ref = reference
@@ -204,9 +201,6 @@ class StatisticalModel:
         self._zero_icmp_ports(self._flows)
 
         if stats.start_time > 0:
-            self._ref["START_TIME"] = self._ref["START_TIME"] + stats.start_time
-            self._ref["END_TIME"] = self._ref["END_TIME"] + stats.start_time
-
             # filter out flows that start before the start time with 500 ms tolerance
             self._flows = self._flows[
                 self._flows["START_TIME"] >= stats.start_time - 500

@@ -14,15 +14,18 @@ import atexit
 import ipaddress
 import logging
 import operator
+import os
 from pathlib import Path
 import re
 from dataclasses import dataclass
 import tempfile
 import time
 from typing import Any, Iterable, List, Optional, Union
+from lbr_testsuite.executable import Tool
 
 import numpy as np
 import pandas as pd
+import psutil
 from ftanalyzer.common.pandas_multiprocessing import PandasMultiprocessingHelper
 from src.generator.interface import GeneratorStats
 
@@ -270,8 +273,6 @@ class FlowReplicator:
             ).name
             _TEMP_FILES.append(output_file)
 
-        chunksize = int(max(100, chunksize / loops))
-
         if output_file.startswith("tmp_ref_"):
             _TEMP_FILES.append(output_file)
 
@@ -321,36 +322,23 @@ class FlowReplicator:
                 )
                 chunk["ORIG_INDEX"] = chunk.index
 
-                replicated = self._replicate(
+                self._replicate(
                     chunk=chunk,
                     loops=loops,
                     loop_start=loop_start,
                     loop_length=loop_length,
                     time_multiplier=time_multiplier,
-                )
-
-                with PandasMultiprocessingHelper() as binary_pool:
-                    binary_pool.binary(
-                        replicated,
-                        [
-                            ("SRC_IP", operator.add, "SRC_IP", "_SRC_IP_OFFSET", []),
-                            ("DST_IP", operator.add, "DST_IP", "_DST_IP_OFFSET", []),
-                        ],
-                    )
-
-                if merge_across_loops:
-                    self._inactive_timeout = (
-                        inactive_timeout * 1000 if inactive_timeout > -1 else None
-                    )
-                    replicated = self._merge_across_loop(replicated)
-
-                replicated[self.CSV_COLUMN_TYPES.keys()].to_csv(
-                    output_file,
-                    index=False,
-                    mode="w" if first_write else "a",
-                    header=first_write,
+                    output_file=output_file,
+                    first_write=first_write,
+                    real_start=generator_stats.start_time,
                 )
                 first_write = False
+
+            if merge_across_loops:
+                self._inactive_timeout = (
+                    inactive_timeout * 1000 if inactive_timeout > -1 else None
+                )
+                self._merge_across_loop(output_file)
 
         end = time.time()
         logging.getLogger().info("CSV replicated in %.2f seconds.", (end - start))
@@ -451,8 +439,11 @@ class FlowReplicator:
         loops: int,
         loop_start: int,
         loop_length: int,
+        real_start: int,
         time_multiplier: float,
-    ) -> pd.DataFrame:
+        output_file: str,
+        first_write: bool,
+    ):
         """Replicate flows from source according to the configuration.
 
         Parameters
@@ -473,13 +464,12 @@ class FlowReplicator:
         ).astype(np.uint64)
 
         chunk["_START_OFFSET"] = (
-            (chunk["START_TIME"] - loop_start) * time_multiplier
+            (chunk["START_TIME"] - loop_start) * time_multiplier + real_start
         ).astype(np.uint64)
 
         chunk["_SRC_IP_OFFSET"] = 0
         chunk["_DST_IP_OFFSET"] = 0
 
-        tmp_dataframes = []
         for loop_n in range(loops):
             logging.getLogger().debug("Processing loop %d...", loop_n)
             if loop_n in self._ignore_loops:
@@ -487,13 +477,21 @@ class FlowReplicator:
 
             self._flows = chunk  # used internally by _process_single_loop
             replicated = self._process_single_loop(loop_n, loop_start, loop_length)
-            tmp_dataframes.append(replicated)
-
-        return (
-            pd.concat(tmp_dataframes, axis=0)
-            if tmp_dataframes
-            else pd.DataFrame(columns=chunk.columns)
-        )
+            with PandasMultiprocessingHelper() as binary_pool:
+                binary_pool.binary(
+                    replicated,
+                    [
+                        ("SRC_IP", operator.add, "SRC_IP", "_SRC_IP_OFFSET", []),
+                        ("DST_IP", operator.add, "DST_IP", "_DST_IP_OFFSET", []),
+                    ],
+                )
+            replicated[self.CSV_COLUMN_TYPES.keys()].to_csv(
+                output_file,
+                index=False,
+                mode="w" if first_write else "a",
+                header=first_write,
+            )
+            first_write = False
 
     def _process_single_loop(
         self, loop_n: int, global_start: int, loop_length: int
@@ -619,7 +617,7 @@ class FlowReplicator:
             return res_group
         return group
 
-    def _merge_across_loop(self, flows: pd.DataFrame) -> pd.DataFrame:
+    def _merge_across_loop(self, flows_file: os.PathLike) -> pd.DataFrame:
         """Merge replicated flows across loops.
         Feature description is provided in FlowReplicator docstring.
 
@@ -636,5 +634,35 @@ class FlowReplicator:
         pd.DataFrame
             Merged flows.
         """
+        if (
+            psutil.virtual_memory().available - 1024**3
+        ) < self._estimate_memory_from_file(flows_file):
+            logging.error("Not merging accross loops because not enough free memory")
+            return
 
-        return flows.groupby(self.FLOW_KEY).apply(self._merge_func)
+        (
+            pd.read_csv(
+                flows_file,
+                usecols=self.CSV_COLUMN_TYPES.keys(),
+                dtype=self.CSV_COLUMN_TYPES,
+                engine="pyarrow",
+            )
+            .groupby(self.FLOW_KEY)
+            .apply(self._merge_func)
+            .to_csv(flows_file, index=False)
+        )
+
+    def _estimate_memory_from_file(csv_path: str, column_types: dict):
+        bytes_per_row = sum(
+            np.dtype(t).itemsize
+            for t in column_types.values()
+            if hasattr(t, "itemsize")
+        )
+        bytes_per_row += sum(
+            60 for s in column_types if isinstance(s, str)
+        )  # assume average of 60 bytes per string
+        rows, _ = Tool(f"wc -l {csv_path}").run()
+        rows = int(rows.split(" ", 1)[0]) - 1
+
+        estimated_memory_bytes = rows * bytes_per_row
+        return estimated_memory_bytes

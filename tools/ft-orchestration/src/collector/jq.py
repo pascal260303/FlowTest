@@ -297,7 +297,7 @@ ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} | jq -r "
         kwargs = conn.connect_kwargs
 
         if "key_filename" in kwargs:
-            key_filename = kwargs["key_filename"]
+            key_filename = kwargs["key_filename"][0]
             ssh_cmd = (
                 f"ssh -i {key_filename} {user}@{host} '{self._cmd_csv}' >> {csv_file}"
             )
