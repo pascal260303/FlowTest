@@ -230,7 +230,8 @@ class StatisticalModel:
             self._ref_path = tempfile.NamedTemporaryFile(
                 delete=False, suffix=".csv"
             ).name
-        self._ref.to_csv(self._ref_path, index=False)
+        if self._ref:
+            self._ref.to_csv(self._ref_path, index=False)
         del self._ref
         gc.collect()
 
