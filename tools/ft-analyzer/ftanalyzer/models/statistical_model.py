@@ -8,11 +8,11 @@ SPDX-License-Identifier: BSD-3-Clause
 
 import atexit
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-import gc
 import ipaddress
 import logging
 import operator
 from os import PathLike
+import os
 from pathlib import Path
 import shutil
 import tempfile
@@ -133,6 +133,7 @@ class StatisticalModel:
         "EXPORT_TIME": "first",
         "SEQ_NUMBER": "first",
         "MSG_LENGTH": "first",
+        "FLOW_COUNT": ("START_TIME", "count"),
     }
 
     def __init__(
@@ -181,67 +182,31 @@ class StatisticalModel:
 
         self._log_dir = log_dir
 
-        try:
-            logging.getLogger().debug("reading file with flows=%s", flows)
-            # ports could be empty in flows with protocol like ICMP
-            self._flows_path = flows
-            flows = pd.read_csv(flows, engine="pyarrow", dtype=self.CSV_COLUMN_TYPES)
-            flows["SRC_PORT"] = flows["SRC_PORT"].fillna(0)
-            flows["DST_PORT"] = flows["DST_PORT"].fillna(0)
-            self._flows: pd.DataFrame = flows.astype(self.CSV_COLUMN_TYPES)
-
-            if isinstance(reference, str):
-                self._ref = None
-                self._ref_path = reference
-            else:
-                self._ref = reference
-        except Exception as err:
-            raise SMException("Unable to read file with flows.") from err
-
-        self._zero_icmp_ports(self._flows)
-
-        if stats.start_time > 0:
-            # filter out flows that start before the start time with 500 ms tolerance
-            self._flows = self._flows[
-                self._flows["START_TIME"] >= stats.start_time - 500
-            ]
-
-        # if stats.end_time > 0:
-        #    # filter out flows that start before the end time
-        #    self._flows = self._flows[self._flows["START_TIME"] <= stats.end_time]
-
-        self._filter_multicast()
-
-        if merge:
-            self._merge_flows(biflows_ts_correction)
-
-        # write dataframes back to file and read later when needed
-        if not (hasattr(self, "_flows_path") and self._flows_path):
-            self._flows_path = tempfile.NamedTemporaryFile(
-                delete=False, suffix=".csv"
+        if isinstance(reference, str):
+            self._ref_path = reference
+        else:
+            self._ref_path = self._ref_path = tempfile.NamedTemporaryFile(
+                delete=False, prefix="tmp_ref", suffix=".csv"
             ).name
-        self._flows.to_csv(self._flows_path, index=False)
-        del self._flows
-        gc.collect()
-
-        _TEMP_FILES.append(self._flows_path)
-
-        if not (hasattr(self, "_ref_path") and self._ref_path):
-            self._ref_path = tempfile.NamedTemporaryFile(
-                delete=False, suffix=".csv"
-            ).name
-        if self._ref:
-            self._ref.to_csv(self._ref_path, index=False)
-        del self._ref
-        gc.collect()
-
-        _TEMP_FILES.append(self._ref_path)
+            reference.to_csv(
+                self._ref_path,
+                index=False,
+            )
+            reference = pd.DataFrame(columns=self.CSV_COLUMN_TYPES.keys())
 
         self._generator_stats: GeneratorStats = stats
         self._flows_ip_addresses_converted = False
         self._ref_ip_addresses_converted = isinstance(reference, pd.DataFrame)
         self._stat_counter = use_statistical_counter
         self._inactive_timeout = inactive_timeout
+
+        try:
+            self._flows_path = self._init_flows(flows)
+        except Exception as err:
+            raise SMException("Unable to read file with flows.") from err
+
+        if merge:
+            self._merge_flows(biflows_ts_correction)
 
         if use_statistical_counter:
             # statistic objects
@@ -269,6 +234,52 @@ class StatisticalModel:
             self._executor = None
             self._future_ref = None
             self._future_sim = None
+
+    def _init_flows(self, path: os.PathLike):
+        """initial read of flows.csv in chunks
+        replaces faulty values and filters out some flows
+
+        Args:
+            path (os.PathLike): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        out_file = tempfile.NamedTemporaryFile(
+            delete=False, prefix="tmp_flows", suffix=".csv"
+        ).name
+        first_write = True
+        logging.getLogger().debug("reading file with flows=%s", path)
+        # ports could be empty in flows with protocol like ICMP
+        for chunk in pd.read_csv(path, dtype=self.CSV_COLUMN_TYPES, chunksize=100_000):
+            chunk["SRC_PORT"] = chunk["SRC_PORT"].fillna(0)
+            chunk["DST_PORT"] = chunk["DST_PORT"].fillna(0)
+            chunk = chunk.astype(self.CSV_COLUMN_TYPES)
+
+            self._zero_icmp_ports(chunk)
+
+            if self._generator_stats.start_time > 0:
+                # filter out flows that start before the start time with 500 ms tolerance
+                chunk = chunk[
+                    chunk["START_TIME"] >= self._generator_stats.start_time - 500
+                ]
+
+            # if stats.end_time > 0:
+            #    # filter out flows that start before the end time
+            #    chunk = chunk[chunk["START_TIME"] <= stats.end_time]
+
+            self._filter_multicast(chunk)
+
+            chunk.to_csv(
+                out_file,
+                index=False,
+                mode="w" if first_write else "a",
+                header=first_write,
+            )
+            first_write = False
+
+        os.remove(path)
+        return out_file
 
     @staticmethod
     def _run_sim(
@@ -434,12 +445,12 @@ class StatisticalModel:
 
         return report
 
-    def _filter_multicast(self):
+    def _filter_multicast(self, flows: pd.DataFrame):
         # ipv4
-        self._flows = self._flows[self._flows["DST_IP"] != "255.255.255.255"]
+        flows = flows[flows["DST_IP"] != "255.255.255.255"]
 
         # ipv6
-        self._flows = self._flows[~self._flows["DST_IP"].str.startswith("ff02::")]
+        flows = flows[flows["DST_IP"].str.startswith("ff02::")]
 
     def _merge_flows(self, biflows_ts_correction: bool) -> None:
         """
@@ -454,18 +465,25 @@ class StatisticalModel:
             Timestamps in reverse direction flows is corrected.
         """
 
-        assert len(self._ref.index) == self._ref.groupby(self.FLOW_KEY).ngroups, (
+        ref_df = self._load_ref_df
+        assert len(ref_df.index) == ref_df.groupby(self.FLOW_KEY).ngroups, (
             "Cannot merge flows, duplicated key."
         )
+        del ref_df
 
-        flows = self._flows.groupby(self.FLOW_KEY).aggregate(self.AGGREGATE_FLOWS)
-        flows["FLOW_COUNT"] = self._flows.groupby(self.FLOW_KEY).size()
-        self._flows = flows.reset_index()
+        # wait till self._flows_path is not used anymore
+        while self._future_sim.running:
+            time.sleep(1)
+
+        flows_df = self._load_flows_df()
+        flows = flows_df.groupby(self.FLOW_KEY).aggregate(self.AGGREGATE_FLOWS)
+        flows["FLOW_COUNT"] = flows_df.groupby(self.FLOW_KEY).size()
+        flows_df = flows.reset_index()
 
         if biflows_ts_correction:
             # correct timestamps in reverse direction of flows originating from biflows
             # using direction invariant flow key
-            flows = self._flows
+            flows = flows_df
 
             swap_cond = flows["SRC_IP"] > flows["DST_IP"]
             flows["INV_SRC_IP"] = np.where(swap_cond, flows["DST_IP"], flows["SRC_IP"])
@@ -481,9 +499,9 @@ class StatisticalModel:
             flows["START_TIME"] = grouped["START_TIME"].transform("min")
             flows["END_TIME"] = grouped["END_TIME"].transform("max")
 
-            self._flows = flows.loc[
-                :, list(self.CSV_COLUMN_TYPES.keys()) + ["FLOW_COUNT"]
-            ]
+            flows_df = flows.loc[:, list(self.CSV_COLUMN_TYPES.keys()) + ["FLOW_COUNT"]]
+
+        flows_df.to_csv(self._ref_path, index=False)
 
     def _convert_ip_addresses(self) -> None:
         """Convert str ip addresses to objects (ipaddress library) in DataFrames."""
