@@ -366,7 +366,9 @@ class StatisticalModel:
                         rule.segment,
                         value,
                         reference,
-                        abs(np.int64(value) - np.int64(reference)) / reference,
+                        round(
+                            abs(np.int64(value) - np.int64(reference)) / reference, 4
+                        ),
                     )
                 )
 
@@ -452,32 +454,20 @@ class StatisticalModel:
                     ) / 1000
 
                 for metric in rule.metrics:
-                    is_rate = False
                     match metric.key:
                         case SMMetricType.FLOWS:
                             value = len(flows.index)
                         case SMMetricType.MBPS:
-                            value = (
-                                flows[SMMetricType.BYTES.value].sum()
-                                / duration
-                                / pow(10, 6)
-                            )
-                            is_rate = True
+                            value = 0  # later calculated
                         case SMMetricType.PPS:
-                            value = flows[SMMetricType.PACKETS.value].sum() / duration
-                            is_rate = True
+                            value = 0  # later calculated
                         case SMMetricType.DURATION:
                             value = duration
                         case _:
                             value = flows[metric.key.value].sum()
 
                     if metric.key in values_dict:
-                        if not is_rate:
-                            values_dict[metric.key] += value
-                        else:
-                            values_dict[metric.key] = (
-                                values_dict[metric.key] + value
-                            ) / 2
+                        values_dict[metric.key] += value
                     else:
                         values_dict[metric.key] = value
 
@@ -485,6 +475,13 @@ class StatisticalModel:
                     values.append(values_dict)
                 else:
                     values[i] = values_dict
+
+        for values_dict in values:
+            duration = values_dict[SMMetricType.DURATION]
+            values_dict[SMMetricType.MBPS] = (
+                values_dict[SMMetricType.BYTES] / duration / 10**6
+            )
+            values_dict[SMMetricType.PPS] = values_dict[SMMetricType.PACKETS] / duration
 
         return values, all_flow_masks
 
