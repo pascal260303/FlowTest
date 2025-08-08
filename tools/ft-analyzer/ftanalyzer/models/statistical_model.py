@@ -172,7 +172,7 @@ class StatisticalModel:
         """
 
         if fast_analyzer_available() and not merge and not biflows_ts_correction:
-            self._fast_model = create_statistical_model(flows, reference, start_time)
+            self._fast_model = create_statistical_model(flows, reference, stats.start_time)
             return
 
         # fallback to python analyzer implementation
@@ -348,13 +348,40 @@ class StatisticalModel:
         """
         start = time.time()
 
+        # run _validate_helper in parallel on different files
+        self._future_flow_values = self._executor.submit(
+            _validate_helper, self._flows_path, rules, self._generator_stats
+        )
+        self._future_ref_values = self._executor.submit(
+            _validate_helper, self._ref_path, rules, self._generator_stats, is_ref=True
+        )
+        flow_values, all_flow_masks = self._future_flow_values.result()
+
+        # run _validate_helper in parallel on different files
+        self._future_flow_values = self._executor.submit(
+            _validate_helper, self._flows_path, rules, self._generator_stats
+        )
+        self._future_ref_values = self._executor.submit(
+            _validate_helper, self._ref_path, rules, self._generator_stats, is_ref=True
+        )
+        flow_values, all_flow_masks = self._future_flow_values.result()
+
         if self._fast_model is not None:
             return validate_statistical_model(self._fast_model, rules, check_complement)
 
         report = StatisticalReport(self._log_dir)
+        if check_complement:
+            complement_rules = [SMRule(SMMetricType.__members__.values())]
+            self._future_complement_values = self._executor.submit(
+                _validate_helper,
+                self._flows_path,
+                complement_rules,
+                self._generator_stats,
+                complement=True,
+                flow_masks=all_flow_masks,
+            )
 
-        flow_values, all_flow_masks = self._validate_helper(self._flows_path, rules)
-        ref_values, _ = self._validate_helper(self._ref_path, rules, is_ref=True)
+        ref_values, _ = self._future_ref_values.result()
 
         for rule, flow_dict, ref_dict in zip(rules, flow_values, ref_values):
             for metric in rule.metrics:
@@ -373,11 +400,7 @@ class StatisticalModel:
                 )
 
         if check_complement:
-            rules = [SMRule(SMMetricType.__members__.values())]
-
-            complement_values, _ = self._validate_helper(
-                self._flows_path, rules, complement=True, flow_masks=all_flow_masks
-            )
+            complement_values, _ = self._future_complement_values.result()
 
             rule = rules[0]
             values = complement_values[0]
@@ -395,8 +418,10 @@ class StatisticalModel:
                     )
                 )
 
-        statistic_objects = self._future_sim.result() if self._future_sim else {}
-        ref_statistic_objects = self._future_ref.result() if self._future_ref else {}
+        statistic_objects = self._future_sim.result() if self._future_sim else dict()
+        ref_statistic_objects = (
+            self._future_ref.result() if self._future_ref else dict()
+        )
         if self._executor:
             self._executor.shutdown()
         for objects in zip(statistic_objects.values(), ref_statistic_objects.values()):
@@ -408,82 +433,6 @@ class StatisticalModel:
         )
 
         return report
-
-    def _validate_helper(
-        self,
-        flows_file,
-        rules: List[SMRule],
-        chunksize=10_000,
-        is_ref=False,
-        complement=False,
-        flow_masks=[],
-    ):
-        all_flow_masks = {}
-        values: List[dict] = []
-        for chunk in pd.read_csv(
-            flows_file, dtype=self.CSV_COLUMN_TYPES, chunksize=chunksize
-        ):
-            if complement:
-                chunk = chunk[~(reduce(operator.or_, flow_masks))].reset_index(
-                    drop=True
-                )
-            for i, rule in zip(range(len(rules)), rules):
-                if not complement:
-                    flows, mask = self._filter_segment(rule.segment, chunk)
-                    all_flow_masks.update(mask)
-                else:
-                    flows = chunk
-
-                values_dict = values[i] if i < len(values) else dict()
-
-                # Check duplicated metrics.
-                if len({m.key for m in rule.metrics}) != len(rule.metrics):
-                    raise SMException(
-                        f"Rule contains duplicated metrics: {rule.metrics}"
-                    )
-
-                if is_ref:
-                    duration = (
-                        self._generator_stats.end_time
-                        - self._generator_stats.start_time
-                        + 1
-                    ) / 1000
-                else:
-                    duration = (
-                        flows["END_TIME"].max() - flows["START_TIME"].min() + 1
-                    ) / 1000
-
-                for metric in rule.metrics:
-                    match metric.key:
-                        case SMMetricType.FLOWS:
-                            value = len(flows.index)
-                        case SMMetricType.MBPS:
-                            value = 0  # later calculated
-                        case SMMetricType.PPS:
-                            value = 0  # later calculated
-                        case SMMetricType.DURATION:
-                            value = duration
-                        case _:
-                            value = flows[metric.key.value].sum()
-
-                    if metric.key in values_dict:
-                        values_dict[metric.key] += value
-                    else:
-                        values_dict[metric.key] = value
-
-                if len(values) <= i:
-                    values.append(values_dict)
-                else:
-                    values[i] = values_dict
-
-        for values_dict in values:
-            duration = values_dict[SMMetricType.DURATION]
-            values_dict[SMMetricType.MBPS] = (
-                values_dict[SMMetricType.BYTES] / duration / 10**6
-            )
-            values_dict[SMMetricType.PPS] = values_dict[SMMetricType.PACKETS] / duration
-
-        return values, all_flow_masks
 
     def _filter_multicast(self, flows: pd.DataFrame):
         # ipv4
@@ -539,7 +488,8 @@ class StatisticalModel:
 
         flows_df.to_csv(self._flows_path, index=False)
 
-    def _convert_ip_addresses(self, flows_df: pd.DataFrame) -> None:
+    @staticmethod
+    def _convert_ip_addresses(flows_df: pd.DataFrame) -> None:
         """Convert str ip addresses to objects (ipaddress library) in DataFrames."""
 
         logging.getLogger().debug("Start applying ip_address...")
@@ -555,8 +505,8 @@ class StatisticalModel:
         end = time.time()
         logging.getLogger().debug("IP address applied in %.2f seconds.", (end - start))
 
+    @staticmethod
     def _filter_segment(
-        self,
         segment: Optional[Union[SMSubnetSegment, SMTimeSegment]],
         flows_df: pd.DataFrame,
     ) -> Tuple[pd.DataFrame, pd.Series]:
@@ -574,17 +524,18 @@ class StatisticalModel:
         """
 
         if isinstance(segment, SMSubnetSegment):
-            self._convert_ip_addresses(flows_df)
-            return self._filter_subnet_segment(segment)
+            StatisticalModel._convert_ip_addresses(flows_df)
+            return StatisticalModel._filter_subnet_segment(segment)
 
         if isinstance(segment, SMTimeSegment):
-            return self._filter_time_segment(segment)
+            return StatisticalModel._filter_time_segment(segment)
 
         assert segment is None
         return flows_df, pd.Series([True] * flows_df.shape[0])
 
+    @staticmethod
     def _filter_subnet_segment(
-        self, segment: SMSubnetSegment, flows_df: pd.DataFrame
+        segment: SMSubnetSegment, flows_df: pd.DataFrame
     ) -> Tuple[pd.DataFrame, pd.Series]:
         """Create subsets of data frames based on subnets.
 
@@ -639,8 +590,9 @@ class StatisticalModel:
             mask_flow,
         )
 
+    @staticmethod
     def _filter_time_segment(
-        self, segment: SMTimeSegment, flows_df: pd.DataFrame
+        segment: SMTimeSegment, flows_df: pd.DataFrame
     ) -> Tuple[pd.DataFrame, pd.Series]:
         """Create subsets of data frames based on time interval.
 
@@ -1035,3 +987,74 @@ def all_instance_of(iterable: Iterable, cls):
     Check if all elements in `iterable` are instances of `cls`.
     """
     return all(isinstance(item, cls) for item in iterable)
+
+
+def _validate_helper(
+    flows_file,
+    rules: List[SMRule],
+    generator_stats: GeneratorStats,
+    chunksize=10_000,
+    is_ref=False,
+    complement=False,
+    flow_masks=[],
+):
+    all_flow_masks = {}
+    values: List[dict] = []
+    for chunk in pd.read_csv(
+        flows_file, dtype=StatisticalModel.CSV_COLUMN_TYPES, chunksize=chunksize
+    ):
+        if complement:
+            chunk = chunk[~(reduce(operator.or_, flow_masks))].reset_index(drop=True)
+        for i, rule in zip(range(len(rules)), rules):
+            if not complement:
+                flows, mask = StatisticalModel._filter_segment(rule.segment, chunk)
+                all_flow_masks.update(mask)
+            else:
+                flows = chunk
+
+            values_dict = values[i] if i < len(values) else dict()
+
+            # Check duplicated metrics.
+            if len({m.key for m in rule.metrics}) != len(rule.metrics):
+                raise SMException(f"Rule contains duplicated metrics: {rule.metrics}")
+
+            if is_ref:
+                duration = (
+                    generator_stats.end_time - generator_stats.start_time + 1
+                ) / 1000
+            else:
+                duration = (
+                    flows["END_TIME"].max() - flows["START_TIME"].min() + 1
+                ) / 1000
+
+            for metric in rule.metrics:
+                match metric.key:
+                    case SMMetricType.FLOWS:
+                        value = len(flows.index)
+                    case SMMetricType.MBPS:
+                        value = 0  # later calculated
+                    case SMMetricType.PPS:
+                        value = 0  # later calculated
+                    case SMMetricType.DURATION:
+                        value = duration
+                    case _:
+                        value = flows[metric.key.value].sum()
+
+                if metric.key in values_dict:
+                    values_dict[metric.key] += value
+                else:
+                    values_dict[metric.key] = value
+
+            if len(values) <= i:
+                values.append(values_dict)
+            else:
+                values[i] = values_dict
+
+    for values_dict in values:
+        duration = values_dict[SMMetricType.DURATION]
+        values_dict[SMMetricType.MBPS] = (
+            values_dict[SMMetricType.BYTES] / duration / 10**6
+        )
+        values_dict[SMMetricType.PPS] = values_dict[SMMetricType.PACKETS] / duration
+
+    return values, all_flow_masks
