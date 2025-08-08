@@ -31,7 +31,6 @@ from ftanalyzer.common.pandas_multiprocessing import PandasMultiprocessingHelper
 from ftanalyzer.events.events import ExportEvent
 from ftanalyzer.models.sm_data_types import (
     SMException,
-    SMMetric,
     SMMetricType,
     SMRule,
     SMSubnetSegment,
@@ -133,7 +132,6 @@ class StatisticalModel:
         "EXPORT_TIME": "first",
         "SEQ_NUMBER": "first",
         "MSG_LENGTH": "first",
-        "FLOW_COUNT": ("START_TIME", "count"),
     }
 
     def __init__(
@@ -251,7 +249,7 @@ class StatisticalModel:
         first_write = True
         logging.getLogger().debug("reading file with flows=%s", path)
         # ports could be empty in flows with protocol like ICMP
-        for chunk in pd.read_csv(path, dtype=self.CSV_COLUMN_TYPES, chunksize=100_000):
+        for chunk in pd.read_csv(path, dtype=self.CSV_COLUMN_TYPES, chunksize=10_000):
             chunk["SRC_PORT"] = chunk["SRC_PORT"].fillna(0)
             chunk["DST_PORT"] = chunk["DST_PORT"].fillna(0)
             chunk = chunk.astype(self.CSV_COLUMN_TYPES)
@@ -354,50 +352,14 @@ class StatisticalModel:
             return validate_statistical_model(self._fast_model, rules, check_complement)
 
         report = StatisticalReport(self._log_dir)
-        all_flow_masks = []
 
-        self._flows = self._load_flows_df()
-        self._ref = self._load_ref_df()
+        flow_values, all_flow_masks = self._validate_helper(self._flows_path, rules)
+        ref_values, _ = self._validate_helper(self._ref_path, rules, is_ref=True)
 
-        for rule in rules:
-            flows, ref, mask_flow = self._filter_segment(rule.segment)
-            all_flow_masks.append(mask_flow)
-
-            # Check duplicated metrics.
-            if len({m.key for m in rule.metrics}) != len(rule.metrics):
-                raise SMException(f"Rule contains duplicated metrics: {rule.metrics}")
-
-            duration = (flows["END_TIME"].max() - flows["START_TIME"].min() + 1) / 1000
-            ref_duration = (
-                self._generator_stats.end_time - self._generator_stats.start_time + 1
-            ) / 1000
-
+        for rule, flow_dict, ref_dict in zip(rules, flow_values, ref_values):
             for metric in rule.metrics:
-                match metric.key:
-                    case SMMetricType.FLOWS:
-                        value = len(flows.index)
-                        reference = len(ref.index)
-                    case SMMetricType.MBPS:
-                        value = (
-                            flows[SMMetricType.BYTES.value].sum()
-                            / duration
-                            / pow(10, 6)
-                        )
-                        reference = (
-                            ref[SMMetricType.BYTES.value].sum()
-                            / ref_duration
-                            / pow(10, 6)
-                        )
-                    case SMMetricType.PPS:
-                        value = flows[SMMetricType.PACKETS.value].sum() / duration
-                        reference = ref[SMMetricType.PACKETS.value].sum() / ref_duration
-                    case SMMetricType.DURATION:
-                        value = duration
-                        reference = ref_duration
-                    case _:
-                        value = flows[metric.key.value].sum()
-                        reference = ref[metric.key.value].sum()
-
+                value = flow_dict[metric.key]
+                reference = ref_dict[metric.key]
                 report.add_test(
                     SMTestOutcome(
                         metric,
@@ -409,18 +371,18 @@ class StatisticalModel:
                 )
 
         if check_complement:
-            # pylint: disable=invalid-unary-operand-type
-            flows = self._flows[~(reduce(operator.or_, all_flow_masks))].reset_index(
-                drop=True
+            rules = [SMRule(SMMetricType.__members__.values())]
+
+            complement_values, _ = self._validate_helper(
+                self._flows_path, rules, complement=True, flow_masks=all_flow_masks
             )
 
-            for metric in [
-                SMMetric(SMMetricType.PACKETS, 0),
-                SMMetric(SMMetricType.BYTES, 0),
-            ]:
-                value = flows[metric.key.value].sum()
-                reference = 0
+            rule = rules[0]
+            values = complement_values[0]
 
+            for metric in rule.metrics:
+                reference = 0
+                value = values[metric.key]
                 report.add_test(
                     SMTestOutcome(
                         metric,
@@ -445,12 +407,93 @@ class StatisticalModel:
 
         return report
 
+    def _validate_helper(
+        self,
+        flows_file,
+        rules: List[SMRule],
+        chunksize=10_000,
+        is_ref=False,
+        complement=False,
+        flow_masks=[],
+    ):
+        all_flow_masks = {}
+        values: List[dict] = []
+        for chunk in pd.read_csv(
+            flows_file, dtype=self.CSV_COLUMN_TYPES, chunksize=chunksize
+        ):
+            if complement:
+                chunk = chunk[~(reduce(operator.or_, flow_masks))].reset_index(
+                    drop=True
+                )
+            for i, rule in zip(range(len(rules)), rules):
+                if not complement:
+                    flows, mask = self._filter_segment(rule.segment, chunk)
+                    all_flow_masks.update(mask)
+                else:
+                    flows = chunk
+
+                values_dict = values[i] if i < len(values) else dict()
+
+                # Check duplicated metrics.
+                if len({m.key for m in rule.metrics}) != len(rule.metrics):
+                    raise SMException(
+                        f"Rule contains duplicated metrics: {rule.metrics}"
+                    )
+
+                if is_ref:
+                    duration = (
+                        self._generator_stats.end_time
+                        - self._generator_stats.start_time
+                        + 1
+                    ) / 1000
+                else:
+                    duration = (
+                        flows["END_TIME"].max() - flows["START_TIME"].min() + 1
+                    ) / 1000
+
+                for metric in rule.metrics:
+                    is_rate = False
+                    match metric.key:
+                        case SMMetricType.FLOWS:
+                            value = len(flows.index)
+                        case SMMetricType.MBPS:
+                            value = (
+                                flows[SMMetricType.BYTES.value].sum()
+                                / duration
+                                / pow(10, 6)
+                            )
+                            is_rate = True
+                        case SMMetricType.PPS:
+                            value = flows[SMMetricType.PACKETS.value].sum() / duration
+                            is_rate = True
+                        case SMMetricType.DURATION:
+                            value = duration
+                        case _:
+                            value = flows[metric.key.value].sum()
+
+                    if metric.key in values_dict:
+                        if not is_rate:
+                            values_dict[metric.key] += value
+                        else:
+                            values_dict[metric.key] = (
+                                values_dict[metric.key] + value
+                            ) / 2
+                    else:
+                        values_dict[metric.key] = value
+
+                if len(values) <= i:
+                    values.append(values_dict)
+                else:
+                    values[i] = values_dict
+
+        return values, all_flow_masks
+
     def _filter_multicast(self, flows: pd.DataFrame):
         # ipv4
-        flows = flows[flows["DST_IP"] != "255.255.255.255"]
+        flows.drop(flows[flows["DST_IP"] == "255.255.255.255"].index, inplace=True)
 
         # ipv6
-        flows = flows[flows["DST_IP"].str.startswith("ff02::")]
+        flows.drop(flows[flows["DST_IP"].str.startswith("ff02:")].index, inplace=True)
 
     def _merge_flows(self, biflows_ts_correction: bool) -> None:
         """
@@ -465,15 +508,11 @@ class StatisticalModel:
             Timestamps in reverse direction flows is corrected.
         """
 
-        ref_df = self._load_ref_df
+        ref_df = self._load_ref_df()
         assert len(ref_df.index) == ref_df.groupby(self.FLOW_KEY).ngroups, (
             "Cannot merge flows, duplicated key."
         )
         del ref_df
-
-        # wait till self._flows_path is not used anymore
-        while self._future_sim.running:
-            time.sleep(1)
 
         flows_df = self._load_flows_df()
         flows = flows_df.groupby(self.FLOW_KEY).aggregate(self.AGGREGATE_FLOWS)
@@ -501,44 +540,29 @@ class StatisticalModel:
 
             flows_df = flows.loc[:, list(self.CSV_COLUMN_TYPES.keys()) + ["FLOW_COUNT"]]
 
-        flows_df.to_csv(self._ref_path, index=False)
+        flows_df.to_csv(self._flows_path, index=False)
 
-    def _convert_ip_addresses(self) -> None:
+    def _convert_ip_addresses(self, flows_df: pd.DataFrame) -> None:
         """Convert str ip addresses to objects (ipaddress library) in DataFrames."""
-
-        if self._flows_ip_addresses_converted and self._ref_ip_addresses_converted:
-            return
 
         logging.getLogger().debug("Start applying ip_address...")
         start = time.time()
         with PandasMultiprocessingHelper() as pool:
             pool.apply(
-                self._flows,
+                flows_df,
                 [
                     ("SRC_IP", ipaddress.ip_address, []),
                     ("DST_IP", ipaddress.ip_address, []),
                 ],
             )
-            if not self._ref_ip_addresses_converted:
-                # convert to object only when reference is loaded from CSV file
-                pool.apply(
-                    self._ref,
-                    [
-                        ("SRC_IP", ipaddress.ip_address, []),
-                        ("DST_IP", ipaddress.ip_address, []),
-                    ],
-                )
         end = time.time()
         logging.getLogger().debug("IP address applied in %.2f seconds.", (end - start))
 
-        self._flows_ip_addresses_converted, self._ref_ip_addresses_converted = (
-            True,
-            True,
-        )
-
     def _filter_segment(
-        self, segment: Optional[Union[SMSubnetSegment, SMTimeSegment]]
-    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
+        self,
+        segment: Optional[Union[SMSubnetSegment, SMTimeSegment]],
+        flows_df: pd.DataFrame,
+    ) -> Tuple[pd.DataFrame, pd.Series]:
         """Create subsets of data frames based on the provided segment.
 
         Parameters
@@ -553,18 +577,18 @@ class StatisticalModel:
         """
 
         if isinstance(segment, SMSubnetSegment):
-            self._convert_ip_addresses()
+            self._convert_ip_addresses(flows_df)
             return self._filter_subnet_segment(segment)
 
         if isinstance(segment, SMTimeSegment):
             return self._filter_time_segment(segment)
 
         assert segment is None
-        return self._flows, self._ref, pd.Series([True] * self._flows.shape[0])
+        return flows_df, pd.Series([True] * flows_df.shape[0])
 
     def _filter_subnet_segment(
-        self, segment: SMSubnetSegment
-    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
+        self, segment: SMSubnetSegment, flows_df: pd.DataFrame
+    ) -> Tuple[pd.DataFrame, pd.Series]:
         """Create subsets of data frames based on subnets.
 
         Parameters
@@ -588,58 +612,39 @@ class StatisticalModel:
         if subnet_source is not None and subnet_dest is not None:
             if segment.bidir:
                 mask_flow = (
-                    self._flows["SRC_IP"].apply(lambda x: x in subnet_source)
-                    & self._flows["DST_IP"].apply(lambda x: x in subnet_dest)
+                    flows_df["SRC_IP"].apply(lambda x: x in subnet_source)
+                    & flows_df["DST_IP"].apply(lambda x: x in subnet_dest)
                 ) | (
-                    self._flows["SRC_IP"].apply(lambda x: x in subnet_dest)
-                    & self._flows["DST_IP"].apply(lambda x: x in subnet_source)
-                )
-                mask_ref = (
-                    self._ref["SRC_IP"].apply(lambda x: x in subnet_source)
-                    & self._ref["DST_IP"].apply(lambda x: x in subnet_dest)
-                ) | (
-                    self._ref["SRC_IP"].apply(lambda x: x in subnet_dest)
-                    & self._ref["DST_IP"].apply(lambda x: x in subnet_source)
+                    flows_df["SRC_IP"].apply(lambda x: x in subnet_dest)
+                    & flows_df["DST_IP"].apply(lambda x: x in subnet_source)
                 )
             else:
-                mask_flow = self._flows["SRC_IP"].apply(
+                mask_flow = flows_df["SRC_IP"].apply(
                     lambda x: x in subnet_source
-                ) & self._flows["DST_IP"].apply(lambda x: x in subnet_dest)
-                mask_ref = self._ref["SRC_IP"].apply(
-                    lambda x: x in subnet_source
-                ) & self._ref["DST_IP"].apply(lambda x: x in subnet_dest)
+                ) & flows_df["DST_IP"].apply(lambda x: x in subnet_dest)
         elif subnet_source is not None:
             if segment.bidir:
-                mask_flow = self._flows["SRC_IP"].apply(
+                mask_flow = flows_df["SRC_IP"].apply(
                     lambda x: x in subnet_source
-                ) | self._flows["DST_IP"].apply(lambda x: x in subnet_source)
-                mask_ref = self._ref["SRC_IP"].apply(
-                    lambda x: x in subnet_source
-                ) | self._ref["DST_IP"].apply(lambda x: x in subnet_source)
+                ) | flows_df["DST_IP"].apply(lambda x: x in subnet_source)
             else:
-                mask_flow = self._flows["SRC_IP"].apply(lambda x: x in subnet_source)
-                mask_ref = self._ref["SRC_IP"].apply(lambda x: x in subnet_source)
+                mask_flow = flows_df["SRC_IP"].apply(lambda x: x in subnet_source)
         else:
             if segment.bidir:
-                mask_flow = self._flows["SRC_IP"].apply(
+                mask_flow = flows_df["SRC_IP"].apply(
                     lambda x: x in subnet_dest
-                ) | self._flows["DST_IP"].apply(lambda x: x in subnet_dest)
-                mask_ref = self._ref["SRC_IP"].apply(
-                    lambda x: x in subnet_dest
-                ) | self._ref["DST_IP"].apply(lambda x: x in subnet_dest)
+                ) | flows_df["DST_IP"].apply(lambda x: x in subnet_dest)
             else:
-                mask_flow = self._flows["DST_IP"].apply(lambda x: x in subnet_dest)
-                mask_ref = self._ref["DST_IP"].apply(lambda x: x in subnet_dest)
+                mask_flow = flows_df["DST_IP"].apply(lambda x: x in subnet_dest)
 
         return (
-            self._flows[mask_flow].reset_index(drop=True),
-            self._ref[mask_ref].reset_index(drop=True),
+            flows_df[mask_flow].reset_index(drop=True),
             mask_flow,
         )
 
     def _filter_time_segment(
-        self, segment: SMTimeSegment
-    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
+        self, segment: SMTimeSegment, flows_df: pd.DataFrame
+    ) -> Tuple[pd.DataFrame, pd.Series]:
         """Create subsets of data frames based on time interval.
 
         Parameters
@@ -661,22 +666,16 @@ class StatisticalModel:
             end_time = int(segment.end.timestamp() * 1000)
 
         if start_time is not None and end_time is not None:
-            mask_flow = self._flows["START_TIME"].apply(
+            mask_flow = flows_df["START_TIME"].apply(
                 lambda x: x >= start_time
-            ) & self._flows["END_TIME"].apply(lambda x: x <= end_time)
-            mask_ref = self._ref["START_TIME"].apply(
-                lambda x: x >= start_time
-            ) & self._ref["END_TIME"].apply(lambda x: x <= end_time)
+            ) & flows_df["END_TIME"].apply(lambda x: x <= end_time)
         elif start_time is not None:
-            mask_flow = self._flows["START_TIME"].apply(lambda x: x >= start_time)
-            mask_ref = self._ref["START_TIME"].apply(lambda x: x >= start_time)
+            mask_flow = flows_df["START_TIME"].apply(lambda x: x >= start_time)
         else:
-            mask_flow = self._flows["END_TIME"].apply(lambda x: x <= end_time)
-            mask_ref = self._ref["END_TIME"].apply(lambda x: x <= end_time)
+            mask_flow = flows_df["END_TIME"].apply(lambda x: x <= end_time)
 
         return (
-            self._flows[mask_flow].reset_index(drop=True),
-            self._ref[mask_ref].reset_index(drop=True),
+            flows_df[mask_flow].reset_index(drop=True),
             mask_flow,
         )
 

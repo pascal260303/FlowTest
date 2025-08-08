@@ -136,9 +136,8 @@ class PreciseModel(StatisticalModel):
         if segments is None:
             segments = [None]
 
-        if not hasattr(self, "_flows"):
-            self._flows = self._load_flows_df()
-            self._ref = self._load_ref_df()
+        flows_df = self._load_flows_df()
+        ref_df = self._load_ref_df()
 
         # precise model compares IP addresses, so the same format is required
         if self._flows_ip_addresses_converted != self._ref_ip_addresses_converted:
@@ -147,7 +146,8 @@ class PreciseModel(StatisticalModel):
         all_flow_masks = []
         for segment in segments:
             self._report.add_segment(segment)
-            flows, refs, mask_flow = self._filter_segment(segment)
+            flows, mask_flow = self._filter_segment(segment, flows_df)
+            refs, _ = self._filter_segment(segment, ref_df)
             all_flow_masks.append(mask_flow)
 
             # perform outer join thank to which we can easily identify flows
