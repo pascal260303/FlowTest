@@ -661,12 +661,6 @@ def setup_statsitic_objects(
             measure_start_time=start_time_offset,
             measure_end_time=end_time_offset,
         ),
-        # "ct_flow_rate": ContinuousCounter(
-        #    "flow rate",
-        #    sim,
-        #    measure_start_time=start_time_offset,
-        #    measure_end_time=end_time_offset,
-        # ),
         "ct_cpu_usage": ContinuousCounter(
             "CPU usage in percent",
             sim,
@@ -722,14 +716,6 @@ def setup_statsitic_objects(
             measure_start_time=start_time_offset,
             measure_end_time=end_time_offset,
         ),
-        "tsc_flow_rate": TimeSeriesCounter(
-            "flow rate",
-            sim,
-            start_time,
-            end_time,
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
-        ),
         "tsc_cpu_usage": TimeSeriesCounter(
             "CPU usage in percent",
             sim,
@@ -776,7 +762,6 @@ def setup_statsitic_objects(
         "data_rate": ["ct_data_rate", "ct_data_rate_bibit", "tsc_data_rate"],
         "packet_rate": ["ct_packet_rate", "tsc_packet_rate"],
         "flow_count": ["ct_flow_count", "tsc_flow_count"],
-        "flow_rate": ["ct_flow_rate", "tsc_flow_rate"],
         "percent_CPU": ["ct_cpu_usage", "tsc_cpu_usage"],
         "percent_MEM": ["ct_ram_usage", "tsc_mem_usage"],
         "export_rate_f": ["ct_export_rate_f", "tsc_export_rate_f"],
@@ -788,6 +773,79 @@ def setup_statsitic_objects(
     }
 
     return (statistic_objects, metric_mapping)
+
+
+def _flush_event_data(
+    one_packet_events: List[OnePacketFlow],
+    current_data_rate: int,
+    current_packet_rate: int,
+    current_flows: int,
+    statistic_objects: dict[str, StatisticObject],
+    metric_mapping: dict[str, str],
+    duration_s: float,
+    simultaneous_events: List[Event],
+    sim: SimState,
+    last_export: int,
+):
+    # aggregate OnePacketFlow events within this window
+    one_packet_data_rate = sum(e.bytes for e in one_packet_events) * 8 / duration_s
+    one_packet_packet_rate = sum(e.packets for e in one_packet_events) / duration_s
+    one_packet_flows = np.uint64(sum(e.flows for e in one_packet_events))
+
+    # Compose final rates
+    total_data_rate = one_packet_data_rate + current_data_rate
+    total_packet_rate = one_packet_packet_rate + current_packet_rate
+    total_flows = one_packet_flows + current_flows
+
+    update_statistic_objects(
+        statistic_objects,
+        metric_mapping,
+        data_rate=total_data_rate,
+        packet_rate=total_packet_rate,
+        flow_count=total_flows,
+    )
+
+    export_events: List[ExportEvent] = [
+        e for e in simultaneous_events if isinstance(e, ExportEvent)
+    ]
+    since_last_export: np.uint64 = sim.get_time_diff(last_export)
+    if export_events:
+        time_since_export_s = sim.convert_to_seconds(since_last_export)
+        export_flows = sum(e.flows for e in export_events)
+        export_bytes = sum(e.bytes for e in export_events)
+        export_packets = len(export_events)
+        export_flows_p_packet = export_flows / export_packets
+        update_statistic_objects(
+            statistic_objects,
+            metric_mapping,
+            export_rate_f=export_flows / time_since_export_s,
+            export_rate_b=export_bytes / time_since_export_s,
+            export_rate_p=export_packets / time_since_export_s,
+            export_flows_p_packet=export_flows_p_packet,
+        )
+        last_export = sim.get_time()
+    elif since_last_export >= 1000:
+        # use 0 as datapoint every second to register absence of exports
+        update_statistic_objects(
+            statistic_objects,
+            metric_mapping,
+            export_rate_f=0,
+            export_rate_b=0,
+            export_rate_p=0,
+            export_flows_p_packet=0.0,
+        )
+        last_export = sim.get_time()
+
+    host_stats_event: HostStatsEvent = next(
+        (e for e in simultaneous_events if isinstance(e, HostStatsEvent)),
+        None,
+    )
+    if host_stats_event:
+        update_statistic_objects(
+            statistic_objects, metric_mapping, **host_stats_event.row._asdict()
+        )
+
+    return last_export
 
 
 def process_events(
@@ -806,10 +864,9 @@ def process_events(
     """
 
     one_packet_events: list[OnePacketFlow] = []
-    current_data_rate = 0.0
-    current_packet_rate = 0.0
-    current_flow_count = np.uint64(0)
-    current_flow_rate = 0.0
+    current_data_rate = 0
+    current_packet_rate = 0
+    current_flows = 0
 
     # Prime the iterator
     event_iter = iter(event_queue)
@@ -832,7 +889,6 @@ def process_events(
         # Compute the duration between the last time and the current group of events
         duration_ms = sim.get_time_diff(last_time)
         duration_s = sim.convert_to_seconds(duration_ms)
-        since_last_export: np.uint64 = sim.get_time_diff(last_export)
 
         # Only advance stats if time progressed
         if (
@@ -840,73 +896,18 @@ def process_events(
             and not all_instance_of(simultaneous_events, OnePacketFlow)
             or duration_ms > 100
         ):
-            # aggregate OnePacketFlow events within this window
-            total_bytes = sum(e.bytes for e in one_packet_events)
-            total_packets = sum(e.packets for e in one_packet_events)
-            total_flows = np.uint64(sum(e.flows for e in one_packet_events))
-
-            singleton_data_rate = (
-                (total_bytes * 8) / duration_s if duration_s > 0 else 0.0
-            )
-            singleton_packet_rate = (
-                total_packets / duration_s if duration_s > 0 else 0.0
-            )
-
-            singleton_flow_rate = total_flows / duration_s if duration_s > 0 else 0.0
-
-            # Compose final rates
-            total_data_rate = current_data_rate + singleton_data_rate
-            total_packet_rate = current_packet_rate + singleton_packet_rate
-            total_flow_count = current_flow_count + total_flows
-            total_flow_rate = current_flow_rate + singleton_flow_rate
-
-            update_statistic_objects(
+            last_export = _flush_event_data(
+                one_packet_events,
+                current_data_rate,
+                current_packet_rate,
+                current_flows,
                 statistic_objects,
                 metric_mapping,
-                data_rate=total_data_rate,
-                packet_rate=total_packet_rate,
-                flow_count=total_flow_count,
-                flow_rate=total_flow_rate,
+                duration_s,
+                simultaneous_events,
+                sim,
+                last_export,
             )
-
-            export_events: List[ExportEvent] = [
-                e for e in simultaneous_events if isinstance(e, ExportEvent)
-            ]
-            if export_events:
-                time_since_export_s = sim.convert_to_seconds(since_last_export)
-                export_flows = sum(e.flows for e in export_events)
-                export_bytes = sum(e.bytes for e in export_events)
-                export_packets = len(export_events)
-                export_flows_p_packet = export_flows / export_packets
-                update_statistic_objects(
-                    statistic_objects,
-                    metric_mapping,
-                    export_rate_f=export_flows / time_since_export_s,
-                    export_rate_b=export_bytes / time_since_export_s,
-                    export_rate_p=export_packets / time_since_export_s,
-                    export_flows_p_packet=export_flows_p_packet,
-                )
-                last_export = sim.get_time()
-            elif since_last_export >= 1000:
-                update_statistic_objects(
-                    statistic_objects,
-                    metric_mapping,
-                    export_rate_f=0.0,
-                    export_rate_b=0.0,
-                    export_rate_p=0.0,
-                    export_flows_p_packet=0.0,
-                )
-                last_export = sim.get_time()
-
-            host_stats_event: HostStatsEvent = next(
-                (e for e in simultaneous_events if isinstance(e, HostStatsEvent)),
-                None,
-            )
-            if host_stats_event:
-                update_statistic_objects(
-                    statistic_objects, metric_mapping, **host_stats_event.row._asdict()
-                )
-
             # reset one-packet events after processing
             one_packet_events.clear()
             # move forward in time
@@ -921,8 +922,10 @@ def process_events(
             else:
                 current_data_rate += e.data_rate
                 current_packet_rate += e.packet_rate
-                current_flow_rate += e.flow_rate
-                current_flow_count += e.flows
+                current_flows += e.flows
+
+        current_data_rate = max(0, current_data_rate)
+        current_packet_rate = max(0, current_packet_rate)
 
         sim.set_time(event.time)
         simultaneous_events = [event]
@@ -931,40 +934,19 @@ def process_events(
     duration_ms = sim.get_time_diff(last_time)
     duration_s = sim.convert_to_seconds(duration_ms)
 
-    if duration_s > 0:
-        # aggregate OnePacketFlow events within this window
-        total_bytes = sum(e.bytes for e in one_packet_events)
-        total_packets = sum(e.packets for e in one_packet_events)
-        total_flows = np.uint64(sum(e.flows for e in one_packet_events))
-
-        singleton_data_rate = (total_bytes * 8) / duration_s if duration_s > 0 else 0.0
-        singleton_packet_rate = total_packets / duration_s if duration_s > 0 else 0.0
-
-        singleton_flow_rate = total_flows / duration_s if duration_s > 0 else 0.0
-
-        # Compose final rates
-        total_data_rate = current_data_rate + singleton_data_rate
-        total_packet_rate = current_packet_rate + singleton_packet_rate
-        total_flow_count = current_flow_count + total_flows
-        total_flow_rate = current_flow_rate + singleton_flow_rate
-
-        update_statistic_objects(
+    if duration_ms > 0:
+        _flush_event_data(
+            one_packet_events,
+            current_data_rate,
+            current_packet_rate,
+            current_flows,
             statistic_objects,
             metric_mapping,
-            data_rate=total_data_rate,
-            packet_rate=total_packet_rate,
-            flow_count=total_flow_count,
-            flow_rate=total_flow_rate,
+            duration_s,
+            simultaneous_events,
+            sim,
+            last_export,
         )
-
-        host_stats_event: HostStatsEvent = next(
-            (e for e in simultaneous_events if isinstance(e, HostStatsEvent)),
-            None,
-        )
-        if host_stats_event:
-            update_statistic_objects(
-                statistic_objects, metric_mapping, **host_stats_event.row._asdict()
-            )
 
 
 def update_statistic_objects(
@@ -1000,9 +982,15 @@ def _validate_helper(
 ):
     all_flow_masks = {}
     values: List[dict] = []
+    start_time = float("inf")
+    end_time = float("-inf")
+
     for chunk in pd.read_csv(
         flows_file, dtype=StatisticalModel.CSV_COLUMN_TYPES, chunksize=chunksize
     ):
+        start_time = min(start_time, chunk["START_TIME"].min())
+        end_time = max(end_time, chunk["END_TIME"].max())
+
         if complement:
             chunk = chunk[~(reduce(operator.or_, flow_masks))].reset_index(drop=True)
         for i, rule in zip(range(len(rules)), rules):
@@ -1018,15 +1006,6 @@ def _validate_helper(
             if len({m.key for m in rule.metrics}) != len(rule.metrics):
                 raise SMException(f"Rule contains duplicated metrics: {rule.metrics}")
 
-            if is_ref:
-                duration = (
-                    generator_stats.end_time - generator_stats.start_time + 1
-                ) / 1000
-            else:
-                duration = (
-                    flows["END_TIME"].max() - flows["START_TIME"].min() + 1
-                ) / 1000
-
             for metric in rule.metrics:
                 match metric.key:
                     case SMMetricType.FLOWS:
@@ -1036,7 +1015,7 @@ def _validate_helper(
                     case SMMetricType.PPS:
                         value = 0  # later calculated
                     case SMMetricType.DURATION:
-                        value = duration
+                        value = 0  # later calculated
                     case _:
                         value = flows[metric.key.value].sum()
 
@@ -1051,7 +1030,13 @@ def _validate_helper(
                 values[i] = values_dict
 
     for values_dict in values:
-        duration = values_dict[SMMetricType.DURATION]
+        if is_ref:
+            duration = (
+                generator_stats.end_time - generator_stats.start_time + 1
+            ) / 1000
+        else:
+            duration = (end_time - start_time + 1) / 1000
+        values_dict[SMMetricType.DURATION] = duration
         values_dict[SMMetricType.MBPS] = (
             values_dict[SMMetricType.BYTES] / duration / 10**6
         )
