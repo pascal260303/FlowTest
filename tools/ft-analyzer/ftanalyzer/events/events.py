@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 import atexit
 import csv
 import heapq
-import logging
 import math
 import os
 import shutil
@@ -126,7 +125,7 @@ class FlowEndEvent(Event):
         self.packet_rate = -packet_rate
         self.time = end_time
         self.flow_rate = -flow_rate
-        self.flows = -flows
+        self.flows = -int(flows)
 
 
 class OnePacketFlow(Event):
@@ -247,8 +246,10 @@ def create_event_queue(
 
         # get start and end
         start = min(start, math.floor(chunk["START_TIME"].min() / 1000))
-        col_end = "EXPORT_TIME" if "EXPORT_TIME" in chunk.columns else "END_TIME"
-        end = max(end, math.ceil(chunk[col_end].max() / 1000))
+        if "EXPORT_TIME" in chunk.columns:
+            end = max(end, math.ceil(chunk["EXPORT_TIME"].max()))
+        else:
+            end = max(end, math.ceil(chunk["END_TIME"].max() / 1000))
 
         # One-packet flows
         (
@@ -257,7 +258,7 @@ def create_event_queue(
             .agg(**agg_dict)
             .sort_values("START_TIME")
             .to_csv(
-                temp_one,
+                temp_one.name,
                 index=False,
             )
         )
@@ -276,7 +277,7 @@ def create_event_queue(
                 )
                 .sort_values("EXPORT_TIME")
                 .to_csv(
-                    temp_export,
+                    temp_export.name,
                     index=False,
                 )
             )
@@ -288,7 +289,7 @@ def create_event_queue(
             .agg(**agg_dict)
             .sort_values("START_TIME")
             .to_csv(
-                temp_start,
+                temp_start.name,
                 index=False,
             )
         )
@@ -299,7 +300,7 @@ def create_event_queue(
             .agg(**agg_dict)
             .sort_values("END_TIME")
             .to_csv(
-                temp_end,
+                temp_end.name,
                 index=False,
             )
         )
@@ -313,8 +314,7 @@ def create_event_queue(
             usecols=STATS_CSV_COLUMN_TYPES.keys(),
         )
         stats_df = stats_df[(stats_df["Time"] >= start) & (stats_df["Time"] <= end)]
-    except Exception as e:
-        logging.error(e)
+    except Exception:
         stats_df = pd.DataFrame([], columns=STATS_CSV_COLUMN_TYPES.keys())
 
     agg_dict = {col: "sum" for col in SUM_PIDSTAT_COLS}
@@ -348,7 +348,7 @@ def read_export_events(path: os.PathLike):
         # It's possilble that columns weren't merged because of chunked reads
         # merge here where columns are iterated by EXPORT_TIME
         if not previous:
-            row = previous
+            previous = row
             continue
         if (
             previous["EXPORT_TIME"] == row["EXPORT_TIME"]
