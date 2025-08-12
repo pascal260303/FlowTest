@@ -4,6 +4,7 @@ import csv
 import heapq
 import math
 import os
+import random
 import shutil
 import tempfile
 from typing import Iterator
@@ -191,7 +192,10 @@ def merge_sorted(temp_files, sort_column, dtype):
 
 
 def create_event_queue(
-    flows_path: os.PathLike, hosts_stats_file: os.PathLike, out_dir: str = None
+    flows_path: os.PathLike,
+    hosts_stats_file: os.PathLike,
+    inactive_timeout: int = 30,
+    out_dir: str = None,
 ) -> Iterator[Event]:
     if not out_dir:
         out_dir = tempfile.mkdtemp(prefix="flows_split_")
@@ -264,23 +268,30 @@ def create_event_queue(
         )
 
         # Export Events
-        if "EXPORT_TIME" in chunk.columns:
-            temp_export = tempfile.NamedTemporaryFile(
-                mode="w", prefix="export_time", suffix=".csv", dir=out_dir, delete=False
+        if "EXPORT_TIME" not in chunk.columns:
+            # accurate expected EXPORT_TIME
+            chunk["EXPORT_TIME"] = chunk["END_TIME"] // 1000 + inactive_timeout + 1
+            # approximate SEQ_NUMBER
+            chunk["SEQ_NUMER"] = chunk["EXPORT_TIME"] % 32
+            # random MSG_LENGTH
+            chunk["MSG_LENGTH"] = random.randint(100, 2048)
+
+        temp_export = tempfile.NamedTemporaryFile(
+            mode="w", prefix="export_time", suffix=".csv", dir=out_dir, delete=False
+        )
+        tmp_export.append(temp_export)
+        (
+            chunk.groupby(["EXPORT_TIME", "SEQ_NUMBER"], as_index=False)
+            .agg(
+                MSG_LENGTH=("MSG_LENGTH", "first"),
+                FLOWS=("MSG_LENGTH", "count"),
             )
-            tmp_export.append(temp_export)
-            (
-                chunk.groupby(["EXPORT_TIME", "SEQ_NUMBER"], as_index=False)
-                .agg(
-                    MSG_LENGTH=("MSG_LENGTH", "first"),
-                    FLOWS=("MSG_LENGTH", "count"),
-                )
-                .sort_values("EXPORT_TIME")
-                .to_csv(
-                    temp_export.name,
-                    index=False,
-                )
+            .sort_values("EXPORT_TIME")
+            .to_csv(
+                temp_export.name,
+                index=False,
             )
+        )
 
         # Multi-packet flows
         (

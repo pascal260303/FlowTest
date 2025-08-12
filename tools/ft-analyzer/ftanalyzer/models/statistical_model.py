@@ -28,7 +28,7 @@ from ftanalyzer.common.fast_analyzer_wrapper import (
     validate_statistical_model,
 )
 from ftanalyzer.common.pandas_multiprocessing import PandasMultiprocessingHelper
-from ftanalyzer.events.events import ExportEvent
+from ftanalyzer.events.events import ExportEvent, FlowStartEvent
 from ftanalyzer.models.sm_data_types import (
     SMException,
     SMMetricType,
@@ -293,7 +293,9 @@ class StatisticalModel:
         statistic_objects, metric_to_obj = setup_statsitic_objects(
             sim, start_time, end_time, inactive_timeout
         )
-        event_queue = create_event_queue(flows_file, host_stats, output_dir)
+        event_queue = create_event_queue(
+            flows_file, host_stats, inactive_timeout, output_dir
+        )
         process_events(event_queue, statistic_objects, metric_to_obj, sim)
 
         shutil.rmtree(output_dir, ignore_errors=True)
@@ -790,19 +792,17 @@ def _flush_event_data(
     # aggregate OnePacketFlow events within this window
     one_packet_data_rate = sum(e.bytes for e in one_packet_events) * 8 / duration_s
     one_packet_packet_rate = sum(e.packets for e in one_packet_events) / duration_s
-    one_packet_flows = np.uint64(sum(e.flows for e in one_packet_events))
 
     # Compose final rates
     total_data_rate = one_packet_data_rate + current_data_rate
     total_packet_rate = one_packet_packet_rate + current_packet_rate
-    total_flows = one_packet_flows + current_flows
 
     update_statistic_objects(
         statistic_objects,
         metric_mapping,
         data_rate=total_data_rate,
         packet_rate=total_packet_rate,
-        flow_count=total_flows,
+        flow_count=current_flows,
     )
 
     export_events: List[ExportEvent] = [
@@ -915,14 +915,18 @@ def process_events(
 
         # apply each event's effect to current rates
         for e in simultaneous_events:
-            if isinstance(e, HostStatsEvent) or isinstance(e, ExportEvent):
+            if isinstance(e, HostStatsEvent):
                 pass
+            elif isinstance(e, ExportEvent):
+                current_flows -= e.flows
             elif isinstance(e, OnePacketFlow):
                 one_packet_events.append(e)
+                current_flows += e.flows
             else:
                 current_data_rate += e.data_rate
                 current_packet_rate += e.packet_rate
-                current_flows += e.flows
+                if isinstance(e, FlowStartEvent):
+                    current_flows += e.flows
 
         current_data_rate = max(0, current_data_rate)
         current_packet_rate = max(0, current_packet_rate)
