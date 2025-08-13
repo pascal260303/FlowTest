@@ -202,20 +202,13 @@ class Cento(ProbeInterface):
             return
 
         driver = driver.split(" ")[1].strip()
-        if driver.endswith("_zc"):
-            driver = driver[:-3]
+        if not driver.endswith("_zc"):
             Tool(
                 f"pf_ringcfg --configure-driver {driver} --rss-queues 0",
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()
             time.sleep(5)
-        Tool(
-            f"pf_ringcfg --configure-driver {driver} --rss-queues {self._settings.rss_queues}",
-            executor=self._executor,
-            sudo=self._sudo,
-        ).run()
-        time.sleep(5)
 
     def _switch_back_zc(self, interface_name: str):
         driver, _ = Tool(
@@ -234,11 +227,19 @@ class Cento(ProbeInterface):
             sudo=self._sudo,
         ).run()
 
+    def _set_rss_queues(self, interface_name):
+        Tool(
+            f"ethtool --set-channels {interface_name} combined {self._settings.rss_queues}",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+
     def _before_start(self):
         interface_names = {name.split("@")[0] for name in self._interfaces}
         for ifc in interface_names:
             if ifc.startswith("zc:"):
                 self._switch_to_zc(ifc.split(":", 1)[-1])
+            self._set_rss_queues(ifc.split(":", 1)[-1])
 
     def start(self):
         """Start the probe."""

@@ -237,17 +237,19 @@ class NProbe(ProbeInterface):
             sudo=self._sudo,
         ).run()
 
+    def _set_rss_queues(self, interface_name):
+        Tool(
+            f"ethtool --set-channels {interface_name} combined {self._settings.rss_queues}",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+
     def _before_start(self):
         interface_names = {name.split("@")[0] for name in self._interfaces}
         for ifc in interface_names:
             if ifc.startswith("zc:"):
                 self._switch_to_zc(ifc.split(":", 1)[-1])
-                queues, _ = Tool(
-                    f"ethtool -n {ifc.split(':', 1)[-1]} | head -n1 | cut -c1",
-                    executor=self._executor,
-                    sudo=self._sudo,
-                ).run()
-                self._settings.rss_queues = int(queues)
+            self._set_rss_queues(ifc.split(":", 1)[-1])
 
     def start(self):
         """Start the probe."""
