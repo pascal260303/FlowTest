@@ -395,9 +395,7 @@ class StatisticalModel:
                         rule.segment,
                         value,
                         reference,
-                        round(
-                            abs(np.int64(value) - np.int64(reference)) / reference, 4
-                        ),
+                        round(abs(int(value) - int(reference)) / reference, 4),
                     )
                 )
 

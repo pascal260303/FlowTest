@@ -272,7 +272,7 @@ def create_event_queue(
             # accurate expected EXPORT_TIME
             chunk["EXPORT_TIME"] = chunk["END_TIME"] // 1000 + inactive_timeout + 1
             # approximate SEQ_NUMBER
-            chunk["SEQ_NUMER"] = chunk["EXPORT_TIME"] % 32
+            chunk["SEQ_NUMBER"] = chunk["EXPORT_TIME"] % 32
             # random MSG_LENGTH
             chunk["MSG_LENGTH"] = random.randint(100, 2048)
 
