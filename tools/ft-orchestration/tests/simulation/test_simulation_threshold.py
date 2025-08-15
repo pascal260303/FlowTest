@@ -340,16 +340,16 @@ def test_simulation_threshold(
         objects_to_cleanup = []
         gc.collect()
 
-    passed = scenario.test.mbps_required <= speed_min
+    passed = scenario.test.mbps_required <= speed_current
     report.print_results()
     HTMLReportData.simulation_summary_report.update_stats("sim_threshold", passed)
 
     logging.getLogger().info(
         "maximum throughput: %s Mbps (accuracy: %s Mbps)",
-        speed_min,
+        speed_current,
         scenario.test.mbps_accuracy,
     )
-    if passed:
+    if not passed:
         pytest.xfail(
-            f"throughput ({speed_min} Mbps) is less than required ({scenario.test.mbps_required} Mbps)"
+            f"throughput ({speed_current} Mbps) is less than required ({scenario.test.mbps_required} Mbps)"
         )

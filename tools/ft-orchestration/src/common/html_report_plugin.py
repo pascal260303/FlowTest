@@ -16,7 +16,7 @@ import pytest_html
 from pytest_html.plugin import HTMLReport
 from ftanalyzer.reports import ValidationReportSummary
 from py.xml import html  # type: ignore
-from src.config.scenario import ScenarioCfg
+from src.config.scenario import ScenarioCfg, SimulationScenario
 
 
 class SimulationTestsSummary:
@@ -332,6 +332,8 @@ def pytest_runtest_makereport(item: pytest.Function) -> None:  # type: ignore
             if not isinstance(scenario, ScenarioCfg):
                 raise ValueError
             report.test_name = scenario.name
+            if isinstance(scenario, SimulationScenario) and scenario.test:
+                report.test_name += " " + scenario.test.id
             report.test_description = scenario.description
         except (AttributeError, ValueError):
             report.test_name = ""
