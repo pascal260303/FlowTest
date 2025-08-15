@@ -22,7 +22,7 @@ default:
 sim_general:
   - id: one_packet_precise
     speed_multiplier: 1.0
-    loops: 2
+    loops: 1
     marks: [precise]
     analysis:
       model: "precise"
@@ -48,13 +48,35 @@ sim_threshold:
           diff: 0.5
         - key: DURATION
           diff: 0.5
-  - id: one_packet_limit_cache_size
+  - id: one_packet_small_cache_size
     marks: []
     mbps_accuracy: 100
     mbps_required: 500
     speed_max: 12500
     probe:
       cache_size: 14 # exponent to the power of 2
+    analysis:
+      use_statistic_counter: true
+      metrics:
+        - key: PACKETS
+          diff: 0.001
+        - key: BYTES
+          diff: 0.001
+        - key: FLOWS
+          diff: 0.001
+        - key: PACKETS / S
+          diff: 0.5
+        - key: MB / S
+          diff: 0.5
+        - key: DURATION
+          diff: 0.5
+  - id: one_packet_larger_cache_size
+    marks: []
+    mbps_accuracy: 100
+    mbps_required: 500
+    speed_max: 12500
+    probe:
+      cache_size: 20 # exponent to the power of 2
     analysis:
       use_statistic_counter: true
       metrics:
