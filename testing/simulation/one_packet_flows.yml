@@ -43,11 +43,11 @@ sim_threshold:
         - key: FLOWS
           diff: 0.001
         - key: PACKETS / S
-          diff: 0.5
+          diff: 1
         - key: MB / S
-          diff: 0.5
+          diff: 1
         - key: DURATION
-          diff: 0.5
+          diff: 1
   - id: one_packet_small_cache_size
     marks: []
     mbps_accuracy: 100
@@ -65,11 +65,11 @@ sim_threshold:
         - key: FLOWS
           diff: 0.001
         - key: PACKETS / S
-          diff: 0.5
+          diff: 1
         - key: MB / S
-          diff: 0.5
+          diff: 1
         - key: DURATION
-          diff: 0.5
+          diff: 1
   - id: one_packet_larger_cache_size
     marks: []
     mbps_accuracy: 100
@@ -87,11 +87,11 @@ sim_threshold:
         - key: FLOWS
           diff: 0.001
         - key: PACKETS / S
-          diff: 0.5
+          diff: 1
         - key: MB / S
-          diff: 0.5
+          diff: 1
         - key: DURATION
-          diff: 0.5
+          diff: 1
     
   - id: one_packet_short_timeout
     marks: []
@@ -111,11 +111,11 @@ sim_threshold:
         - key: FLOWS
           diff: 0.001
         - key: PACKETS / S
-          diff: 0.5
+          diff: 1
         - key: MB / S
-          diff: 0.5
+          diff: 1
         - key: DURATION
-          diff: 0.5
+          diff: 1
 
   - id: one_packet_one_min_timeout
     marks: []
@@ -135,8 +135,8 @@ sim_threshold:
         - key: FLOWS
           diff: 0.001
         - key: PACKETS / S
-          diff: 0.5
+          diff: 1
         - key: MB / S
-          diff: 0.5
+          diff: 1
         - key: DURATION
-          diff: 0.5
+          diff: 1

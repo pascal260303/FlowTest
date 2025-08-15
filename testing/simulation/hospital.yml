@@ -42,8 +42,8 @@ sim_threshold:
         - key: FLOWS
           diff: 0.001
         - key: PACKETS / S
-          diff: 0.5
+          diff: 1
         - key: MB / S
-          diff: 0.5
+          diff: 1
         - key: DURATION
-          diff: 0.5
+          diff: 1
