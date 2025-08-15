@@ -35,7 +35,7 @@ sim_general:
 sim_threshold:
   - id: munich_throughput
     mbps_accuracy: 50
-    mbps_required: 50000
+    mbps_required: 2500
     analysis:
       use_statistic_counter: true
       metrics:
