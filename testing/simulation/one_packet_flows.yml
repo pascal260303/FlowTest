@@ -96,7 +96,7 @@ sim_threshold:
   - id: one_packet_short_timeout
     marks: []
     mbps_accuracy: 100
-    mbps_required: 900
+    mbps_required: 1000
     speed_max: 12500
     probe:
       active_timeout: 10
@@ -120,7 +120,7 @@ sim_threshold:
   - id: one_packet_one_min_timeout
     marks: []
     mbps_accuracy: 100
-    mbps_required: 5000
+    mbps_required: 1000
     speed_max: 12500
     probe:
       active_timeout: 60

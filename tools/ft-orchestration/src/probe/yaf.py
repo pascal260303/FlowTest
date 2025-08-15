@@ -208,7 +208,7 @@ class Yaf(ProbeInterface):
         kwargs["tls"] = YafSettings.TLSOptions(**(kwargs.get("tls", {})))
         kwargs["log"] = YafSettings.LoggingOptions(**(kwargs.get("log", {})))
 
-        if "maxflows" not in kwargs and cache_size:
+        if cache_size:
             kwargs["maxflows"] = 2**cache_size
 
         self._settings = YafSettings(
