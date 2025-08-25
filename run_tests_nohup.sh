@@ -12,4 +12,6 @@ echo "📋 Starting tests with nohup... output in ${LOG}"
 . .venv/bin/activate && pytest "$@" &
 wait %1 # wait for pytest to finish
 NEWEST_DIR=$(ls -d logs/[0-9]*/ | sort -r | head -n1)
-mv "logs/report.html" "${NEWEST_DIR}"
+if ! [ -e "${NEWEST_DIR}/report.html" ]; then
+  mv "logs/report.html" "${NEWEST_DIR}"
+fi

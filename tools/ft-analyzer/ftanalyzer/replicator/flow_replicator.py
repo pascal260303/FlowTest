@@ -281,7 +281,11 @@ class FlowReplicator:
         try:
             for chunk in pd.read_csv(
                 input_file,
-                dtype=self.CSV_COLUMN_TYPES,
+                usecols=["START_TIME", "END_TIME"],
+                dtype={
+                    "START_TIME": np.uint64,
+                    "END_TIME": np.uint64,
+                },
                 chunksize=chunksize,
             ):
                 start_min = chunk["START_TIME"].min()
@@ -521,7 +525,7 @@ class FlowReplicator:
         if self._config.loop.dstip:
             dstip_offset += loop_n * self._config.loop.dstip.value
 
-        flows = self._flows.copy()
+        flows = self._flows.copy(deep=False)
         flows["START_TIME"] = time_offset + flows["_START_OFFSET"]
         flows["END_TIME"] = flows["START_TIME"] + flows["_FLOW_LEN"]
 
