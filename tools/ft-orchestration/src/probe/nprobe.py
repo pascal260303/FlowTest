@@ -281,7 +281,7 @@ class NProbe(ProbeInterface):
 
         for i in range(self._settings.rss_queues):
             settings = copy.copy(self._settings)
-            if self._zero_copy:
+            if self._settings.rss_queues > 1:
                 settings.interface = f"{settings.interface}@{i}"
             cmd = self._prepare_cmd(self._target, self._protocols, settings)
             process = Daemon(cmd, executor=executors[i], sudo=self._sudo)
