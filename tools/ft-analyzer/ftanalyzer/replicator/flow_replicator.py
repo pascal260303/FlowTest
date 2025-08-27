@@ -235,8 +235,8 @@ class FlowReplicator:
         merge_across_loops: bool = False,
         inactive_timeout: int = -1,
         speed_multiplier: float = 1,
-        chunksize: int = 100_000,
-    ) -> pd.DataFrame:
+        chunksize: int = 5_000_000,
+    ) -> pd.DataFrame | os.PathLike:
         """Read source data and replicate source flows based on configuration.
         Save replication result to CSV file. Helper columns like "ORIG_INDEX" are not exported.
 
