@@ -8,9 +8,11 @@ Overload simulation scenario focuses on flooding tested probe with a large amoun
 and evaluating the number of processed packets before and after the flooding period.
 """
 
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import ipaddress
 import logging
 import os
+import sys
 
 import pytest
 from ftanalyzer.models.sm_data_types import SMRule, SMSubnetSegment
@@ -30,6 +32,8 @@ from src.generator.ft_generator import FtGeneratorConfig
 from src.generator.generator_builder import GeneratorBuilder
 from src.generator.interface import MultiplierSpeed, Replicator
 from src.probe.probe_builder import ProbeBuilder
+
+EXECUTOR_CLS = ThreadPoolExecutor if sys.gettrace() is not None else ProcessPoolExecutor
 
 PROJECT_ROOT = get_project_root()
 SIMULATION_TESTS_DIR = os.path.join(PROJECT_ROOT, "testing/simulation")
@@ -296,17 +300,26 @@ def test_simulation_overload(
     collector_instance.stop()
 
     flows_file = os.path.join(tmp_dir, "flows.csv")
-    collector_instance.get_reader().save_csv(flows_file)
 
-    replicated_ref = flow_replicator.replicate(
-        input_file=ref_file,
-        loops=LOOPS,
-        generator_stats=stats,
-        speed_multiplier=speed.speed if isinstance(speed, MultiplierSpeed) else 1.0,
-    )
+    # get flows.csv and replicated reference file in parallel
+    with EXECUTOR_CLS() as parallel_executor:
+        flows_file_future = parallel_executor.submit(
+            collector_instance.get_reader().save_csv, flows_file
+        )
 
-    if not probe_instance.host_statistics.local_file:
-        probe_instance.host_statistics.get_csv(tmp_dir)
+        replicated_ref_future = parallel_executor.submit(
+            flow_replicator.replicate,
+            input_file=ref_file,
+            loops=LOOPS,
+            generator_stats=stats,
+            speed_multiplier=speed.speed if isinstance(speed, MultiplierSpeed) else 1.0,
+        )
+
+        if not probe_instance.host_statistics.local_file:
+            probe_instance.host_statistics.get_csv(tmp_dir)
+
+        flows_file_future.result()
+        replicated_ref = replicated_ref_future.result()
 
     model = StatisticalModel(
         flows_file,

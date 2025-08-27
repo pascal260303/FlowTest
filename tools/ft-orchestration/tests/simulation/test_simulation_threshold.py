@@ -8,12 +8,13 @@ Threshold simulation scenario focuses on finding the maximum link speed that a p
 can be replayed so that the number of lost packets and bytes is below specified threshold.
 """
 
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import gc
 import ipaddress
 import logging
 import os
 import shutil
-import time
+import sys
 
 import pytest
 from ftanalyzer.models.sm_data_types import SMRule
@@ -33,6 +34,8 @@ from src.generator.ft_generator import FtGeneratorConfig
 from src.generator.generator_builder import GeneratorBuilder
 from src.generator.interface import GeneratorStats, MbpsSpeed, Replicator
 from src.probe.probe_builder import ProbeBuilder
+
+EXECUTOR_CLS = ThreadPoolExecutor if sys.gettrace() is not None else ProcessPoolExecutor
 
 PROJECT_ROOT = get_project_root()
 SIMULATION_TESTS_DIR = os.path.join(PROJECT_ROOT, "testing/simulation")
@@ -245,20 +248,27 @@ def test_simulation_threshold(
         probe_instance.stop()
         collector_instance.stop()
 
-        collector_instance.get_reader().save_csv(flows_file)
-        logging.getLogger().debug("Start applying flow replicator...")
-        start = time.time()
-        replicated_ref = flow_replicator.replicate(
-            input_file=ref_file, loops=loops, generator_stats=stats
-        )
-        end = time.time()
-        logging.getLogger().debug("Flows replicated in %.2f seconds.", (end - start))
+        # get flows.csv and replicated reference file in parallel
+        with EXECUTOR_CLS() as parallel_executor:
+            flows_file_future = parallel_executor.submit(
+                collector_instance.get_reader().save_csv, flows_file
+            )
+            logging.getLogger().debug("Start applying flow replicator...")
+            replicated_ref_future = parallel_executor.submit(
+                flow_replicator.replicate,
+                input_file=ref_file,
+                loops=loops,
+                generator_stats=stats,
+            )
+
+            if not probe_instance.host_statistics.local_file:
+                probe_instance.host_statistics.get_csv(tmp_dir)
+
+            flows_file_future.result()
+            replicated_ref = replicated_ref_future.result()
 
         flow_replicator = None
         gc.collect()
-
-        if not probe_instance.host_statistics.local_file:
-            probe_instance.host_statistics.get_csv(tmp_dir)
 
         ret, report = validate(
             analysis=scenario.test.analysis,

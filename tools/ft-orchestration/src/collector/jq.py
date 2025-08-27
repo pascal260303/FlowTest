@@ -51,6 +51,11 @@ CSV_DTYPES = {
     "MSG_LENGTH": np.uint64,
 }
 
+CONN_USER = None
+CONN_HOST = None
+CONN_KWARGS = None
+CMD_CSV = None
+
 
 class JQ(CollectorOutputReaderInterface):
     CONFIG_FILE = "config.xml"
@@ -66,6 +71,12 @@ class JQ(CollectorOutputReaderInterface):
     def __init__(self, executor: Executor, file: str):
         assert_tool_is_installed("ipfixcol2", executor)
         assert_tool_is_installed("jq", executor)
+
+        global CONN_USER, CONN_HOST, CONN_KWARGS, CMD_CSV
+        connection: fabric.Connection = executor._connection
+        CONN_USER = connection.user
+        CONN_HOST = connection.host
+        CONN_KWARGS = connection.connect_kwargs
 
         command = Tool(f"ls {file} -1", executor=executor, failure_verbosity="silent")
         stdout, _ = command.run()
@@ -104,6 +115,8 @@ ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} | jq -r "
         In the csv output the columns `iana:sourceIPv4Address` and `iana:sourceIPv6Address` are merged to `iana:sourceIPAddress`\\
         The same is done for `iana:destinationIPAddress`
         """
+        CMD_CSV = self._cmd_csv
+
         self._process = None
         self._buf = None
         self._idx = 0
@@ -281,7 +294,8 @@ ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} | jq -r "
 
         raise StopIteration
 
-    def save_csv(self, csv_file: str):
+    @staticmethod
+    def save_csv(csv_file: str):
         """Convert flows from FDS format to CSV file.
         Used for significant amount of flows in performance testing.
 
@@ -291,19 +305,13 @@ ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} | jq -r "
             Path to CSV file. Local file, CSV will be downloaded when collector running on remote.
         """
         header = CSV_HEADER_TO_ANALYZER_HEADER.values()
-        conn: fabric.Connection = self._executor._connection
-        user = conn.user
-        host = conn.host
-        kwargs = conn.connect_kwargs
 
-        if "key_filename" in kwargs:
-            key_filename = kwargs["key_filename"][0]
-            ssh_cmd = (
-                f"ssh -i {key_filename} {user}@{host} '{self._cmd_csv}' >> {csv_file}"
-            )
+        if "key_filename" in CONN_KWARGS:
+            key_filename = CONN_KWARGS["key_filename"][0]
+            ssh_cmd = f"ssh -i {key_filename} {CONN_USER}@{CONN_HOST} '{CMD_CSV}' >> {csv_file}"
         else:
-            password = kwargs["password"]
-            ssh_cmd = f"sshpass -p {password} ssh {user}@{host} '{self._cmd_csv}' >> {csv_file}"
+            password = CONN_KWARGS["password"]
+            ssh_cmd = f"sshpass -p {password} ssh {CONN_USER}@{CONN_HOST} '{CMD_CSV}' >> {csv_file}"
 
         logging.getLogger().info(
             "Preparing CSV output by calling ipfixcol2 + jq command..."

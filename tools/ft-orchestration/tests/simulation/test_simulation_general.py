@@ -8,9 +8,11 @@ General simulation test scenario. Replays traffic and performs evaluation.
 Allows to modify most of the configuration options.
 """
 
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import ipaddress
 import logging
 import os
+import sys
 from typing import Optional
 
 import pytest
@@ -40,6 +42,8 @@ from src.generator.ft_generator import FtGeneratorConfig
 from src.generator.generator_builder import GeneratorBuilder
 from src.generator.interface import GeneratorStats, MultiplierSpeed, Replicator
 from src.probe.probe_builder import ProbeBuilder
+
+EXECUTOR_CLS = ThreadPoolExecutor if sys.gettrace() is not None else ProcessPoolExecutor
 
 PROJECT_ROOT = get_project_root()
 SIMULATION_TESTS_DIR = os.path.join(PROJECT_ROOT, "testing/simulation")
@@ -348,17 +352,26 @@ def test_simulation_general(
     collector_instance.stop()
 
     flows_file = os.path.join(tmp_dir, "flows.csv")
-    collector_instance.get_reader().save_csv(flows_file)
 
-    replicated_ref = flow_replicator.replicate(
-        input_file=ref_file,
-        loops=scenario.test.loops,
-        generator_stats=stats,
-        speed_multiplier=speed.speed if isinstance(speed, MultiplierSpeed) else 1.0,
-    )
+    # get flows.csv and replicated reference file in parallel
+    with EXECUTOR_CLS() as parallel_executor:
+        flows_file_future = parallel_executor.submit(
+            collector_instance.get_reader().save_csv, flows_file
+        )
 
-    if not probe_instance.host_statistics.local_file:
-        probe_instance.host_statistics.get_csv(tmp_dir)
+        replicated_ref_future = parallel_executor.submit(
+            flow_replicator.replicate,
+            input_file=ref_file,
+            loops=scenario.test.loops,
+            generator_stats=stats,
+            speed_multiplier=speed.speed if isinstance(speed, MultiplierSpeed) else 1.0,
+        )
+
+        if not probe_instance.host_statistics.local_file:
+            probe_instance.host_statistics.get_csv(tmp_dir)
+
+        flows_file_future.result()
+        replicated_ref = replicated_ref_future.result()
 
     stats_report, precise_report = validate(
         analysis=scenario.test.analysis,
