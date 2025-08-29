@@ -324,10 +324,17 @@ def test_simulation_threshold(
         generator_instance = generator.get(scenario.mtu)
         generator_conf.timestamps.flow_max_interpacket_gap = f"{inactive_t - 1}s"
 
-        # run test
-        result, report = run_single_test(
-            max(1, int(speed_current / scenario.default.mbps)), MbpsSpeed(speed_current)
-        )
+        try:
+            # run test
+            result, report = run_single_test(
+                max(1, int(speed_current / scenario.default.mbps)),
+                MbpsSpeed(speed_current),
+            )
+        except Exception as e:
+            result = False
+            report = None
+            logging.error(e)
+
         if result:
             speed_min = speed_current
         else:
@@ -354,7 +361,8 @@ def test_simulation_threshold(
         gc.collect()
 
     passed = scenario.test.mbps_required <= speed_current
-    report.print_results()
+    if report:
+        report.print_results()
     HTMLReportData.simulation_summary_report.update_stats("sim_threshold", passed)
 
     logging.getLogger().info(
