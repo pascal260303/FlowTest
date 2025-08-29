@@ -293,11 +293,14 @@ def test_simulation_overload(
         generator_config=generator_conf,
     )
 
-    # method stats blocks until traffic is sent
-    stats = generator_instance.stats()
-
-    probe_instance.stop()
-    collector_instance.stop()
+    try:
+        # method stats blocks until traffic is sent
+        stats = generator_instance.stats()
+        probe_instance.stop()
+        collector_instance.stop()
+    except Exception as e:
+        finalizer_download_logs()
+        raise e
 
     flows_file = os.path.join(tmp_dir, "flows.csv")
 

@@ -241,12 +241,15 @@ def test_simulation_threshold(
             generator_config=generator_conf,
         )
 
-        # method stats blocks until traffic is sent
-        stats = generator_instance.stats()
-        logging.getLogger().info("stats: %s", stats)
-
-        probe_instance.stop()
-        collector_instance.stop()
+        try:
+            # method stats blocks until traffic is sent
+            stats = generator_instance.stats()
+            logging.getLogger().info("stats: %s", stats)
+            probe_instance.stop()
+            collector_instance.stop()
+        except Exception as e:
+            finalizer_download_logs()
+            raise e
 
         # get flows.csv and replicated reference file in parallel
         with EXECUTOR_CLS() as parallel_executor:

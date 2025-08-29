@@ -9,6 +9,7 @@ as FDS file.
 """
 
 import logging
+import os
 import shutil
 import tempfile
 import xml.etree.ElementTree as ET
@@ -301,13 +302,18 @@ class Ipfixcol2(CollectorInterface):
         directory : str
             Path to a local directory where logs should be stored.
         """
+        if self._executor.is_running():
+            self._executor.terminate()
 
         for log_file in self._prepare_logs():
             try:
                 self._rsync.pull_path(log_file, directory)
             except RsyncException as err:
                 logging.getLogger().warning("%s", err)
-        shutil.move(self._log_file, directory)
+        if not os.path.exists(
+            os.path.join(directory, os.path.basename(self._log_file))
+        ):
+            shutil.move(self._log_file, directory)
 
     def cleanup(self):
         """Delete working directory."""

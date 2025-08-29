@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import time
 from src.probe.interface import HostStats
 from lbr_testsuite.executable import (
@@ -98,6 +99,10 @@ class PidStat(HostStats):
             pass
 
     def get_csv(self, output_dir) -> os.PathLike:
+        if self.local_file:
+            if os.path.dirname(self.local_file) == output_dir:
+                return self.local_file
+            return shutil.copy(self.local_file, output_dir)
         try:
             self.local_file = self._rsync.pull_path(self._outfile, output_dir)
             return self.local_file
