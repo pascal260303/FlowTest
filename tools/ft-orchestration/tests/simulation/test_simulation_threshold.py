@@ -282,7 +282,7 @@ def test_simulation_threshold(
             flows_file=flows_file,
             ref_file=replicated_ref,
             stats=stats,
-            log_dir=log_dir,
+            log_dir=current_log_dir,
             host_stats_file=probe_instance.host_statistics.local_file,
             inactive_timeout=inactive_t,
         )
