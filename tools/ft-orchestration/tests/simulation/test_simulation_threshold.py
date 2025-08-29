@@ -12,6 +12,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import gc
 import ipaddress
 import logging
+import math
 import os
 import shutil
 import sys
@@ -201,8 +202,11 @@ def test_simulation_threshold(
 
     def cleanup():
         for obj in objects_to_cleanup:
-            obj.stop()
-            obj.cleanup()
+            try:
+                obj.stop()
+                obj.cleanup()
+            except Exception as e:
+                logging.error(e)
 
     objects_for_final_cleanup = []
 
@@ -327,9 +331,10 @@ def test_simulation_threshold(
         try:
             # run test
             result, report = run_single_test(
-                max(1, int(speed_current / scenario.default.mbps)),
+                max(1, int(math.ceil(speed_current / scenario.default.mbps))),
                 MbpsSpeed(speed_current),
             )
+            report.print_results()
         except Exception as e:
             result = False
             report = None
@@ -352,10 +357,13 @@ def test_simulation_threshold(
                 - speed_current % scenario.test.mbps_accuracy
             )
 
-        # cleanup devices
-        finalizer_download_logs()
-        if request.config.getoption("archive_test_data") == "always":
-            shutil.move(tmp_dir, os.path.join(current_log_dir, "data"))
+        try:
+            # cleanup devices
+            finalizer_download_logs()
+            if request.config.getoption("archive_test_data") == "always":
+                shutil.move(tmp_dir, os.path.join(current_log_dir, "data"))
+        except Exception as e:
+            logging.error(e)
         cleanup()
         objects_to_cleanup = []
         gc.collect()

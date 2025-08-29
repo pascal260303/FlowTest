@@ -302,6 +302,14 @@ class Ipfixcol2(CollectorInterface):
         directory : str
             Path to a local directory where logs should be stored.
         """
+        retries = 3
+        while self._executor.is_running() and retries > 0:
+            try:
+                self.stop()
+            except Exception:
+                self._executor.wait_or_kill()
+            retries -= 1
+
         if self._executor.is_running():
             self._executor.terminate()
 
