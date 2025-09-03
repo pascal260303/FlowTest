@@ -28,6 +28,8 @@ class EmptyHostStats(HostStats):
 class Manual(ProbeInterface):
     """Empty implementation of ProbeInterface to allow manual setup or hardware flow exporter"""
 
+    host_statistics = None
+
     def __init__(
         self,
         executor,
@@ -42,8 +44,7 @@ class Manual(ProbeInterface):
         **kwargs,
     ):
         self._timeouts = (active_timeout, inactive_timeout)
-
-    host_statistics = EmptyHostStats()
+        self.host_statistics = EmptyHostStats(executor, "")
 
     def start(self):
         logging.warning("start probe now")
