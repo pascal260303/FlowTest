@@ -1,7 +1,28 @@
 from pathlib import Path
 import logging
-from src.probe.interface import ProbeInterface
+from src.probe.interface import ProbeInterface, HostStats
 import time
+
+
+class EmptyHostStats(HostStats):
+    def __init__(self, executor, watch_cmd):
+        pass
+
+    local_file = None
+    cpus = 0
+    total_ram = 0
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
+    def cleanup(self):
+        pass
+
+    def get_csv(self, output_dir):
+        pass
 
 
 class Manual(ProbeInterface):
@@ -22,6 +43,8 @@ class Manual(ProbeInterface):
     ):
         self._timeouts = (active_timeout, inactive_timeout)
 
+    host_statistics = EmptyHostStats()
+
     def start(self):
         logging.warning("start probe now")
         for i in range(10, -1, -1):
@@ -36,7 +59,8 @@ class Manual(ProbeInterface):
 
     def stop(self):
         logging.warning("you can stop the probe now")
-        for i in range(10, -1, -1):
+        wait_time = max(self._timeouts)
+        for i in range(wait_time, -1, -1):
             logging.info(i)
             time.sleep(1)
 

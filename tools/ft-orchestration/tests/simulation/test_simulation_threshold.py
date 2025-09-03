@@ -369,8 +369,6 @@ def test_simulation_threshold(
         gc.collect()
 
     passed = scenario.test.mbps_required <= speed_current
-    if report:
-        report.print_results()
     HTMLReportData.simulation_summary_report.update_stats("sim_threshold", passed)
 
     logging.getLogger().info(
