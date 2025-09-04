@@ -123,6 +123,20 @@ class StatisticalModel:
         "SEQ_NUMBER": np.uint32,
         "MSG_LENGTH": np.uint64,
     }
+    CSV_COLUMN_TYPES_NULLABLE = {
+        "START_TIME": "UInt64",
+        "END_TIME": "UInt64",
+        "PROTOCOL": "UInt8",
+        "SRC_IP": str,
+        "DST_IP": str,
+        "SRC_PORT": "UInt16",
+        "DST_PORT": "UInt16",
+        "PACKETS": "UInt64",
+        "BYTES": "UInt64",
+        "EXPORT_TIME": "UInt64",
+        "SEQ_NUMBER": "UInt32",
+        "MSG_LENGTH": "UInt64",
+    }
 
     AGGREGATE_FLOWS = {
         "START_TIME": "min",
@@ -249,10 +263,25 @@ class StatisticalModel:
         first_write = True
         logging.getLogger().debug("reading file with flows=%s", path)
         # ports could be empty in flows with protocol like ICMP
-        for chunk in pd.read_csv(path, dtype=self.CSV_COLUMN_TYPES, chunksize=10_000):
-            chunk["SRC_PORT"] = chunk["SRC_PORT"].fillna(0)
-            chunk["DST_PORT"] = chunk["DST_PORT"].fillna(0)
-            chunk = chunk.astype(self.CSV_COLUMN_TYPES)
+        for chunk in pd.read_csv(
+            path, dtype=self.CSV_COLUMN_TYPES_NULLABLE, chunksize=10_000
+        ):
+            chunk = chunk.fillna(
+                {
+                    "START_TIME": 0,
+                    "END_TIME": 0,
+                    "PROTOCOL": 0,
+                    "SRC_IP": "",
+                    "DST_IP": "",
+                    "SRC_PORT": 0,
+                    "DST_PORT": 0,
+                    "PACKETS": 0,
+                    "BYTES": 0,
+                    "EXPORT_TIME": 0,
+                    "SEQ_NUMBER": 0,
+                    "MSG_LENGTH": 0,
+                }
+            ).astype(self.CSV_COLUMN_TYPES)
 
             self._zero_icmp_ports(chunk)
 
@@ -692,7 +721,7 @@ def setup_statsitic_objects(
             measure_end_time=end_time,
         ),
         "dt_flows_active_time": DiscreteCounter("Flow Duration Active"),
-        "dr_flows_cache_time": DiscreteCounter("Flow Duration in Cache"),
+        "dt_flows_cache_time": DiscreteCounter("Flow Duration in Cache"),
         "tsc_data_rate": TimeSeriesCounter(
             "data rate in Gb/s",
             sim,
