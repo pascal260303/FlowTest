@@ -32,6 +32,8 @@ CSV_AGGREGATE_TYPES = {
     "PACKETS": np.uint64,
     "BYTES": np.uint64,
     "FLOWS": np.uint64,
+    "ACTIVE_TIME": np.uint64,
+    "CACHE_TIME": np.uint64,
 }
 
 STATS_CSV_COLUMN_TYPES = {
@@ -120,13 +122,26 @@ class FlowEndEvent(Event):
     time = 0
     flow_rate: float
     flows: int
+    active_time: np.uint64
+    cache_time: np.uint64
 
-    def __init__(self, data_rate, packet_rate, end_time, flow_rate, flows):
+    def __init__(
+        self,
+        data_rate,
+        packet_rate,
+        end_time,
+        flow_rate,
+        flows,
+        active_time,
+        cache_time,
+    ):
         self.data_rate = -data_rate
         self.packet_rate = -packet_rate
         self.time = end_time
         self.flow_rate = -flow_rate
         self.flows = -int(flows)
+        self.active_time = active_time
+        self.cache_time = cache_time
 
 
 class OnePacketFlow(Event):
@@ -134,12 +149,16 @@ class OnePacketFlow(Event):
     packets: np.uint64
     time = 0
     flows: np.uint64
+    active_time: np.uint64
+    cache_time: np.uint64
 
-    def __init__(self, bytes, packets, time, flows):
+    def __init__(self, bytes, packets, time, flows, active_time, cache_time):
         self.bytes = bytes
         self.packets = packets
         self.time = time
         self.flows = flows
+        self.active_time = active_time
+        self.cache_time = cache_time
 
 
 class ExportEvent(Event):
@@ -244,6 +263,10 @@ def create_event_queue(
         temp_end = tempfile.NamedTemporaryFile(
             mode="w", prefix="end_time", suffix=".csv", dir=out_dir, delete=False
         )
+        temp_export = tempfile.NamedTemporaryFile(
+            mode="w", prefix="export_time", suffix=".csv", dir=out_dir, delete=False
+        )
+        tmp_export.append(temp_export)
         tmp_start_time.append(temp_start)
         tmp_end_time.append(temp_end)
         tmp_one_pack.append(temp_one)
@@ -255,18 +278,6 @@ def create_event_queue(
         else:
             end = max(end, math.ceil(chunk["END_TIME"].max() / 1000))
 
-        # One-packet flows
-        (
-            chunk[chunk["PACKETS"] == 1]
-            .groupby("START_TIME", as_index=False)
-            .agg(**agg_dict)
-            .sort_values("START_TIME")
-            .to_csv(
-                temp_one.name,
-                index=False,
-            )
-        )
-
         # Export Events
         if "EXPORT_TIME" not in chunk.columns:
             # accurate expected EXPORT_TIME
@@ -275,11 +286,23 @@ def create_event_queue(
             chunk["SEQ_NUMBER"] = chunk["EXPORT_TIME"] % 32
             # random MSG_LENGTH
             chunk["MSG_LENGTH"] = random.randint(100, 2048)
+        chunk["ACTIVE_TIME"] = chunk["END_TIME"] - chunk["START_TIME"] + 1
+        chunk["CACHE_TIME"] = (
+            chunk["EXPORT_TIME"] * 1000 - chunk["START_TIME"] + 1
+        ).clip(lower=0)
 
-        temp_export = tempfile.NamedTemporaryFile(
-            mode="w", prefix="export_time", suffix=".csv", dir=out_dir, delete=False
+        # One-packet flows
+        (
+            chunk[chunk["PACKETS"] == 1]
+            .groupby(["START_TIME", "ACTIVE_TIME", "CACHE_TIME"], as_index=False)
+            .agg(**agg_dict)
+            .sort_values("START_TIME")
+            .to_csv(
+                temp_one.name,
+                index=False,
+            )
         )
-        tmp_export.append(temp_export)
+
         (
             chunk.groupby(["EXPORT_TIME", "SEQ_NUMBER"], as_index=False)
             .agg(
@@ -296,7 +319,9 @@ def create_event_queue(
         # Multi-packet flows
         (
             chunk[chunk["PACKETS"] > 1]
-            .groupby(["START_TIME", "END_TIME"], as_index=False)
+            .groupby(
+                ["START_TIME", "END_TIME", "ACTIVE_TIME", "CACHE_TIME"], as_index=False
+            )
             .agg(**agg_dict)
             .sort_values("START_TIME")
             .to_csv(
@@ -307,7 +332,9 @@ def create_event_queue(
 
         (
             chunk[chunk["PACKETS"] > 1]
-            .groupby(["START_TIME", "END_TIME"], as_index=False)
+            .groupby(
+                ["START_TIME", "END_TIME", "ACTIVE_TIME", "CACHE_TIME"], as_index=False
+            )
             .agg(**agg_dict)
             .sort_values("END_TIME")
             .to_csv(
@@ -403,6 +430,8 @@ def read_one_packet_events(path: str) -> Iterator[OnePacketFlow]:
             packets=row["PACKETS"],
             time=row["START_TIME"],
             flows=row["FLOWS"],
+            active_time=row["ACTIVE_TIME"],
+            cache_time=row["CACHE_TIME"],
         )
 
 
@@ -433,4 +462,6 @@ def read_end_events(path: str) -> Iterator[FlowEndEvent]:
             end_time=row["END_TIME"],
             flow_rate=flow_rate,
             flows=row["FLOWS"],
+            active_time=row["ACTIVE_TIME"],
+            cache_time=row["CACHE_TIME"],
         )

@@ -28,7 +28,7 @@ from ftanalyzer.common.fast_analyzer_wrapper import (
     validate_statistical_model,
 )
 from ftanalyzer.common.pandas_multiprocessing import PandasMultiprocessingHelper
-from ftanalyzer.events.events import ExportEvent, FlowStartEvent
+from ftanalyzer.events.events import ExportEvent, FlowStartEvent, FlowEndEvent
 from ftanalyzer.models.sm_data_types import (
     SMException,
     SMMetricType,
@@ -39,7 +39,7 @@ from ftanalyzer.models.sm_data_types import (
 )
 from ftanalyzer.reports import StatisticalReport
 from src.generator.interface import GeneratorStats
-from ftanalyzer.counter import ContinuousCounter, TimeSeriesCounter
+from ftanalyzer.counter import ContinuousCounter, TimeSeriesCounter, DiscreteCounter
 from ftanalyzer.statistic_object import StatisticObject, SimState
 from ftanalyzer.events import (
     Event,
@@ -691,6 +691,8 @@ def setup_statsitic_objects(
             measure_start_time=start_time_offset + inactive_timeout * 1000,
             measure_end_time=end_time,
         ),
+        "dt_flows_active_time": DiscreteCounter("Flow Duration Active"),
+        "dr_flows_cache_time": DiscreteCounter("Flow Duration in Cache"),
         "tsc_data_rate": TimeSeriesCounter(
             "data rate in Gb/s",
             sim,
@@ -756,6 +758,22 @@ def setup_statsitic_objects(
             measure_start_time=start_time_offset + inactive_timeout * 1000,
             measure_end_time=end_time,
         ),
+        "tsc_flows_active_time": TimeSeriesCounter(
+            "Flow Duration Active",
+            sim,
+            start_time,
+            end_time,
+            measure_start_time=start_time_offset,
+            measure_end_time=end_time_offset,
+        ),
+        "tsc_flows_cache_time": TimeSeriesCounter(
+            "Flow Duration in Cache",
+            sim,
+            start_time,
+            end_time,
+            measure_start_time=start_time_offset,
+            measure_end_time=end_time_offset,
+        ),
     }
 
     metric_mapping: dict[str, List[str]] = {
@@ -770,6 +788,8 @@ def setup_statsitic_objects(
             "tsc_flows_per_export_packet",
             "ct_flows_per_export_packet",
         ],
+        "active_time": ["dt_flows_active_time", "tsc_flows_active_time"],
+        "cache_time": ["dt_flows_cache_time", "tsc_flows_cache_time"],
     }
 
     return (statistic_objects, metric_mapping)
@@ -842,6 +862,15 @@ def _flush_event_data(
         update_statistic_objects(
             statistic_objects, metric_mapping, **host_stats_event.row._asdict()
         )
+
+    for event in simultaneous_events:
+        if isinstance(event, OnePacketFlow) or isinstance(event, FlowEndEvent):
+            update_statistic_objects(
+                statistic_objects,
+                metric_mapping,
+                active_time=event.active_time,
+                cache_time=event.cache_time,
+            )
 
     return last_export
 
