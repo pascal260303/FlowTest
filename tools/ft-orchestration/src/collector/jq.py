@@ -103,6 +103,9 @@ class JQ(CollectorOutputReaderInterface):
 ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} | jq -r "
   .[\\"iana:sourceIPAddress\\"] = (.\\"iana:sourceIPv4Address\\" // .\\"iana:sourceIPv6Address\\") |
   .[\\"iana:destinationIPAddress\\"] = (.\\"iana:destinationIPv4Address\\" // .\\"iana:destinationIPv6Address\\") |
+  
+  .[\\"iana:flowStartMilliseconds\\"] //= .[\\"iana:systemInitTimeMilliseconds\\"] + .[\\"iana:flowStartSysUpTime\\"] |
+  .[\\"iana:flowEndMilliseconds\\"] //= .[\\"iana:systemInitTimeMilliseconds\\"] + .[\\"iana:flowEndSysUpTime\\"] |
   del(
     .\\"iana:sourceIPv4Address\\",
     .\\"iana:sourceIPv6Address\\",

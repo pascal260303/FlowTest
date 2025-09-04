@@ -45,12 +45,14 @@ class Manual(ProbeInterface):
     ):
         self._timeouts = (active_timeout, inactive_timeout)
         self.host_statistics = EmptyHostStats(executor, "")
+        self.running = False
 
     def start(self):
         logging.warning("start probe now")
         for i in range(10, -1, -1):
             logging.info(i)
             time.sleep(1)
+        self.running = True
 
     def supported_fields(self):
         pass
@@ -59,11 +61,15 @@ class Manual(ProbeInterface):
         pass
 
     def stop(self):
+        if not self.running:
+            return
+
         logging.warning("you can stop the probe now")
         wait_time = max(self._timeouts)
         for i in range(wait_time, -1, -1):
             logging.info(i)
             time.sleep(1)
+        self.running = False
 
     def cleanup(self):
         pass
