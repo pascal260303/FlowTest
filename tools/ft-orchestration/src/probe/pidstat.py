@@ -52,22 +52,28 @@ class PidStat(HostStats):
             .split(" ")[0]
         )  # in kB
 
-        pidstat_args = "-rushHvt"
-
         self._process = None
+        self._watch_cmd = watch_cmd
 
-        self._cmd = f"""
-        pidstat {pidstat_args} -C {watch_cmd} | sed -E -e 's/^# //g' -e 's/[ ]+/;/g' -e 's/%/percent_/g' | tail -n2 > {self._outfile}
+    def _get_cmd(self):
+        pidstat_args = "-ruhHv"
+        pids, _ = Tool(f"pgrep {self._watch_cmd}", executor=self._executor).run()
+        pids = pids.replace("\n", ",").strip(",")
+        header = "Time;UID;PID;percent_usr;percent_system;percent_guest;percent_wait;percent_CPU;CPU;minflt/s;majflt/s;VSZ;RSS;percent_MEM;threads;fd-nr;Command"
+        cmd = f"""
+        echo '{header}' > {self._outfile}
         sleep 1
-        stdbuf -oL pidstat {pidstat_args} -C {watch_cmd} 1 | stdbuf -oL sed -E -e 's/[ ]+/;/g' -e '/^([^0-9].*)?$/d' >> {self._outfile}
+        stdbuf -oL pidstat {pidstat_args} -p {pids} 1 | stdbuf -oL sed -E -e 's/[ ]+/;/g' -e '/^([^0-9].*)?$/d' >> {self._outfile}
         """
         """command that writes every second one line in `self._outfile` in csv format (; separated,  with header)
         see `man pidstat` for the meaning of the metrics selected by `-rus`
         """
 
+        return cmd
+
     def start(self):
         self._process = Daemon(
-            self._cmd,
+            self._get_cmd(),
             executor=self._executor,
             sudo=self._sudo,
             failure_verbosity="silent",

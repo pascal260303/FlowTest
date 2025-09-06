@@ -274,8 +274,6 @@ class NProbe(ProbeInterface):
 
         self._before_start()
 
-        self.host_statistics.start()
-
         self._processes: List[Daemon] = []
         executors = self._duplicate_executor(self._executor, self._settings.rss_queues)
 
@@ -309,6 +307,8 @@ class NProbe(ProbeInterface):
                 err,
             )
             raise ProbeException("nprobe startup error")
+
+        self.host_statistics.start()
 
     def _after_stop(self):
         pass

@@ -334,9 +334,6 @@ class Yaf(ProbeInterface):
                     time.sleep(2)
         self._before_start()
 
-        if start_stats:
-            self.host_statistics.start()
-
         self._process = Daemon(self._cmd, executor=self._executor, sudo=self._sudo)
         # stderr is implicitly redirected to stdout
         self._process.set_outputs(self._log_file)
@@ -357,6 +354,9 @@ class Yaf(ProbeInterface):
                 err,
             )
             raise ProbeException("yaf startup error")
+
+        if start_stats:
+            self.host_statistics.start()
 
     def _after_stop(self):
         pass
@@ -538,10 +538,10 @@ class YafPfring(Yaf):
         """Start the probe."""
         self._before_start()
 
-        self.host_statistics.start()
-
         for instance in self._yaf_instances:
             instance.start(False, False)
+
+        self.host_statistics.start()
 
     def stop(self):
         """Stop the probe."""

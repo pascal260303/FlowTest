@@ -447,8 +447,6 @@ class Ipfixprobe(ProbeInterface, ABC):
             self._stop_process(running_pid)
             time.sleep(2)
 
-        self.host_statistics.start()
-
         self._process = Daemon(self._cmd, executor=self._executor, sudo=self._sudo)
         # stderr is implicitly redirected to stdout
         self._process.set_outputs(self._log_file)
@@ -469,6 +467,8 @@ class Ipfixprobe(ProbeInterface, ABC):
                 err,
             )
             raise ProbeException("ipfixprobe startup error")
+
+        self.host_statistics.start()
 
     def stop(self) -> None:
         """Stop ipfixprobe process."""

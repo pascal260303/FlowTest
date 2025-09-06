@@ -480,12 +480,12 @@ class FlowmonProbe(ProbeInterface):
             # The sudo parameter of the Tool class cannot be used because of selective permission
             # of flowmon user on flowmon probe. Command is transformed to form 'sudo -E sh -c cmd'.
             # User cannot run 'sh' under sudo.
-            self.host_statistics.start()
             Tool(f"sudo {cmd}", executor=self._executor).run()
             time.sleep(3)
             self._pid = int(
                 Tool(f"cat {self._pidfile}", executor=self._executor).run()[0]
             )
+            self.host_statistics.start()
         except (ExecutableProcessError, ValueError) as err:
             logging.getLogger().error("Unable to start probe on %s.", self._interface)
             raise ProbeException(

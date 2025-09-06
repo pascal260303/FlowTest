@@ -59,24 +59,8 @@ STATS_CSV_COLUMN_TYPES = {
 }
 
 SUM_PIDSTAT_COLS = [
-    # "percent_usr",
-    # "percent_system",
-    # "percent_guest",
-    # "percent_wait",
     "percent_CPU",
-    # "minflt/s",
-    # "majflt/s",
-    # "fd-nr",
-]
-TAKE_PIDSTAT_COLS = [
-    # "RSS",
-    # "VSZ",
     "percent_MEM",
-    # "threads",
-    # "UID",
-    # "Command",
-    # "CPU",
-    "Time",
 ]
 
 _TEMP_DIRS = []
@@ -356,8 +340,7 @@ def create_event_queue(
         stats_df = pd.DataFrame([], columns=STATS_CSV_COLUMN_TYPES.keys())
 
     agg_dict = {col: "sum" for col in SUM_PIDSTAT_COLS}
-    agg_dict.update({col: "first" for col in TAKE_PIDSTAT_COLS})
-    stats_df = stats_df.groupby(["Time"]).agg(agg_dict)
+    stats_df = stats_df.groupby(["Time"], as_index=False).agg(agg_dict)
 
     stats_df.to_csv(hosts_stats_file, sep=";", index=False)
 

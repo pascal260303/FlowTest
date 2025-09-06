@@ -263,8 +263,6 @@ class Cento(ProbeInterface):
 
         self._before_start()
 
-        self.host_statistics.start()
-
         self._process = Daemon(self._cmd, executor=self._executor, sudo=self._sudo)
         # stderr is implicitly redirected to stdout
         self._process.set_outputs(self._log_file)
@@ -285,6 +283,8 @@ class Cento(ProbeInterface):
                 err,
             )
             raise ProbeException("cento startup error")
+
+        self.host_statistics.start()
 
     def _after_stop(self):
         pass
