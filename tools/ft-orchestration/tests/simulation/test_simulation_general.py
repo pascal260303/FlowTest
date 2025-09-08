@@ -348,8 +348,8 @@ def test_simulation_general(
     try:
         # method stats blocks until traffic is sent
         stats = generator_instance.stats()
-        collector_instance.stop()
         probe_instance.stop()
+        collector_instance.stop()
     except Exception as e:
         finalizer_download_logs()
         raise e
