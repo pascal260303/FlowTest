@@ -176,7 +176,7 @@ class Counter(StatisticObject, ABC):
 
         return out
 
-    def csv_report(self, output_dir: PathLike):
+    def csv_report(self, output_dir: PathLike, is_ref: bool = False):
         """Write Counter details to csv-file
 
         Args:
@@ -184,11 +184,15 @@ class Counter(StatisticObject, ABC):
         """
         content: str = f"{self._observed_variable};{self.__num_samples};{self.get_mean()};{self.get_variance()};{self.get_std_deviation()};{self.get_cvar()};{self.get_min()};{self.get_max()}\n"
         labels: str = "#counter ; numSamples ; MEAN; VAR; STD; CVAR; MIN; MAX\n"
-        self._write_csv(output_dir, content, labels)
+        self._write_csv(output_dir, content, labels, is_ref)
 
-    def _write_csv(self, output_dir: PathLike, content: str, labels: str):
+    def _write_csv(
+        self, output_dir: PathLike, content: str, labels: str, is_ref: bool = False
+    ):
         try:
-            dest = os.path.join(output_dir, "counters")
+            dest = os.path.join(
+                output_dir, "expected-counters" if is_ref else "counters"
+            )
             os.makedirs(dest, exist_ok=True)
 
             filename = os.path.join(dest, f"{self.__class__.__name__}.csv")

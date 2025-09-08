@@ -138,5 +138,6 @@ Expected:
 """)
 
             stat_obj.csv_report(self._log_dir)
+            ref_obj.csv_report(self._log_dir, is_ref=True)
             stat_obj.reset()
             ref_obj.reset()

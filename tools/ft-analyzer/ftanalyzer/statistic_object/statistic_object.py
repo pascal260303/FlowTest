@@ -24,7 +24,7 @@ class StatisticObject(ABC):
         pass
 
     @abstractmethod
-    def csv_report(self, output_dir: PathLike):
+    def csv_report(self, output_dir: PathLike, is_ref: bool = False):
         """Report to csv-file
 
         Args:

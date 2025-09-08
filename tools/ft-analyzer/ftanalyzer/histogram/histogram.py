@@ -63,9 +63,9 @@ class Histogram(StatisticObject, ABC):
         # Empty default report, just like Java
         return ""
 
-    def csv_report(self, output_dir: os.PathLike) -> None:
+    def csv_report(self, output_dir: os.PathLike, is_ref: bool = False) -> None:
         os.makedirs(os.path.join(output_dir, "histograms"), exist_ok=True)
-        dest = Path(output_dir) / "histograms"
+        dest = Path(output_dir) / "expected-histograms" if is_ref else "histograms"
         hist_path = dest / f"{self.observed_variable}_hist.csv"
         pdf_path = dest / f"{self.observed_variable}_pdf.csv"
         dist_path = dest / f"{self.observed_variable}_dist.csv"

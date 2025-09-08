@@ -85,13 +85,14 @@ class TimeSeriesCounter(DiscreteCounter):
         super().report()
         self._finalize_aggregation()
 
-    def csv_report(self, outputdir: PathLike) -> None:
+    def csv_report(self, outputdir: PathLike, is_ref: bool = False) -> None:
         """
         Exports the time series data to a CSV file and calls the plot function
         to create plot
         """
         self._finalize_aggregation()
-        self._plot(os.path.join(outputdir, "plots"))
+        plot_path = os.path.join(outputdir, "expected-plots" if is_ref else "plots")
+        self._plot(plot_path)
 
         samples_df = pd.DataFrame(
             self._samples_list,
