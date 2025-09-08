@@ -20,7 +20,7 @@ from lbr_testsuite.executable import (
     Rsync,
 )
 from fabric import Connection
-from src.probe.pidstat import PidStat
+from src.probe.mpstat import MpStat
 from src.probe.probe_target import ProbeTarget
 
 
@@ -246,7 +246,7 @@ class Yaf(ProbeInterface):
         self._log_file = path.join(self._local_workdir, "yaf.log")
         self._config_file = path.join(self._local_workdir, "settings.conf")
         self._cmd = None
-        self.host_statistics = PidStat(stats_executor, "yaf")
+        self.host_statistics = MpStat(stats_executor, "yaf")
         self._rsync = Rsync(executor)
 
     def _write_config(self, settings: YafSettings):
