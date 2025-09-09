@@ -8,16 +8,23 @@
             "args": [
                 "--config-path=/home/student/2025-bsc-kuppler-flowmeter/flowtest-configs",
                 "--replicator=kuppler-2-xdp-zc",
-                "--collector=ipfixcol-1",
-                "--probe=ipfix-probe-dpdk",
+                "--collector=ipfixcol-1:protocol=tcp",
+                "--probe=yaf-pfring",
                 "--disable-ansible",
                 "--html=logs/report.html",
                 "--self-contained-html",
                 "--continue-on-collection-errors",
                 "--capture=tee-sys",
                 "-m",
-                "simulation and (small_mtu and short)"
+                "simulation and hospitals and sim_threshold"
             ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Pytest for all probes with nohup (Detached)",
+            "type": "shell",
+            "command": "${workspaceFolder}/run_all_tests_nohup.sh",
+            "args": [],
             "problemMatcher": []
         }
     ]

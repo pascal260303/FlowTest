@@ -18,7 +18,7 @@ from lbr_testsuite.executable import (
     LocalExecutor,
 )
 from fabric import Connection
-from .pidstat import PidStat
+from src.probe.pidstat import PidStat
 
 
 class MpStat(HostStats):
