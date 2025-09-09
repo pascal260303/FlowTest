@@ -104,7 +104,9 @@ class TimeSeriesCounter(DiscreteCounter):
             }
         )
 
-        outputdir = os.path.join(outputdir, "counters")
+        outputdir = os.path.join(
+            outputdir, "expected-counters" if is_ref else "counters"
+        )
         os.makedirs(outputdir, exist_ok=True)
         file_name = f"{self._observed_variable}_timeseries.csv".replace(
             " ", "_"

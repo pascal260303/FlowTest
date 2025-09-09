@@ -247,9 +247,18 @@ class NProbe(ProbeInterface):
     def _before_start(self):
         interface_names = {name.split("@")[0] for name in self._interfaces}
         for ifc in interface_names:
+            name = ifc.split(":", 1)[-1]
+            Tool(
+                f"ip link set {name} up", executor=self._executor, sudo=self._sudo
+            ).run()
+            Tool(
+                f"ip link set {name} mtu {self._mtu}",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
             if ifc.startswith("zc:"):
-                self._switch_to_zc(ifc.split(":", 1)[-1])
-            self._set_rss_queues(ifc.split(":", 1)[-1])
+                self._switch_to_zc(name)
+            self._set_rss_queues(name)
 
     def start(self):
         """Start the probe."""
