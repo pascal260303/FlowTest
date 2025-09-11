@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import atexit
 import csv
 import heapq
+from io import TextIOWrapper
 import math
 import os
 import random
@@ -170,12 +171,15 @@ class HostStatsEvent(Event):
         self.time = row.Time * 1000
 
 
-def merge_sorted(temp_files, sort_column, dtype):
+def merge_sorted(temp_files: list[os.PathLike], sort_column, dtype):
     # Open all temp files for reading
     file_iters = []
+    open_files: list[TextIOWrapper] = []
     for f in temp_files:
-        reader = csv.DictReader(open(f.name, "r"))
+        file = open(f, "r")
+        reader = csv.DictReader(file)
         file_iters.append(reader)
+        open_files.append(file)
 
     # Define a wrapper to use with heapq.merge
     def row_key(row):
@@ -188,10 +192,12 @@ def merge_sorted(temp_files, sort_column, dtype):
     for row in heapq.merge(*file_iters, key=row_key):
         yield convert_row_types(row)
 
+    for f in open_files:
+        f.close()
+
     # Clean up temp files
     for f in temp_files:
-        f.close()
-        os.remove(f.name)
+        os.remove(f)
 
 
 def create_event_queue(
@@ -235,26 +241,8 @@ def create_event_queue(
         flows_path,
         dtype=CSV_COLUMN_TYPES,
         usecols=wanted_columns & available_columns,
-        chunksize=10_000,
+        chunksize=1_000_000,
     ):
-        # temp files
-        temp_one = tempfile.NamedTemporaryFile(
-            mode="w", prefix="one_packet", suffix=".csv", dir=out_dir, delete=False
-        )
-        temp_start = tempfile.NamedTemporaryFile(
-            mode="w", prefix="start_time", suffix=".csv", dir=out_dir, delete=False
-        )
-        temp_end = tempfile.NamedTemporaryFile(
-            mode="w", prefix="end_time", suffix=".csv", dir=out_dir, delete=False
-        )
-        temp_export = tempfile.NamedTemporaryFile(
-            mode="w", prefix="export_time", suffix=".csv", dir=out_dir, delete=False
-        )
-        tmp_export.append(temp_export)
-        tmp_start_time.append(temp_start)
-        tmp_end_time.append(temp_end)
-        tmp_one_pack.append(temp_one)
-
         # get start and end
         start = min(start, math.floor(chunk["START_TIME"].min() / 1000))
         if "EXPORT_TIME" in chunk.columns:
@@ -275,57 +263,79 @@ def create_event_queue(
             chunk["EXPORT_TIME"] * 1000 - chunk["START_TIME"] + 1
         ).clip(lower=0)
 
-        # One-packet flows
-        (
-            chunk[chunk["PACKETS"] == 1]
-            .groupby(["START_TIME", "ACTIVE_TIME", "CACHE_TIME"], as_index=False)
-            .agg(**agg_dict)
-            .sort_values("START_TIME")
-            .to_csv(
-                temp_one.name,
-                index=False,
+        with tempfile.NamedTemporaryFile(
+            mode="w", prefix="one_packet", suffix=".csv", dir=out_dir, delete=False
+        ) as temp_one:
+            tmp_one_pack.append(temp_one.name)
+            # One-packet flows
+            (
+                chunk[chunk["PACKETS"] == 1]
+                .groupby(["START_TIME", "ACTIVE_TIME", "CACHE_TIME"], as_index=False)
+                .agg(**agg_dict)
+                .sort_values("START_TIME")
+                .to_csv(
+                    temp_one,
+                    index=False,
+                )
             )
-        )
 
-        (
-            chunk.groupby(["EXPORT_TIME", "SEQ_NUMBER"], as_index=False)
-            .agg(
-                MSG_LENGTH=("MSG_LENGTH", "first"),
-                FLOWS=("MSG_LENGTH", "count"),
+        with tempfile.NamedTemporaryFile(
+            mode="w", prefix="export_time", suffix=".csv", dir=out_dir, delete=False
+        ) as temp_export:
+            tmp_export.append(temp_export.name)
+            (
+                chunk.groupby(["EXPORT_TIME", "SEQ_NUMBER"], as_index=False)
+                .agg(
+                    MSG_LENGTH=("MSG_LENGTH", "first"),
+                    FLOWS=("MSG_LENGTH", "count"),
+                )
+                .sort_values("EXPORT_TIME")
+                .to_csv(
+                    temp_export.name,
+                    index=False,
+                )
             )
-            .sort_values("EXPORT_TIME")
-            .to_csv(
-                temp_export.name,
-                index=False,
-            )
-        )
 
-        # Multi-packet flows
-        (
-            chunk[chunk["PACKETS"] > 1]
-            .groupby(
-                ["START_TIME", "END_TIME", "ACTIVE_TIME", "CACHE_TIME"], as_index=False
+        with tempfile.NamedTemporaryFile(
+            mode="w", prefix="start_time", suffix=".csv", dir=out_dir, delete=False
+        ) as temp_start:
+            tmp_start_time.append(temp_start.name)
+            # Multi-packet flows
+            (
+                chunk[chunk["PACKETS"] > 1]
+                .groupby(
+                    ["START_TIME", "END_TIME", "ACTIVE_TIME", "CACHE_TIME"],
+                    as_index=False,
+                )
+                .agg(**agg_dict)
+                .sort_values("START_TIME")
+                .to_csv(
+                    temp_start.name,
+                    index=False,
+                )
             )
-            .agg(**agg_dict)
-            .sort_values("START_TIME")
-            .to_csv(
-                temp_start.name,
-                index=False,
-            )
-        )
 
-        (
-            chunk[chunk["PACKETS"] > 1]
-            .groupby(
-                ["START_TIME", "END_TIME", "ACTIVE_TIME", "CACHE_TIME"], as_index=False
+        with tempfile.NamedTemporaryFile(
+            mode="w", prefix="end_time", suffix=".csv", dir=out_dir, delete=False
+        ) as temp_end:
+            tmp_end_time.append(temp_end.name)
+            (
+                chunk[chunk["PACKETS"] > 1]
+                .groupby(
+                    ["START_TIME", "END_TIME", "ACTIVE_TIME", "CACHE_TIME"],
+                    as_index=False,
+                )
+                .agg(**agg_dict)
+                .sort_values("END_TIME")
+                .to_csv(
+                    temp_end.name,
+                    index=False,
+                )
             )
-            .agg(**agg_dict)
-            .sort_values("END_TIME")
-            .to_csv(
-                temp_end.name,
-                index=False,
-            )
-        )
+
+    temp_stats = tempfile.NamedTemporaryFile(
+        mode="w", prefix="host_stats_", suffix=".csv", dir=out_dir, delete=False
+    )
 
     try:
         stats_df: pd.DataFrame = pd.read_csv(
@@ -339,14 +349,15 @@ def create_event_queue(
     except Exception:
         stats_df = pd.DataFrame([], columns=STATS_CSV_COLUMN_TYPES.keys())
 
-    stats_df.to_csv(hosts_stats_file, sep=";", index=False)
+    stats_df.to_csv(temp_stats, sep=";", index=False)
+    temp_stats.close()
 
     return heapq.merge(
         read_one_packet_events(tmp_one_pack),
         read_start_events(tmp_start_time),
         read_end_events(tmp_end_time),
         read_export_events(tmp_export),
-        read_host_stats_events(hosts_stats_file),
+        read_host_stats_events(temp_stats.name),
         key=lambda e: e.time,
     )
 
