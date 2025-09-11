@@ -8,7 +8,7 @@ import os
 import random
 import shutil
 import tempfile
-from typing import Iterator
+from typing import Any, Callable, Iterator
 import numpy as np
 import pandas as pd
 
@@ -171,9 +171,13 @@ class HostStatsEvent(Event):
         self.time = row.Time * 1000
 
 
-def merge_sorted(temp_files: list[os.PathLike], sort_column, dtype):
+def merge_sorted(
+    temp_files: list[os.PathLike],
+    sort_column: str,
+    dtype: dict[str, Callable[[Any], Any]],
+) -> Iterator[dict[str, object]]:
     # Open all temp files for reading
-    file_iters = []
+    file_iters: list[csv.DictReader] = []
     open_files: list[TextIOWrapper] = []
     for f in temp_files:
         file = open(f, "r")
@@ -183,7 +187,7 @@ def merge_sorted(temp_files: list[os.PathLike], sort_column, dtype):
 
     # Define a wrapper to use with heapq.merge
     def row_key(row):
-        return int(row[sort_column])
+        return dtype.get(sort_column, int)(row[sort_column])
 
     def convert_row_types(row):
         return {key: dtype.get(key, str)(value) for key, value in row.items()}
@@ -204,7 +208,7 @@ def create_event_queue(
     flows_path: os.PathLike,
     hosts_stats_file: os.PathLike,
     inactive_timeout: int = 30,
-    out_dir: str = None,
+    out_dir: os.PathLike = None,
 ) -> Iterator[Event]:
     if not out_dir:
         out_dir = tempfile.mkdtemp(prefix="flows_split_")
@@ -362,7 +366,7 @@ def create_event_queue(
     )
 
 
-def read_export_events(path: os.PathLike):
+def read_export_events(path: os.PathLike) -> Iterator[ExportEvent]:
     previous = None
     for row in merge_sorted(
         path,
@@ -399,7 +403,7 @@ def read_export_events(path: os.PathLike):
         )
 
 
-def read_host_stats_events(path: os.PathLike):
+def read_host_stats_events(path: os.PathLike) -> Iterator[HostStatsEvent]:
     for chunk in pd.read_csv(
         path,
         chunksize=100_000,
@@ -411,7 +415,7 @@ def read_host_stats_events(path: os.PathLike):
             yield HostStatsEvent(row)
 
 
-def read_one_packet_events(path: str) -> Iterator[OnePacketFlow]:
+def read_one_packet_events(path: os.PathLike) -> Iterator[OnePacketFlow]:
     CSV_AGGREGATE_TYPES_NO_END = {
         k: v for k, v in CSV_AGGREGATE_TYPES.items() if k != "END_TIME"
     }
@@ -426,7 +430,7 @@ def read_one_packet_events(path: str) -> Iterator[OnePacketFlow]:
         )
 
 
-def read_start_events(path: str) -> Iterator[FlowStartEvent]:
+def read_start_events(path: os.PathLike) -> Iterator[FlowStartEvent]:
     for row in merge_sorted(path, "START_TIME", CSV_AGGREGATE_TYPES):
         duration = (row["END_TIME"] - row["START_TIME"] + 1) / 1_000
         data_rate = row["BYTES"] * 8 / duration
@@ -441,7 +445,7 @@ def read_start_events(path: str) -> Iterator[FlowStartEvent]:
         )
 
 
-def read_end_events(path: str) -> Iterator[FlowEndEvent]:
+def read_end_events(path: os.PathLike) -> Iterator[FlowEndEvent]:
     for row in merge_sorted(path, "END_TIME", CSV_AGGREGATE_TYPES):
         duration = (row["END_TIME"] - row["START_TIME"] + 1) / 1_000
         data_rate = row["BYTES"] * 8 / duration
