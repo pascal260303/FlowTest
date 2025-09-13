@@ -70,31 +70,27 @@ atexit.register(_cleanup_temp_files)
 
 
 class StatisticalModel:
-    """Statistical model reads flows obtained from a network probe and compares them with a provided reference.
+    """
+    StatisticalModel reads flows obtained from a network probe and compares them with a provided reference.
 
-    Both data sources must be CSV files with the following columns (order of columns does not matter):
+    Both data sources must be CSV files with the following columns (order does not matter):
         START_TIME: time of the first observed packet in the flow (UTC timestamp in milliseconds)
         END_TIME: time of the last observed packet in the flow (UTC timestamp in milliseconds)
         PROTOCOL: protocol number defined by IANA
         SRC_IP: source IP address (IPv4 or IPv6)
         DST_IP: destination IP address (IPv4 or IPv6)
-        SRC_PORT: source port number (can be 0 if the flow does not contain TCP or UDP protocol)
-        DST_PORT: destination port number (can be 0 if the flow does not contain TCP or UDP protocol)
+        SRC_PORT: source port number (can be 0 if the flow does not contain TCP or UDP)
+        DST_PORT: destination port number (can be 0 if the flow does not contain TCP or UDP)
         PACKETS: number of transferred packets
         BYTES: number of transferred bytes (IP headers + payload)
 
-    Statistical model is able to merge flows with the same flow key (SRC_IP, DST_IP, SRC_PORT, DST_PORT, PROTOCOL).
-    Merging flows is allowed only if the flow key is unique in the reference data.
-    The model is able to perform statistical analysis of the provided data to determine how much it differs from the
-    reference. Every analysis can be done either with the whole data or with a specific subset (called "segment")
-    which can be specified either by IP subnets or time intervals.
+    The model can merge flows with the same flow key (SRC_IP, DST_IP, SRC_PORT, DST_PORT, PROTOCOL).
+    Merging is allowed only if the flow key is unique in the reference data.
+    Statistical analysis can be performed on the whole data or on specific subsets (segments) defined by IP subnets or time intervals.
 
-    Attributes
-    ----------
-    _flows : pandas.DataFrame
-        Flow records acquired from a network probe.
-    _ref : pandas.DataFrame
-        Flow records acting as a reference.
+    Attributes:
+        _flows (pandas.DataFrame): Flow records from a network probe.
+        _ref (pandas.DataFrame): Reference flow records.
     _fast_model : ft_fast_analyzer.StatisticalModel, optional
         Statistical model from the ft_fast_analyzer module if available and usable.
     """
@@ -160,29 +156,22 @@ class StatisticalModel:
         biflows_ts_correction: bool = False,
         inactive_timeout: int = 50,
     ) -> None:
-        """Read provided files and converts it to data frames.
+        """
+        Read provided files and convert them to data frames.
 
-        Parameters
-        ----------
-        flows : str
-            Path to a CSV containing flow records acquired from a network probe.
-        reference : str or pd.DataFrame
-            Path to a CSV containing flow records acting as a reference.
-            Or DataFrame in corresponding format.
-        start_time : int
-            Treat times in the reference file as offsets (in milliseconds) from the provided start time.
-            UTC timestamp in milliseconds.
-        merge : bool
-            Merge probe flows with the same flow key (SRC_IP, DST_IP, SRC_PORT, DST_PORT, PROTOCOL).
-            Merging flows is allowed only if the flow key is unique in the reference data.
-        biflows_ts_correction : bool
-            Value should be True when probe exporting biflows and precision model is used.
-            Timestamps in reverse direction flows are corrected.
+        Args:
+            flows (str): Path to CSV with flow records from a network probe.
+            reference (str or pd.DataFrame): Path to CSV or DataFrame with reference flow records.
+            stats (GeneratorStats): Generator statistics object.
+            log_dir (PathLike): Directory for logs.
+            host_stats (PathLike): Path to host statistics file.
+            merge (bool): Merge probe flows with the same flow key. Only allowed if flow key is unique in reference data.
+            use_statistical_counter (bool): Use statistical counter objects.
+            biflows_ts_correction (bool): Set True if probe exports biflows and precision model is used; corrects timestamps in reverse direction flows.
+            inactive_timeout (int): Timeout for inactive flows (seconds).
 
-        Raises
-        ------
-        SMException
-            Unable to process provided files.
+        Raises:
+            SMException: Unable to process provided files.
         """
 
         if fast_analyzer_available() and not merge and not biflows_ts_correction:
@@ -356,26 +345,18 @@ class StatisticalModel:
     def validate(
         self, rules: List[SMRule], check_complement: bool = False
     ) -> StatisticalReport:
-        """Evaluate data in the statistical model based on the provided evaluation rules.
+        """
+        Evaluate data in the statistical model based on the provided evaluation rules.
 
-        Parameters
-        ----------
-        rules : list
-            Evaluation rules which are used for the evaluation.
-        check_complement : bool, optional
-            Check if complement of segments in rules is empty. Default disabled.
-            Subnet or time segments used in the rules are considered complete
-            in this case.
+        Args:
+            rules (list): Evaluation rules for the analysis.
+            check_complement (bool): If True, checks if complement of segments in rules is empty.
 
-        Returns
-        ------
-        StatisticalReport
-            Report containing results of individual performed tests.
+        Returns:
+            StatisticalReport: Report containing results of performed tests.
 
-        Raises
-        ------
-        SMException
-            When duplicated metrics in a single validation rule are present.
+        Raises:
+            SMException: If duplicated metrics are present in a single validation rule.
         """
         start = time.time()
 
@@ -932,7 +913,7 @@ def process_events(
         return  # No events to process
 
     last_time: np.uint64 = sim.get_time()
-    last_export: np.uint64 = sim.get_time()
+    last_export: np.uint64 = sim.get_time() // 1000 * 1000
     sim.set_time(current_event.time)
 
     simultaneous_events = [current_event]

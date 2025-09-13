@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 class TimeSeriesCounter(DiscreteCounter):
     """
-    Counter that records the time series of a variable
+    Counter that records the time series of a variable and exports to CSV/plot.
     """
 
     def __init__(
@@ -19,16 +19,22 @@ class TimeSeriesCounter(DiscreteCounter):
         sim: SimState,
         start_time: np.uint64,
         end_time: np.uint64,
-        factor=1.0,
-        target_sample_count=10000,
-        measure_start_time=None,
-        measure_end_time=None,
-    ):
+        factor: float = 1.0,
+        target_sample_count: int = 10000,
+        measure_start_time: np.uint64 = None,
+        measure_end_time: np.uint64 = None,
+    ) -> None:
         """
+        Initialize a time series counter.
         Args:
-            variable (str): name of the observed variable
-            sim (SimState): the simulation state for current time
-            factor (float, optional): scaling factor. Defaults to 1.0.
+            variable: Name of the observed variable.
+            sim: Simulation state object.
+            start_time: Start time in ms.
+            end_time: End time in ms.
+            factor: Scaling factor for values.
+            target_sample_count: Target number of samples in time series.
+            measure_start_time: Optional measurement window start.
+            measure_end_time: Optional measurement window end.
         """
         super().__init__(variable, "counter type: time-series counter")
         self._sim = sim
@@ -51,6 +57,11 @@ class TimeSeriesCounter(DiscreteCounter):
         )
 
     def count(self, x: np.float64) -> None:
+        """
+        Count a new sample and update the time series aggregation.
+        Args:
+            x: Value to count.
+        """
         x = x * self._factor
         super().count(x)
 
@@ -70,7 +81,10 @@ class TimeSeriesCounter(DiscreteCounter):
             self._agg_sum = 0.0
             self._agg_count = 0
 
-    def _finalize_aggregation(self):
+    def _finalize_aggregation(self) -> None:
+        """
+        Finalize the aggregation window and store the last average value.
+        """
         if self._agg_count > 0:
             avg_value = self._agg_sum / self._agg_count
             self._samples_list.append((self._agg_start_time, avg_value))
@@ -78,17 +92,25 @@ class TimeSeriesCounter(DiscreteCounter):
             self._agg_count = 0
 
     def reset(self) -> None:
+        """
+        Reset all statistics and clear the time series.
+        """
         super().reset()
         self._samples_list.clear()
 
-    def report(self):
+    def report(self) -> None:
+        """
+        Finalize aggregation and print report.
+        """
         super().report()
         self._finalize_aggregation()
 
     def csv_report(self, outputdir: PathLike, is_ref: bool = False) -> None:
         """
-        Exports the time series data to a CSV file and calls the plot function
-        to create plot
+        Export the time series data to a CSV file and create a plot.
+        Args:
+            outputdir: Output directory for CSV and plot files.
+            is_ref: If True, write to expected-counters/expected-plots folders.
         """
         self._finalize_aggregation()
         plot_path = os.path.join(outputdir, "expected-plots" if is_ref else "plots")
@@ -117,11 +139,9 @@ class TimeSeriesCounter(DiscreteCounter):
 
     def _plot(self, outputdir: str) -> None:
         """
-        Plots the time series data stored in this TimeSeriesCounter
-        and saves it to a PNG file in the given output directory.
-
+        Plot the time series data and save as PNG file in the output directory.
         Args:
-            outputdir (str): path to the output folder
+            outputdir: Path to the output folder.
         """
         if not self._samples_list:
             return

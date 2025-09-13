@@ -12,12 +12,16 @@ class ContinuousCounter(Counter):
         has_negatives: bool = False,
         measure_start_time: np.uint64 = None,
         measure_end_time: np.uint64 = None,
-    ):
-        """Constructor
-
+    ) -> None:
+        """
+        Initialize a continuous-time counter.
         Args:
-            variable (str): _description_
-            start_time (np.uint64, optional): _description_. Defaults to np.uint64(0).
+            variable: Name of the observed variable.
+            sim: Simulation state object.
+            factor: Scaling factor for values.
+            has_negatives: If True, allow negative values for min.
+            measure_start_time: Start time for measurement window.
+            measure_end_time: End time for measurement window.
         """
         super().__init__(
             variable, "counter type: continuous-time counter", has_negatives
@@ -35,6 +39,11 @@ class ContinuousCounter(Counter):
         self._sim = sim
 
     def get_mean(self) -> np.float64:
+        """
+        Returns the mean value over the measurement interval.
+        Returns:
+            Mean value as np.float64.
+        """
         interval = self.last_sample_time - self.first_sample_time
         if interval > 0:
             return np.float64(self.get_sum_power_one()) / np.float64(interval)
@@ -42,6 +51,11 @@ class ContinuousCounter(Counter):
             return np.float64(0)
 
     def get_variance(self) -> np.float64:
+        """
+        Returns the variance over the measurement interval.
+        Returns:
+            Variance as np.float64.
+        """
         interval = self.last_sample_time - self.first_sample_time
         if interval > 0:
             mean = self.get_mean()
@@ -54,6 +68,11 @@ class ContinuousCounter(Counter):
             return np.float64(0)
 
     def count(self, x: np.float64) -> None:
+        """
+        Count a new sample, updating statistics with time-weighted increments.
+        Args:
+            x: Value to count.
+        """
         if (
             self._sim.get_time() < self._measure_start_time
             or self._sim.get_time() > self._measure_end_time
@@ -78,6 +97,9 @@ class ContinuousCounter(Counter):
         self.last_sample_time = current_time
 
     def reset(self) -> None:
+        """
+        Reset all statistics and measurement window.
+        """
         super().reset()
         self.first_sample_time = self._sim.get_time()
         self.last_sample_time = self._sim.get_time()

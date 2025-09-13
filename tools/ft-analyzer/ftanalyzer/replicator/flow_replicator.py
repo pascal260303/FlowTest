@@ -45,17 +45,16 @@ atexit.register(_cleanup_temp_files)
 
 
 class FlowReplicatorException(Exception):
-    """General exception used in flow replicator."""
+    """General exception for flow replicator errors."""
 
 
 @dataclass
 class IpAddConstant:
-    """Ip address modifier. Result of parsing of addConstant(number) or addOffset(number).
+    """
+    IP address modifier. Result of parsing addConstant(number) or addOffset(number).
 
-    Attributes
-    ----------
-    value : int
-        Parameter of modifier function. Constant value.
+    Attributes:
+        value (int): Constant value for the modifier function.
     """
 
     value: int
@@ -63,16 +62,13 @@ class IpAddConstant:
 
 @dataclass
 class ReplicatorUnit:
-    """Representation of single replication unit. Source IP or destination IP can be changed with modifier.
+    """
+    Representation of a single replication unit. Source or destination IP can be changed with a modifier.
 
-    Attributes
-    ----------
-    srcip : IpAddConstant, optional
-        Source IP modifier. If None, no changes during replication.
-    dstip : IpAddConstant, optional
-        Destination IP modifier. If None, no changes during replication.
-    loop_only : Iterable or None, optional
-        Apply replication unit only in loops that match given index(es).
+    Attributes:
+        srcip (IpAddConstant, optional): Source IP modifier. If None, no changes during replication.
+        dstip (IpAddConstant, optional): Destination IP modifier. If None, no changes during replication.
+        loop_only (Iterable or None, optional): Apply replication unit only in loops matching given indices.
     """
 
     srcip: Optional[IpAddConstant]
@@ -82,15 +78,12 @@ class ReplicatorUnit:
 
 @dataclass
 class ReplicatorConfig:
-    """Representation of replicator configuration. Parsed from dict (ft-replay like) representation.
+    """
+    Representation of replicator configuration. Parsed from dict (ft-replay style).
 
-    Attributes
-    ----------
-    units : list
-        List of replication units.
-        In each loop, all replication units take the source flows and replicate (copy and edit) them.
-    loop : list
-        Defines behavior of IP addresses modifying in loops. An IP offset can be set to provide IP subnet separation.
+    Attributes:
+        units (list): List of replication units. In each loop, all units replicate (copy and edit) the source flows.
+        loop (ReplicatorUnit): Defines IP address modification behavior in loops. An IP offset can provide subnet separation.
     """
 
     units: List[ReplicatorUnit]
@@ -99,39 +92,30 @@ class ReplicatorConfig:
 
 # pylint: disable=too-few-public-methods
 class FlowReplicator:
-    """FlowReplicator tool. Tool is used to replicate flows in reference CSV file, which is necessary in case
-    a replicator (ft-replay) was used as a generator during testing.
+    """
+    FlowReplicator tool. Used to replicate flows in a reference CSV file, necessary when a replicator (ft-replay) was used as a generator during testing.
 
-    Data source must be CSV files with the following columns (order of columns does not matter):
+    Data source must be CSV files with the following columns (order does not matter):
         START_TIME: time of the first observed packet in the flow (UTC timestamp in milliseconds)
         END_TIME: time of the last observed packet in the flow (UTC timestamp in milliseconds)
         PROTOCOL: protocol number defined by IANA
         SRC_IP: source IP address (IPv4 or IPv6)
         DST_IP: destination IP address (IPv4 or IPv6)
-        SRC_PORT: source port number (can be 0 if the flow does not contain TCP or UDP protocol)
-        DST_PORT: destination port number (can be 0 if the flow does not contain TCP or UDP protocol)
+        SRC_PORT: source port number (can be 0 if the flow does not contain TCP or UDP)
+        DST_PORT: destination port number (can be 0 if the flow does not contain TCP or UDP)
         PACKETS: number of transferred packets
         BYTES: number of transferred bytes (IP headers + payload)
 
-    Replicator automatically merges flows that have the same flow key within single replay loop. This behavior occurs
-    when multiple replication units do not affect the source or destination ip address.
+    Replicator automatically merges flows with the same flow key within a single replay loop. This occurs when multiple replication units do not affect the source or destination IP address.
 
-    Replicator is able to merge flows with the same flow key across replay loops. This feature must be enabled with
-    parameter 'merge_across_loops'. Merging takes into account inactive timeout: when gap between end and start of two
-    flows with the same flow key is greater or equal than inactive timeout, flows are left unmerged as well as in export
-    from a probe.
+    Replicator can merge flows with the same flow key across replay loops (enabled with 'merge_across_loops'). Merging considers inactive timeout: if the gap between end and start of two flows with the same key is greater or equal to inactive timeout, flows are left unmerged as in probe export.
 
-    "addConstant(number)" and "addOffset(number)" IP modifiers are supported. "addCounter" ft-replay modifier is
-    unsupported because of nondeterministic IP address distribution to replication workers/threads.
+    Supported IP modifiers: "addConstant(number)", "addOffset(number)". "addCounter" is unsupported due to nondeterministic IP address distribution to replication workers/threads.
 
-    Attributes
-    ----------
-    _config : ReplicatorConfig
-        Replicator configuration - ft-replay style.
-    _flows : pd.DataFrame
-        Source (original) flow records.
-    _inactive_timeout : int or None
-        Probe inactive timeout in milliseconds. Used when merging across loops.
+    Attributes:
+        _config (ReplicatorConfig): Replicator configuration (ft-replay style).
+        _flows (pd.DataFrame): Source (original) flow records.
+        _inactive_timeout (int or None): Probe inactive timeout in milliseconds, used when merging across loops.
     """
 
     FLOW_KEY = ["PROTOCOL", "SRC_IP", "DST_IP", "SRC_PORT", "DST_PORT"]

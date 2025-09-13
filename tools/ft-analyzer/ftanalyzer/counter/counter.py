@@ -7,7 +7,9 @@ import numpy as np
 
 
 class Counter(StatisticObject, ABC):
-    """Basic counter that counts: * sum power two * sum power one * minimum * maximum"""
+    """
+    Basic counter that tracks sum, sum of squares, minimum, maximum, and sample count for a variable.
+    """
 
     _sum_power_one: np.float64
     """Sum of values counted by this counter
@@ -32,12 +34,13 @@ class Counter(StatisticObject, ABC):
         variable: str,
         type: str = "counter type: base counter",
         has_negatives: bool = False,
-    ):
-        """Constructor
-
+    ) -> None:
+        """
+        Initialize a counter for a given variable.
         Args:
-            variable (str): the observed variable
-            type (_type_, optional): the type of counter. Defaults to "counter type: base counter".
+            variable: Name of the observed variable.
+            type: Description of the counter type.
+            has_negatives: If True, allow negative values for min.
         """
         self.__counter_type = type
         self._observed_variable = variable
@@ -50,35 +53,35 @@ class Counter(StatisticObject, ABC):
 
     @abstractmethod
     def get_mean(self) -> np.float64:
-        """Returns the mean of the observed variable
-
+        """
+        Returns the mean of the observed variable.
         Returns:
-            np.float64: the mean
+            Mean value as np.float64.
         """
         pass
 
     @abstractmethod
     def get_variance(self) -> np.float64:
-        """Returns the variance of the observed variable
-
+        """
+        Returns the variance of the observed variable.
         Returns:
-            np.float64: the variance
+            Variance as np.float64.
         """
         pass
 
     def get_std_deviation(self) -> np.float64:
-        """Returns the standard deviation of the observed variable
-
+        """
+        Returns the standard deviation of the observed variable.
         Returns:
-            np.float64: the standard deviation
+            Standard deviation as np.float64.
         """
         return math.sqrt(max(self.get_variance(), 0))
 
     def get_cvar(self) -> np.float64:
-        """Returns the co-variance of the observed variable
-
+        """
+        Returns the coefficient of variation of the observed variable.
         Returns:
-            np.float64: the co-variance
+            Coefficient of variation as np.float64.
         """
         if self.get_mean() == 0:
             return 0 if self.get_std_deviation() == 0 else np.finfo(np.float64).max
@@ -86,66 +89,66 @@ class Counter(StatisticObject, ABC):
             return self.get_std_deviation() / self.get_mean()
 
     def get_min(self) -> np.float64:
-        """Returns the minimum of the observed variable
-
+        """
+        Returns the minimum value observed.
         Returns:
-            np.float64: the minimum
+            Minimum value as np.float64.
         """
         return self.__min
 
     def get_max(self) -> np.float64:
-        """Returns the maximum of the observed variable
-
+        """
+        Returns the maximum value observed.
         Returns:
-            np.float64: the maximum
+            Maximum value as np.float64.
         """
         return self.__max
 
     def get_num_samples(self) -> np.uint64:
-        """Returns the number of counted samples
-
+        """
+        Returns the number of counted samples.
         Returns:
-            np.uint64: the number of samples
+            Number of samples as np.uint64.
         """
         return self.__num_samples
 
     def get_sum_power_one(self) -> np.float64:
-        """Returns the sum of all counted samples
-
+        """
+        Returns the sum of all counted samples.
         Returns:
-            np.float64: the sum of all samples
+            Sum as np.float64.
         """
         return self._sum_power_one
 
-    def increase_sum_power_one(self, value: np.float64):
-        """Adds the given value to the sum of counted samples
-
+    def increase_sum_power_one(self, value: np.float64) -> None:
+        """
+        Add the given value to the sum of counted samples.
         Args:
-            value (np.float64): the value to add
+            value: Value to add.
         """
         self._sum_power_one += value
 
     def get_sum_power_two(self) -> np.float64:
-        """Returns the sum of all counted samples power two
-
+        """
+        Returns the sum of all counted samples squared.
         Returns:
-            np.float64: the sum of all samples power two
+            Sum of squares as np.float64.
         """
         return self._sum_power_two
 
-    def increase_sum_power_two(self, value: np.float64):
-        """Adds the given value to the sum of counted samples
-
+    def increase_sum_power_two(self, value: np.float64) -> None:
+        """
+        Add the given value to the sum of counted samples squared.
         Args:
-            value (np.float64): the value to add
+            value: Value to add.
         """
         self._sum_power_two += value
 
-    def count(self, x: np.float64):
-        """Counts a new sample (set min/max and increment sample counter)
-
+    def count(self, x: np.float64) -> None:
+        """
+        Count a new sample (set min/max and increment sample counter).
         Args:
-            x (np.float64): the value to count
+            x: Value to count.
         """
         self.__min = min(self.__min, x)
         if not self._has_negatives:
@@ -154,10 +157,10 @@ class Counter(StatisticObject, ABC):
         self.__num_samples += 1
 
     def report(self) -> str:
-        """Outputs the report of this counter to the command line
-
+        """
+        Output a string report of this counter.
         Returns:
-            str: output as string
+            Report as string.
         """
         out: str = ""
         if self._observed_variable:
@@ -176,11 +179,12 @@ class Counter(StatisticObject, ABC):
 
         return out
 
-    def csv_report(self, output_dir: PathLike, is_ref: bool = False):
-        """Write Counter details to csv-file
-
+    def csv_report(self, output_dir: PathLike, is_ref: bool = False) -> None:
+        """
+        Write counter details to a CSV file.
         Args:
-            output_dir (PathLike): _description_
+            output_dir: Output directory for CSV file.
+            is_ref: If True, write to expected-counters folder.
         """
         content: str = f"{self._observed_variable};{self.__num_samples};{self.get_mean()};{self.get_variance()};{self.get_std_deviation()};{self.get_cvar()};{self.get_min()};{self.get_max()}\n"
         labels: str = "#counter ; numSamples ; MEAN; VAR; STD; CVAR; MIN; MAX\n"
@@ -188,7 +192,15 @@ class Counter(StatisticObject, ABC):
 
     def _write_csv(
         self, output_dir: PathLike, content: str, labels: str, is_ref: bool = False
-    ):
+    ) -> None:
+        """
+        Helper to write CSV content to file.
+        Args:
+            output_dir: Output directory.
+            content: CSV content string.
+            labels: CSV header string.
+            is_ref: If True, write to expected-counters folder.
+        """
         try:
             dest = os.path.join(
                 output_dir, "expected-counters" if is_ref else "counters"
@@ -206,7 +218,10 @@ class Counter(StatisticObject, ABC):
         except IOError as e:
             print(f"IOError while writing CSV: {e}")
 
-    def reset(self):
+    def reset(self) -> None:
+        """
+        Reset all statistics to initial state.
+        """
         self._sum_power_one = 0
         self._sum_power_two = 0
         self.__min = np.inf

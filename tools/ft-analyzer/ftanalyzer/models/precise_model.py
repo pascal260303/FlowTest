@@ -23,26 +23,22 @@ from src.generator.interface import GeneratorStats
 # pylint: disable=too-few-public-methods
 class PreciseModel(StatisticalModel):
     """
-    Precise model aims to discover specific differences between flows from a probe and expected (reference) flows.
-    It is an extension of the statistical model mainly for situations in which network errors (such as packet drops)
-    are not expected. The model is able to discover the following differences:
+    PreciseModel aims to discover specific differences between flows from a probe and expected (reference) flows.
+    It extends the statistical model for situations where network errors (such as packet drops) are not expected.
+    The model can detect:
         * missing flows
         * unexpected flows
         * incorrect timestamps
         * incorrect values of packets and bytes
-        * flows which consists of incorrect number of partial flows
+        * flows with incorrect number of partial flows
 
-    The format of the input data is the same as for the statistical model.
+    The input data format is the same as for the statistical model.
     Subnet and time segments behave the same as in the statistical model.
-    IMPORTANT: requires flow keys in reference data to be unique.
+    IMPORTANT: Requires flow keys in reference data to be unique.
 
-    Attributes
-    ----------
-    _report : PreciseReport
-        Report which is created from discovered flow differences.
-    _active_timeout : int
-        Maximum duration of a flow (in milliseconds) which was configured on the network
-        probe during the monitoring period.
+    Attributes:
+        _report (PreciseReport): Report created from discovered flow differences.
+        _active_timeout (int): Maximum duration of a flow (in milliseconds) configured on the network probe during monitoring.
     """
 
     DEFAULT_OK_TIME_DIFF = 100
@@ -59,28 +55,22 @@ class PreciseModel(StatisticalModel):
         biflows_ts_correction: bool = False,
         use_statistical_counter: bool = False,
     ) -> None:
-        """Initialize the statistical model with sorted input data.
-        Parameters
-        ----------
-        flows : str
-            Path to a CSV containing flow records acquired from a network probe.
-        reference : str or pd.DataFrame
-            Path to a CSV containing flow records acting as a reference.
-            Or DataFrame in corresponding format.
-        active_timeout : int
-            Maximum duration of a flow (in seconds) which was configured on the network
-            probe during the monitoring period.
-        start_time : int
-            Treat times in the reference file as offsets (in milliseconds) from the provided start time.
-            UTC timestamp in milliseconds.
-        biflows_ts_correction : bool
-            Value should be True when probe exporting biflows.
-            Timestamps in reverse direction flows is corrected.
+        """
+        Initialize the precise model with sorted input data.
 
-        Raises
-        ------
-        SMException
-            Unable to process provided files.
+        Args:
+            flows (str): Path to a CSV containing flow records from a network probe.
+            reference (str or pd.DataFrame): Path to a CSV or DataFrame with reference flow records.
+            active_timeout (int): Maximum duration of a flow (in seconds) configured on the network probe.
+            inactive_timeout (int): Timeout for inactive flows (in seconds).
+            stats (GeneratorStats): Generator statistics object.
+            log_dir (PathLike): Directory for logs.
+            host_stats (PathLike): Path to host statistics file.
+            biflows_ts_correction (bool): Set True if probe exports biflows; corrects timestamps in reverse direction flows.
+            use_statistical_counter (bool): Use statistical counter objects.
+
+        Raises:
+            SMException: Unable to process provided files.
         """
 
         super().__init__(
@@ -103,31 +93,23 @@ class PreciseModel(StatisticalModel):
         ok_time_diff: int = DEFAULT_OK_TIME_DIFF,
         check_complement: bool = False,
     ) -> PreciseReport:
-        """Evaluate data in the precise model for each of the provided segments.
+        """
+        Evaluate data in the precise model for each provided segment.
 
         Detects:
             * missing flows
             * unexpected flows
             * incorrect timestamps
             * incorrect values of packets and bytes
-            * flows which consists of incorrect number of partial flows
+            * flows with incorrect number of partial flows
 
-        Parameters
-        ----------
-        segments : list, None
-            Segments for which the evaluation should be performed.
-            If None, the evaluation is performed for all data.
-        ok_time_diff : int
-            Maximum difference between timestamps of a flow and its reference flow which is not reported (in ms).
-        check_complement : bool, optional
-            Check if complement of segments is empty. Default disabled.
-            Subnet or time segments are considered complete
-            in this case.
+        Args:
+            segments (list, optional): Segments for evaluation. If None, evaluates all data.
+            ok_time_diff (int): Maximum allowed timestamp difference (ms) not reported as error.
+            check_complement (bool): If True, checks if complement of segments is empty.
 
-        Returns
-        ------
-        PreciseReport
-            Report containing results of individual performed tests.
+        Returns:
+            PreciseReport: Report containing results of performed tests.
         """
 
         start = time.time()
@@ -199,17 +181,14 @@ class PreciseModel(StatisticalModel):
 
     @staticmethod
     def _time_diff(flow: pd.Series) -> int:
-        """Get the difference of the flow timestamps from the reference flow.
+        """
+        Get the difference of the flow timestamps from the reference flow.
 
-        Parameters
-        ----------
-        flow : pandas.Series
-            Single flow record.
+        Args:
+            flow (pandas.Series): Single flow record.
 
-        Returns
-        ------
-        int
-            Timestamp difference (in milliseconds).
+        Returns:
+            int: Timestamp difference (in milliseconds).
         """
 
         start_time_diff = abs(flow["START_TIME_x"] - flow["START_TIME_y"])
@@ -219,19 +198,15 @@ class PreciseModel(StatisticalModel):
     def _discard_correct_flows(
         self, frame: pd.DataFrame, ok_time_diff: int
     ) -> pd.DataFrame:
-        """Get dataframe containing only flows with errors.
+        """
+        Get dataframe containing only flows with errors.
 
-        Parameters
-        ----------
-        frame : pandas.DataFrame
-            Dataframe containing both data from the probe and from the reference merged on flow key.
-        ok_time_diff : int
-            Maximum difference between timestamps of a flow and its reference flow which is not reported (in ms).
+        Args:
+            frame (pandas.DataFrame): Dataframe with probe and reference data merged on flow key.
+            ok_time_diff (int): Maximum allowed timestamp difference (ms) not reported as error.
 
-        Returns
-        ------
-        pandas.DataFrame
-            Dataframe with only error flows.
+        Returns:
+            pandas.DataFrame: Dataframe with only error flows.
         """
 
         frame["FLOW_COUNT_ORIG"] = 1 + (
@@ -250,21 +225,16 @@ class PreciseModel(StatisticalModel):
     def _report_scaled_flows(
         self, flows: pd.DataFrame, refs: pd.DataFrame, combined: pd.DataFrame
     ) -> pd.DataFrame:
-        """Report flows containing incorrect number of packets or bytes.
+        """
+        Report flows containing incorrect number of packets or bytes.
 
-        Parameters
-        ----------
-        flows : pandas.DataFrame
-            Original dataframe with probe flows.
-        refs : pandas.DataFrame
-            Original dataframe with reference flows.
-        combined : pandas.DataFrame
-            Dataframe containing both data from the probe and from the reference merged on flow key.
+        Args:
+            flows (pandas.DataFrame): Probe flows.
+            refs (pandas.DataFrame): Reference flows.
+            combined (pandas.DataFrame): Merged probe and reference data.
 
-        Returns
-        ------
-        pandas.DataFrame
-            Dataframe without flows with incorrect number of packets or bytes.
+        Returns:
+            pandas.DataFrame: Dataframe without flows with incorrect number of packets or bytes.
         """
 
         scaled = combined[
@@ -287,23 +257,17 @@ class PreciseModel(StatisticalModel):
         combined: pd.DataFrame,
         ok_time_diff: int,
     ) -> pd.DataFrame:
-        """Report flows which timestamps differ from the reference.
+        """
+        Report flows with timestamps differing from the reference.
 
-        Parameters
-        ----------
-        flows : pandas.DataFrame
-            Original dataframe with probe flows.
-        refs : pandas.DataFrame
-            Original dataframe with reference flows.
-        combined : pandas.DataFrame
-            Dataframe containing both data from the probe and from the reference merged on flow key.
-        ok_time_diff : int
-            Maximum difference between timestamps of a flow and its reference flow which is not reported (in ms).
+        Args:
+            flows (pandas.DataFrame): Probe flows.
+            refs (pandas.DataFrame): Reference flows.
+            combined (pandas.DataFrame): Merged probe and reference data.
+            ok_time_diff (int): Maximum allowed timestamp difference (ms) not reported as error.
 
-        Returns
-        ------
-        pandas.DataFrame
-            Dataframe without flows with problematic timestamps.
+        Returns:
+            pandas.DataFrame: Dataframe without flows with problematic timestamps.
         """
 
         shifted = combined[combined["TIME_DIFF"] > ok_time_diff]
@@ -320,14 +284,12 @@ class PreciseModel(StatisticalModel):
         return combined.drop(shifted.index)
 
     def _report_flows(self, flows: pd.DataFrame, category: PMTestCategory) -> None:
-        """Report all flows to a category.
+        """
+        Report all flows to a category.
 
-        Parameters
-        ----------
-        flows : pandas.DataFrame
-            Flows or reference flows.
-        category : PMTestCategory
-            The test category the flows should be reported to (either MISSING or UNEXPECTED).
+        Args:
+            flows (pandas.DataFrame): Flows or reference flows.
+            category (PMTestCategory): The test category to report flows to (MISSING or UNEXPECTED).
         """
         if hasattr(flows, "index"):
             flows = flows.set_index("index")

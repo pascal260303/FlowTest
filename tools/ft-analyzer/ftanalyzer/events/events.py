@@ -67,7 +67,8 @@ SUM_PIDSTAT_COLS = [
 _TEMP_DIRS = []
 
 
-def _cleanup_temp_dirs():
+def _cleanup_temp_dirs() -> None:
+    """Delete all temporary directories stored in _TEMP_DIRS."""
     for path in _TEMP_DIRS:
         try:
             shutil.rmtree(path, ignore_errors=True)
@@ -80,20 +81,40 @@ atexit.register(_cleanup_temp_dirs)
 
 
 class Event(ABC):
+    """Abstract base class for events with a timestamp."""
+
     @property
     @abstractmethod
     def time(self) -> np.uint64:
+        """Timestamp of the event in milliseconds."""
         pass
 
 
 class FlowStartEvent(Event):
+    """Event for the start of a flow."""
+
     data_rate: float
     packet_rate: float
-    time = 0
+    time: np.uint64 = 0
     flow_rate: float
     flows: int
 
-    def __init__(self, data_rate, packet_rate, start_time, flow_rate, flows):
+    def __init__(
+        self,
+        data_rate: float,
+        packet_rate: float,
+        start_time: np.uint64,
+        flow_rate: float,
+        flows: int,
+    ) -> None:
+        """
+        Args:
+            data_rate: Data rate in bits per second
+            packet_rate: Packet rate in packets per second
+            start_time: Start time in ms
+            flow_rate: Flows per second
+            flows: Number of flows
+        """
         self.data_rate = data_rate
         self.packet_rate = packet_rate
         self.time = start_time
@@ -102,9 +123,11 @@ class FlowStartEvent(Event):
 
 
 class FlowEndEvent(Event):
+    """Event for the end of a flow."""
+
     data_rate: float
     packet_rate: float
-    time = 0
+    time: np.uint64 = 0
     flow_rate: float
     flows: int
     active_time: np.uint64
@@ -112,14 +135,24 @@ class FlowEndEvent(Event):
 
     def __init__(
         self,
-        data_rate,
-        packet_rate,
-        end_time,
-        flow_rate,
-        flows,
-        active_time,
-        cache_time,
-    ):
+        data_rate: float,
+        packet_rate: float,
+        end_time: np.uint64,
+        flow_rate: float,
+        flows: int,
+        active_time: np.uint64,
+        cache_time: np.uint64,
+    ) -> None:
+        """
+        Args:
+            data_rate: Data rate in bits per second (negated)
+            packet_rate: Packet rate in packets per second (negated)
+            end_time: End time in ms
+            flow_rate: Flows per second (negated)
+            flows: Number of flows (negated)
+            active_time: Active time of the flow
+            cache_time: Time in cache
+        """
         self.data_rate = -data_rate
         self.packet_rate = -packet_rate
         self.time = end_time
@@ -130,14 +163,33 @@ class FlowEndEvent(Event):
 
 
 class OnePacketFlow(Event):
+    """Event for a flow with only one packet."""
+
     bytes: np.uint64
     packets: np.uint64
-    time = 0
+    time: np.uint64 = 0
     flows: np.uint64
     active_time: np.uint64
     cache_time: np.uint64
 
-    def __init__(self, bytes, packets, time, flows, active_time, cache_time):
+    def __init__(
+        self,
+        bytes: np.uint64,
+        packets: np.uint64,
+        time: np.uint64,
+        flows: np.uint64,
+        active_time: np.uint64,
+        cache_time: np.uint64,
+    ) -> None:
+        """
+        Args:
+            bytes: Number of bytes
+            packets: Number of packets
+            time: Timestamp
+            flows: Number of flows
+            active_time: Active time
+            cache_time: Time in cache
+        """
         self.bytes = bytes
         self.packets = packets
         self.time = time
@@ -147,26 +199,40 @@ class OnePacketFlow(Event):
 
 
 class ExportEvent(Event):
+    """Event for an export operation."""
+
     flows: np.uint64
     bytes: np.uint64
-    time = 0
+    time: np.uint64 = 0
 
-    def __init__(self, export_time, flows, bits):
+    def __init__(
+        self, export_time: np.uint64, flows: np.uint64, bits: np.uint64
+    ) -> None:
+        """
+        Args:
+            export_time: Export time in seconds
+            flows: Number of flows
+            bits: Number of bits
+        """
         self.time = export_time * 1000
         self.flows = flows
         self.bytes = bits / np.uint64(8)
 
 
 class HostStatsEvent(Event):
-    """Event Holding Statistics fetched from Host OS
+    """Event holding statistics fetched from the host operating system.
 
-    Example header of original csv file:
+    Example header of the original CSV file:
         Time;UID;PID;percent_usr;percent_system;percent_guest;percent_wait;percent_CPU;CPU;minflt/s;majflt/s;VSZ;RSS;percent_MEM;StkSize;StkRef;threads;fd-nr;Command
     """
 
-    time = 0
+    time: np.uint64 = 0
 
-    def __init__(self, row):
+    def __init__(self, row: Any) -> None:
+        """
+        Args:
+            row: Row from DataFrame with host statistics
+        """
         self.row = row
         self.time = row.Time * 1000
 
@@ -176,7 +242,17 @@ def merge_sorted(
     sort_column: str,
     dtype: dict[str, Callable[[Any], Any]],
 ) -> Iterator[dict[str, object]]:
-    # Open all temp files for reading
+    """
+    Merge multiple pre-sorted CSV files into an iterator, sorted by a column.
+
+    Args:
+        temp_files: List of file paths to temporary CSV files
+        sort_column: Name of the column to sort by
+        dtype: Dictionary with type converters for the columns
+
+    Yields:
+        Rows as dictionary with converted types
+    """
     file_iters: list[csv.DictReader] = []
     open_files: list[TextIOWrapper] = []
     for f in temp_files:
@@ -185,21 +261,18 @@ def merge_sorted(
         file_iters.append(reader)
         open_files.append(file)
 
-    # Define a wrapper to use with heapq.merge
-    def row_key(row):
+    def row_key(row: dict[str, str]) -> Any:
         return dtype.get(sort_column, int)(row[sort_column])
 
-    def convert_row_types(row):
+    def convert_row_types(row: dict[str, str]) -> dict[str, object]:
         return {key: dtype.get(key, str)(value) for key, value in row.items()}
 
-    # Merge rows by sort_column
     for row in heapq.merge(*file_iters, key=row_key):
         yield convert_row_types(row)
 
     for f in open_files:
         f.close()
 
-    # Clean up temp files
     for f in temp_files:
         os.remove(f)
 
@@ -210,6 +283,18 @@ def create_event_queue(
     inactive_timeout: int = 30,
     out_dir: os.PathLike = None,
 ) -> Iterator[Event]:
+    """
+    Create an iterator over all events generated from flows and host statistics.
+
+    Args:
+        flows_path: Path to CSV file with flows
+        hosts_stats_file: Path to CSV file with host statistics
+        inactive_timeout: Timeout for inactive flows (seconds)
+        out_dir: Optional output directory for temporary files
+
+    Returns:
+        Iterator over Event objects, sorted by time
+    """
     if not out_dir:
         out_dir = tempfile.mkdtemp(prefix="flows_split_")
         _TEMP_DIRS.append(out_dir)
@@ -219,7 +304,6 @@ def create_event_queue(
         with open(hosts_stats_file, "x") as f:
             f.write(";".join(STATS_CSV_COLUMN_TYPES.keys()))
 
-    # Paths for output CSVs
     tmp_start_time = []
     tmp_end_time = []
     tmp_one_pack = []

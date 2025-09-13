@@ -12,7 +12,16 @@ class Histogram(StatisticObject, ABC):
         lower_bound: float,
         upper_bound: float,
         histogram_type: str = "histogram type: base histogram",
-    ):
+    ) -> None:
+        """
+        Initialize a histogram for a given variable.
+        Args:
+            variable: Name of the observed variable.
+            num_intervals: Number of bins in the histogram.
+            lower_bound: Lower bound of the histogram.
+            upper_bound: Upper bound of the histogram.
+            histogram_type: Description of the histogram type.
+        """
         self.observed_variable = variable
         self.histogram_type = histogram_type
         self.num_intervals = num_intervals
@@ -23,18 +32,34 @@ class Histogram(StatisticObject, ABC):
 
     @abstractmethod
     def count(self, x: float) -> None:
-        """Count a new observation in the histogram"""
+        """
+        Count a new observation in the histogram.
+        Args:
+            x: Value to count.
+        """
         pass
 
     @abstractmethod
     def get_normalizing_factor(self) -> float:
-        """Return the normalizing factor for histogram output"""
+        """
+        Return the normalizing factor for histogram output.
+        Returns:
+            Normalizing factor as float.
+        """
         pass
 
     def get_num_intervals(self) -> int:
+        """Return the number of intervals (bins) in the histogram."""
         return self.num_intervals
 
     def get_bin_number(self, x: float) -> int:
+        """
+        Get the bin index for a given value.
+        Args:
+            x: Value to bin.
+        Returns:
+            Bin index as int.
+        """
         if x >= self.upper_bound:
             return self.num_intervals - 1
         if x < self.lower_bound:
@@ -42,28 +67,40 @@ class Histogram(StatisticObject, ABC):
         return int((x - self.lower_bound) // self.delta)
 
     def increment_bin(self, bin_number: int, x: float) -> None:
+        """Increment the value of a bin by x."""
         self.bins[bin_number] += x
 
     def get_bin_value(self, bin_number: int) -> float:
+        """Get the value of a bin."""
         return self.bins[bin_number]
 
     def get_lower_bound(self) -> float:
+        """Return the lower bound of the histogram."""
         return self.lower_bound
 
     def get_upper_bound(self) -> float:
+        """Return the upper bound of the histogram."""
         return self.upper_bound
 
     def get_delta(self) -> float:
+        """Return the bin width (delta) of the histogram."""
         return self.delta
 
     def reset(self) -> None:
+        """Reset all bins to zero."""
         self.bins = [0.0 for _ in range(self.num_intervals)]
 
     def report(self) -> str:
-        # Empty default report, just like Java
+        """Return a string report of the histogram (default: empty)."""
         return ""
 
     def csv_report(self, output_dir: os.PathLike, is_ref: bool = False) -> None:
+        """
+        Write histogram data to CSV files (histogram, PDF, distribution).
+        Args:
+            output_dir: Output directory for CSV files.
+            is_ref: If True, write to expected-histograms folder.
+        """
         os.makedirs(os.path.join(output_dir, "histograms"), exist_ok=True)
         dest = Path(output_dir) / "expected-histograms" if is_ref else "histograms"
         hist_path = dest / f"{self.observed_variable}_hist.csv"

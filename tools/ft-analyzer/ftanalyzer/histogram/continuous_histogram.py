@@ -5,7 +5,7 @@ from ..statistic_object import SimState
 
 class ContinuousHistogram(Histogram, ABC):
     """
-    This class implements a continuous-time histogram.
+    Implements a continuous-time histogram for time-weighted observations.
     """
 
     def __init__(
@@ -15,7 +15,16 @@ class ContinuousHistogram(Histogram, ABC):
         lower_bound: float,
         upper_bound: float,
         sim: SimState,
-    ):
+    ) -> None:
+        """
+        Initialize a continuous-time histogram.
+        Args:
+            variable: Name of the observed variable.
+            num_intervals: Number of bins.
+            lower_bound: Lower bound of histogram.
+            upper_bound: Upper bound of histogram.
+            sim: Simulation state object.
+        """
         super().__init__(
             variable,
             num_intervals,
@@ -31,6 +40,8 @@ class ContinuousHistogram(Histogram, ABC):
     def count(self, x: float) -> None:
         """
         Count a new observation, updating the bin with time-weighted increments.
+        Args:
+            x: Value to count.
         """
         current_time = self.sim.get_time()
         if self.get_num_intervals() > 0:
@@ -43,6 +54,8 @@ class ContinuousHistogram(Histogram, ABC):
     def get_normalizing_factor(self) -> float:
         """
         Return the normalizing factor for the histogram.
+        Returns:
+            Time interval as float.
         """
         return self.last_sample_time - self.first_sample_time
 

@@ -4,28 +4,25 @@ import numpy as np
 
 class DiscreteCounter(Counter):
     """
-    Implements a discrete time counter, which updates statistics per discrete
-    observation.
+    Implements a discrete time counter, updating statistics per observation.
     """
 
     def __init__(
         self, variable: str, counter_type: str = "counter type: discrete-time counter"
-    ):
+    ) -> None:
         """
-        Constructor for DiscreteCounter.
-
+        Initialize a discrete time counter.
         Args:
-            variable (str): Name of the observed variable
-            counter_type (str, optional): Counter type label. Defaults to discrete-time counter.
+            variable: Name of the observed variable.
+            counter_type: Counter type label.
         """
         super().__init__(variable, counter_type)
 
     def get_mean(self) -> np.float64:
         """
-        Computes the mean of the observed variable over samples.
-
+        Compute the mean of the observed variable over samples.
         Returns:
-            np.float64: the mean value
+            Mean value as np.float64.
         """
         if self.get_num_samples() > 0:
             return np.float64(self.get_sum_power_one()) / np.float64(
@@ -36,10 +33,9 @@ class DiscreteCounter(Counter):
 
     def get_variance(self) -> np.float64:
         """
-        Computes the sample variance of the observed variable.
-
+        Compute the sample variance of the observed variable.
         Returns:
-            np.float64: the variance
+            Variance as np.float64.
         """
         n = self.get_num_samples()
         if n > 1:
@@ -52,10 +48,9 @@ class DiscreteCounter(Counter):
 
     def count(self, x: np.float64) -> None:
         """
-        Counts a new observation and updates first/second moments.
-
+        Count a new observation and update first/second moments.
         Args:
-            x (np.float64): the observation
+            x: The observation value.
         """
         super().count(x)
         self.increase_sum_power_one(x)
