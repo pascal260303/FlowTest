@@ -72,6 +72,9 @@ class PidStat(HostStats):
         return cmd
 
     def start(self):
+        """
+        Start collecting pidstat statistics.
+        """
         self._process = Daemon(
             self._get_cmd(),
             executor=self._executor,
@@ -97,6 +100,9 @@ class PidStat(HostStats):
             raise Exception("pidstat startup error")
 
     def stop(self):
+        """
+        Stop collecting pidstat statistics.
+        """
         if self._process is None:
             return
         try:
@@ -105,6 +111,15 @@ class PidStat(HostStats):
             pass
 
     def get_csv(self, output_dir) -> os.PathLike:
+        """
+        Download the CSV file containing pidstat statistics to the output directory.
+
+        Args:
+            output_dir (os.PathLike): Path where to copy CSV to.
+
+        Returns:
+            os.PathLike: Path to the CSV file.
+        """
         if self.local_file:
             if os.path.dirname(self.local_file) == output_dir:
                 return self.local_file
@@ -117,6 +132,9 @@ class PidStat(HostStats):
         return ""
 
     def cleanup(self):
+        """
+        Remove temporary files and clean up resources.
+        """
         self._rsync.wipe_data_directory()
         Tool(
             f"rmdir {self._work_dir}",

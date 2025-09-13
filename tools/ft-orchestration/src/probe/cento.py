@@ -57,15 +57,13 @@ BASIC_TEMPLATE = r'"%FLOW_START_MILLISECONDS %FLOW_END_MILLISECONDS %PROTOCOL %I
 @dataclass
 class CentoSettings(ABC):
     """
-    These settings can be set in the probes.yml under `connector:`\\
-    For example with:
-    ```
-    connector:
-        sample_rate: "1:1"
-    ```
-    For information on possible values see `cento --help`\\
-    If it's not clear which setting affects which arg see `SETTINGS_TO_ARGS` dict above\\
-    Settings not in that dict are ignored
+    These settings can be set in probes.yml under `connector:`.
+    Example:
+        connector:
+            sample_rate: "1:1"
+    For possible values see `cento --help`.
+    If unclear which setting affects which arg, see `SETTINGS_TO_ARGS` above.
+    Settings not in that dict are ignored.
     """
 
     # general options
@@ -251,7 +249,9 @@ class Cento(ProbeInterface):
             self._set_rss_queues(name)
 
     def start(self):
-        """Start the probe."""
+        """
+        Start the probe.
+        """
         logging.getLogger().info(
             "Starting cento exporter on %s.", ",".join(self._interfaces)
         )
@@ -326,7 +326,9 @@ class Cento(ProbeInterface):
         ).run()
 
     def supported_fields(self):
-        """Get list of IPFIX fields the probe may export in its current configuration."""
+        """
+        Get list of IPFIX fields the probe may export in its current configuration.
+        """
         output, _ = Tool(
             r"cento --help | awk '/Supported template elements \(\-\-template\):/ {p=1} p' | grep '^ %'",
             executor=self._executor,
@@ -336,14 +338,18 @@ class Cento(ProbeInterface):
         return fields
 
     def get_special_fields(self):
-        """Return dictionary of exported fields that need special evaluation."""
+        """
+        Return dictionary of exported fields that need special evaluation.
+        """
         basic_fields = set(BASIC_TEMPLATE.replace('"', "").split(","))
         used_fields = set(self._settings.flow_template.replace('"', "").split(","))
         special_fields = {field: None for field in (used_fields - basic_fields)}
         return special_fields
 
     def stop(self):
-        """Stop the probe."""
+        """
+        Stop the probe.
+        """
         # if process not running, method has no effect
         if self._process is None:
             return
@@ -380,17 +386,18 @@ class Cento(ProbeInterface):
         self._after_stop()
 
     def cleanup(self):
-        """Clean any artifacts which were created by the connector or the active probe itself."""
+        """
+        Clean any artifacts created by the connector or the active probe itself.
+        """
         Tool(f"rm -rf {self._local_workdir}").run()
         self.host_statistics.cleanup()
 
     def download_logs(self, directory: str):
-        """Download logs to given directory.
+        """
+        Download logs to the given directory.
 
-        Parameters
-        ----------
-        directory : str
-            Path to a local directory where logs should be stored.
+        Args:
+            directory (str): Path to a local directory where logs should be stored.
         """
         try:
             shutil.move(self._log_file, directory)
@@ -399,14 +406,16 @@ class Cento(ProbeInterface):
             logging.getLogger().warning("Cannot download ipfixprobe log, %s", err)
 
     def get_timeouts(self) -> tuple[int, int]:
-        """Get active and inactive timeouts of the probe (in seconds).
+        """
+        Get active and inactive timeouts of the probe (in seconds).
 
-        Returns
-        -------
-        tuple
-            active_timeout, inactive_timeout
+        Returns:
+            tuple: active_timeout, inactive_timeout
         """
         return self._timeouts
 
     def set_prefilter(self, ip_ranges: list[str]) -> None:
+        """
+        Set probe input filter. Probe will drop all traffic except specified IP ranges.
+        """
         raise NotImplementedError

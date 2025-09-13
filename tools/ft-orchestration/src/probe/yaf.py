@@ -28,15 +28,13 @@ from src.probe.probe_target import ProbeTarget
 @dataclass
 class YafSettings(ABC):
     """
-    These settings can be set in the probes.yml under `connector:`\\
-    For example with:
-    ```
-    connector:
-        time_elements: 1
-        input:
-            type: "pcap"
-    ```
-    For information on possible values see /\<yaf_compile_dir\>/etc/yaf.init or https://tools.netsa.cert.org/yaf2/yaf.init.html
+    These settings can be set in probes.yml under `connector:`.
+    Example:
+        connector:
+            time_elements: 1
+            input:
+                type: "pcap"
+    For possible values see <yaf_compile_dir>/etc/yaf.init or https://tools.netsa.cert.org/yaf2/yaf.init.html
     """
 
     @typed_dataclass
@@ -313,7 +311,9 @@ class Yaf(ProbeInterface):
             ).run()
 
     def start(self, start_stats: bool = True, stop_running: bool = True):
-        """Start the probe."""
+        """
+        Start the probe.
+        """
         logging.getLogger().info(
             "Starting yaf exporter on %s.", self._settings.input.inf
         )
@@ -362,7 +362,9 @@ class Yaf(ProbeInterface):
         pass
 
     def _stop_process(self, pid):
-        """Stop exporter process"""
+        """
+        Stop exporter process.
+        """
 
         Tool(
             f"kill -2 {pid}",
@@ -389,17 +391,23 @@ class Yaf(ProbeInterface):
         ).run()
 
     def supported_fields(self):
-        """Get list of IPFIX fields the probe may export in its current configuration."""
+        """
+        Get list of IPFIX fields the probe may export in its current configuration.
+        """
         # TODO: Implement
         raise NotImplementedError
 
     def get_special_fields(self):
-        """Return dictionary of exported fields that need special evaluation."""
+        """
+        Return dictionary of exported fields that need special evaluation.
+        """
         # TODO: Implement
         raise NotImplementedError
 
     def stop(self):
-        """Stop the probe."""
+        """
+        Stop the probe.
+        """
         # if process not running, method has no effect
         if self._process is None:
             return
@@ -430,7 +438,9 @@ class Yaf(ProbeInterface):
         self._after_stop()
 
     def cleanup(self):
-        """Clean any artifacts which were created by the connector or the active probe itself."""
+        """
+        Clean any artifacts created by the connector or the active probe itself.
+        """
         Tool(f"rm -rf {self._local_workdir}").run()
         self._rsync.wipe_data_directory()
         Tool(
@@ -441,12 +451,11 @@ class Yaf(ProbeInterface):
         self.host_statistics.cleanup()
 
     def download_logs(self, directory: str):
-        """Download logs to given directory.
+        """
+        Download logs to the given directory.
 
-        Parameters
-        ----------
-        directory : str
-            Path to a local directory where logs should be stored.
+        Args:
+            directory (str): Path to a local directory where logs should be stored.
         """
         try:
             shutil.move(self._log_file, directory)
@@ -456,16 +465,18 @@ class Yaf(ProbeInterface):
             logging.getLogger().warning("Cannot download ipfixprobe log, %s", err)
 
     def get_timeouts(self) -> tuple[int, int]:
-        """Get active and inactive timeouts of the probe (in seconds).
+        """
+        Get active and inactive timeouts of the probe (in seconds).
 
-        Returns
-        -------
-        tuple
-            active_timeout, inactive_timeout
+        Returns:
+            tuple: active_timeout, inactive_timeout
         """
         return self._timeouts
 
     def set_prefilter(self, ip_ranges: list[str]) -> None:
+        """
+        Set probe input filter. Probe will drop all traffic except specified IP ranges.
+        """
         raise NotImplementedError
 
 
@@ -544,7 +555,9 @@ class YafPfring(Yaf):
             self._set_rss_queues(name)
 
     def start(self):
-        """Start the probe."""
+        """
+        Start the probe.
+        """
         self._before_start()
 
         for instance in self._yaf_instances:
@@ -553,7 +566,9 @@ class YafPfring(Yaf):
         self.host_statistics.start()
 
     def stop(self):
-        """Stop the probe."""
+        """
+        Stop the probe.
+        """
 
         for instance in self._yaf_instances:
             instance.stop()
@@ -574,11 +589,17 @@ class YafPfring(Yaf):
         pass  # don't need to unload zc driver, acts like normal driver
 
     def cleanup(self):
+        """
+        Clean up all Yaf instances and their artifacts.
+        """
         super().cleanup()
         for instance in self._yaf_instances:
             instance.cleanup()
 
     def download_logs(self, directory: str):
+        """
+        Download logs for all Yaf instances to the given directory.
+        """
         for instance in self._yaf_instances:
             instance.download_logs(directory)
 

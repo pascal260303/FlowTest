@@ -117,32 +117,21 @@ class IpfixprobePluginType(Enum):
 @dataclass
 # pylint: disable=too-many-instance-attributes
 class IpfixprobeSettings(ABC):
-    """Structure used to hold ipfixprobe settings which are passed to Ipfixprobe class.
+    """
+    Structure used to hold ipfixprobe settings which are passed to Ipfixprobe class.
 
-    Attributes
-    ----------
-    cache_size: int, optional
-        Cache size exponent to the power of two.
-    cache_line_size: int, optional
-        Cache line size exponent to the power of two.
-    active_timeout: int, optional
-        Active timeout in seconds.
-    inactive_timeout: int, optional
-        Inactive timeout in seconds.
-    split_biflows: bool, optional
-        When True, biflows are splitted into single flows before export.
-    mtu_size: int, optional
-        Maximum size of ipfix packet payload sent.
-    exporter_id: int, optional
-        Exporter identification.
-    input_queue_size: int, optional
-        Size of queue between input and storage plugins (-q ipfixprobe arg).
-    input_packet_block_size: int, optional
-        Size of input queue packet block (-b ipfixprobe arg).
-    output_queue_size: int, optional
-        Size of queue between storage and output plugins (-Q ipfixprobe arg).
-    packet_buffer_size: int, optional
-        Size of packet buffer (-B ipfixprobe arg).
+    Attributes:
+        cache_size (int, optional): Cache size exponent to the power of two.
+        cache_line_size (int, optional): Cache line size exponent to the power of two.
+        active_timeout (int, optional): Active timeout in seconds.
+        inactive_timeout (int, optional): Inactive timeout in seconds.
+        split_biflows (bool, optional): If True, biflows are split into single flows before export.
+        mtu_size (int, optional): Maximum size of ipfix packet payload sent.
+        exporter_id (int, optional): Exporter identification.
+        input_queue_size (int, optional): Size of queue between input and storage plugins (-q ipfixprobe arg).
+        input_packet_block_size (int, optional): Size of input queue packet block (-b ipfixprobe arg).
+        output_queue_size (int, optional): Size of queue between storage and output plugins (-Q ipfixprobe arg).
+        packet_buffer_size (int, optional): Size of packet buffer (-B ipfixprobe arg).
     """
 
     # flow cache settings
@@ -166,20 +155,15 @@ class IpfixprobeSettings(ABC):
 @typed_dataclass
 @dataclass
 class IpfixprobeRawSettings(IpfixprobeSettings):
-    """Settings for IpfixprobeRaw input variant.
+    """
+    Settings for IpfixprobeRaw input variant.
 
-    Attributes
-    ----------
-    interfaces: List[str], required
-        Enabled network input interfaces.
-    fanout: bool, optional
-        Enable packet fanout.
-    fanout_id: int, optional
-        Optional id for packet fanout.
-    blocks: int, optional
-        Number of packet blocks (should be power of two num).
-    packets: int, optional
-        Number of packets in block (should be power of two num).
+    Attributes:
+        interfaces (List[str], required): Enabled network input interfaces.
+        fanout (bool, optional): Enable packet fanout.
+        fanout_id (int, optional): Optional id for packet fanout.
+        blocks (int, optional): Number of packet blocks (should be power of two).
+        packets (int, optional): Number of packets in block (should be power of two).
     """
 
     interfaces: List[str] = required_field()
@@ -199,24 +183,17 @@ class IpfixprobeRawSettings(IpfixprobeSettings):
 @typed_dataclass
 @dataclass
 class IpfixprobeDpdkSettings(IpfixprobeSettings):
-    """Settings for IpfixprobeDpdk input variant.
+    """
+    Settings for IpfixprobeDpdk input variant.
 
-    Attributes
-    ----------
-    devices: List[str], required
-        Allowed devices in format <[domain:]bus:devid.func>. EAL parameter.
-    lcores: str, optional
-        Map lcore set to physical cpu set. EAL parameter.
-    memory: int, optional
-        Memory to allocate (MB). EAL parameter.
-    file_prefix: str, optional
-        Prefix for hugepage filenames. EAL parameter.
-    queues_count: int, optional
-        Number of RX queues. Default: 1.
-    mbuf_size: int, optional
-        Size of the MBUF packet buffer.
-    mempool_size: int, optional
-        Size of the memory pool for received packets.
+    Attributes:
+        devices (List[str], required): Allowed devices in format <[domain:]bus:devid.func>. EAL parameter.
+        lcores (str, optional): Map lcore set to physical CPU set. EAL parameter.
+        memory (int, optional): Memory to allocate (MB). EAL parameter.
+        file_prefix (str, optional): Prefix for hugepage filenames. EAL parameter.
+        queues_count (int, optional): Number of RX queues. Default: 1.
+        mbuf_size (int, optional): Size of the MBUF packet buffer.
+        mempool_size (int, optional): Size of the memory pool for received packets.
     """
 
     # EAL params
@@ -237,14 +214,12 @@ class IpfixprobeDpdkSettings(IpfixprobeSettings):
 @typed_dataclass
 @dataclass
 class IpfixprobeNdpSettings(IpfixprobeSettings):
-    """Settings for IpfixprobeNdp input variant.
+    """
+    Settings for IpfixprobeNdp input variant.
 
-    Attributes
-    ----------
-    devices: List[str], required
-        Paths to device files.
-    dma_channels_map: dict[int, int], optional
-        Binary mask that specifies for which DMA channels to create instance of ndp input plugin.
+    Attributes:
+        devices (List[str], required): Paths to device files.
+        dma_channels_map (dict[int, int], optional): Binary mask specifying for which DMA channels to create ndp input plugin instances.
     """
 
     devices: List[str] = required_field()
@@ -255,14 +230,12 @@ class IpfixprobeNdpSettings(IpfixprobeSettings):
 
 
 class IpfixprobeStats:
-    """Object representing stats from ipfixprobe run.
+    """
+    Object representing stats from ipfixprobe run.
 
-    Attributes
-    ----------
-    input: list
-        Input interfaces stats.
-    output: list
-        Output flow export stats.
+    Attributes:
+        input (list): Input interfaces stats.
+        output (list): Output flow export stats.
     """
 
     def __init__(self, stdout: List[str]) -> None:

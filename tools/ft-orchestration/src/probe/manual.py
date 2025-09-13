@@ -26,7 +26,9 @@ class EmptyHostStats(HostStats):
 
 
 class Manual(ProbeInterface):
-    """Empty implementation of ProbeInterface to allow manual setup or hardware flow exporter"""
+    """
+    Empty implementation of ProbeInterface to allow manual setup or hardware flow exporter.
+    """
 
     host_statistics = None
 
@@ -48,6 +50,9 @@ class Manual(ProbeInterface):
         self.running = False
 
     def start(self):
+        """
+        Start the probe manually. Waits for user to start the probe.
+        """
         logging.warning("start probe now")
         for i in range(10, -1, -1):
             logging.info(i)
@@ -61,6 +66,9 @@ class Manual(ProbeInterface):
         pass
 
     def stop(self):
+        """
+        Stop the probe manually. Waits for user to stop the probe.
+        """
         if not self.running:
             return
 
@@ -75,6 +83,12 @@ class Manual(ProbeInterface):
         pass
 
     def download_logs(self, directory):
+        """
+        Download logs to the given directory.
+
+        Args:
+            directory (str): Path to a local directory where logs should be stored.
+        """
         log_file = Path(directory, "manual.log")
         open(log_file, "w").close()
 

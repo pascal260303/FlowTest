@@ -62,15 +62,13 @@ BASIC_TEMPLATE = r'"%FLOW_START_MILLISECONDS %FLOW_END_MILLISECONDS %PROTOCOL %I
 @dataclass
 class NProbeSettings(ABC):
     """
-    These settings can be set in the probes.yml under `connector:`\\
-    For example with:
-    ```
-    connector:
-        sample_rate: "1:1"
-    ```
-    For information on possible values see `nprobe --help` or `nprobe -H`\\
-    If it's not clear which setting affects which arg see `SETTINGS_TO_ARGS` dict above\\
-    Settings not in that dict are ignored
+    These settings can be set in probes.yml under `connector:`.
+    Example:
+        connector:
+            sample_rate: "1:1"
+    For possible values see `nprobe --help` or `nprobe -H`.
+    If unclear which setting affects which arg, see `SETTINGS_TO_ARGS` above.
+    Settings not in that dict are ignored.
     """
 
     # general options
@@ -261,7 +259,9 @@ class NProbe(ProbeInterface):
             self._set_rss_queues(name)
 
     def start(self):
-        """Start the probe."""
+        """
+        Start the probe.
+        """
         logging.getLogger().info(
             "Starting nprobe exporter on %s.", ",".join(self._interfaces)
         )
@@ -350,7 +350,9 @@ class NProbe(ProbeInterface):
         ).run()
 
     def supported_fields(self):
-        """Get list of IPFIX fields the probe may export in its current configuration."""
+        """
+        Get list of IPFIX fields the probe may export in its current configuration.
+        """
         output, _ = Tool(
             r"nprobe -H | awk '/NetFlow v9\/IPFIX format \[-T\]/ {p=1; next} /Major protocol \(%L7_PROTO\)/ {p=0} p' | grep '^\['",
             executor=self._executor,
@@ -360,14 +362,18 @@ class NProbe(ProbeInterface):
         return fields
 
     def get_special_fields(self):
-        """Return dictionary of exported fields that need special evaluation."""
+        """
+        Return dictionary of exported fields that need special evaluation.
+        """
         basic_fields = set(BASIC_TEMPLATE.replace('"', "").split(","))
         used_fields = set(self._settings.flow_template.replace('"', "").split(","))
         special_fields = {field: None for field in (used_fields - basic_fields)}
         return special_fields
 
     def stop(self):
-        """Stop the probe."""
+        """
+        Stop the probe.
+        """
         # if process not running, method has no effect
         if not self._processes:
             return
@@ -411,17 +417,18 @@ class NProbe(ProbeInterface):
         self._after_stop()
 
     def cleanup(self):
-        """Clean any artifacts which were created by the connector or the active probe itself."""
+        """
+        Clean any artifacts created by the connector or the active probe itself.
+        """
         Tool(f"rm -rf {self._local_workdir}").run()
         self.host_statistics.cleanup()
 
     def download_logs(self, directory: str):
-        """Download logs to given directory.
+        """
+        Download logs to the given directory.
 
-        Parameters
-        ----------
-        directory : str
-            Path to a local directory where logs should be stored.
+        Args:
+            directory (str): Path to a local directory where logs should be stored.
         """
         try:
             for log_file in self._log_files:
@@ -431,22 +438,20 @@ class NProbe(ProbeInterface):
             logging.getLogger().warning("Cannot download ipfixprobe log, %s", err)
 
     def get_timeouts(self) -> tuple[int, int]:
-        """Get active and inactive timeouts of the probe (in seconds).
+        """
+        Get active and inactive timeouts of the probe (in seconds).
 
-        Returns
-        -------
-        tuple
-            active_timeout, inactive_timeout
+        Returns:
+            tuple: active_timeout, inactive_timeout
         """
         return self._timeouts
 
     def set_prefilter(self, ip_ranges: list[str]) -> None:
-        """Set probe input filter. Probe will drop all the traffic except specified IP ranges.
+        """
+        Set probe input filter. Probe will drop all traffic except specified IP ranges.
 
-        Parameters
-        ----------
-        ip_ranges : list[str]
-            IP ranges passed by the filter.
+        Args:
+            ip_ranges (list[str]): IP ranges passed by the filter.
         """
 
         def compute_blacklist(whitelist, version=4):

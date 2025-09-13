@@ -87,6 +87,9 @@ class MpStat(HostStats):
         return executors
 
     def start(self):
+        """
+        Start collecting mpstat statistics.
+        """
         self.pidstat.start()
         self._process = Daemon(
             self._cmd,
@@ -113,6 +116,9 @@ class MpStat(HostStats):
             raise Exception("mpstat startup error")
 
     def stop(self):
+        """
+        Stop collecting mpstat statistics.
+        """
         if self._process is None:
             return
         try:
@@ -122,6 +128,15 @@ class MpStat(HostStats):
         self.pidstat.stop()
 
     def get_csv(self, output_dir: os.PathLike) -> os.PathLike:
+        """
+        Download the CSV file containing mpstat and pidstat statistics to the output directory.
+
+        Args:
+            output_dir (os.PathLike): Path where to copy CSV to.
+
+        Returns:
+            os.PathLike: Path to the merged CSV file.
+        """
         if self.local_file:
             if os.path.dirname(self.local_file) == output_dir:
                 return self.local_file
@@ -154,6 +169,9 @@ class MpStat(HostStats):
         return self.local_file
 
     def cleanup(self):
+        """
+        Remove temporary files and clean up resources.
+        """
         self.pidstat.cleanup()
         self._rsync.wipe_data_directory()
         Tool(

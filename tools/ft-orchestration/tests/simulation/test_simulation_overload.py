@@ -9,8 +9,8 @@ and evaluating the number of processed packets before and after the flooding per
 """
 
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-import ipaddress
 import logging
+import ipaddress
 import os
 import sys
 
