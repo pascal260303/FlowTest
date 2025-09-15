@@ -175,6 +175,37 @@ class IpfixprobeRawSettings(IpfixprobeSettings):
     fanout_id: Optional[int] = None
     blocks: Optional[int] = None
     packets: Optional[int] = None
+    queues_count: int = 1
+
+    # For interface setup defaults to number of cpus
+    rss_queues: int = 0
+
+    def __post_init__(self):
+        assert len(self.interfaces) > 0
+
+
+@typed_dataclass
+@dataclass
+class IpfixprobePcapSettings(IpfixprobeSettings):
+    """
+    Settings for IpfixprobePcap input variant.
+
+    Attributes:
+        interfaces (List[str], required): Enabled network input interfaces.
+        fanout (bool, optional): Enable packet fanout.
+        fanout_id (int, optional): Optional id for packet fanout.
+        blocks (int, optional): Number of packet blocks (should be power of two).
+        packets (int, optional): Number of packets in block (should be power of two).
+    """
+
+    interfaces: List[str] = required_field()
+
+    # for simplicity, same values of following params are used for each enabled interface
+    filter: Optional[str] = None
+    snaplen: Optional[int] = None
+
+    # For interface setup defaults to number of cpus
+    rss_queues: int = 0
 
     def __post_init__(self):
         assert len(self.interfaces) > 0
@@ -777,10 +808,12 @@ class IpfixprobeRaw(Ipfixprobe):
         **kwargs: dict,
     ):
         interfaces_names = [ifc.name for ifc in interfaces]
-        settings = IpfixprobeRawSettings(interfaces=interfaces_names, **kwargs)
+        self._settings = IpfixprobeRawSettings(interfaces=interfaces_names, **kwargs)
         super().__init__(
-            executor, target, protocols, interfaces, verbose, settings, sudo
+            executor, target, protocols, interfaces, verbose, self._settings, sudo
         )
+        if self._settings.rss_queues == 0:
+            self._settings.rss_queues = self.host_statistics.cpus
         self._mtu = mtu
 
     def _prepare_cmd(
@@ -807,7 +840,10 @@ class IpfixprobeRaw(Ipfixprobe):
             if settings.packets:
                 raw_params.append(f"p={settings.packets}")
 
-            args += self._get_plugin_arg(IpfixprobePluginType.INPUT, "raw", raw_params)
+            for _ in range(settings.queues_count):
+                args += self._get_plugin_arg(
+                    IpfixprobePluginType.INPUT, "raw", raw_params
+                )
 
         args += self._get_common_args(target, protocols, settings)
         return " ".join(args)
@@ -819,6 +855,76 @@ class IpfixprobeRaw(Ipfixprobe):
                 f"ip link set dev {ifc} mtu {self._mtu}",
                 executor=self._executor,
                 sudo=True,
+            ).run()
+            Tool(
+                f"ethtool --set-channels {ifc} combined {self._settings.rss_queues}",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+
+
+class IpfixprobePcap(Ipfixprobe):
+    """Implementation of Ipfixprobe connector with raw socket traffic capturing."""
+
+    def __init__(
+        self,
+        executor: Executor,
+        target: ProbeTarget,
+        protocols: List[str],
+        interfaces: List[InterfaceCfg],
+        verbose: bool = False,
+        mtu: int = 1522,
+        sudo: bool = False,
+        **kwargs: dict,
+    ):
+        interfaces_names = [ifc.name for ifc in interfaces]
+        self._settings = IpfixprobePcapSettings(interfaces=interfaces_names, **kwargs)
+        super().__init__(
+            executor, target, protocols, interfaces, verbose, self._settings, sudo
+        )
+        if self._settings.rss_queues == 0:
+            self._settings.rss_queues = self.host_statistics.cpus
+        self._mtu = mtu
+
+    def _prepare_cmd(
+        self, target: ProbeTarget, protocols: List[str], settings: IpfixprobeSettings
+    ) -> str:
+        self._check_plugin("raw")
+
+        if not isinstance(settings, IpfixprobePcapSettings):
+            raise TypeError(
+                "In IpfixprobeRaw settings should be IpfixprobePcapSettings."
+            )
+
+        args = ["ipfixprobe"]
+
+        for ifc in settings.interfaces:
+            pcap_params = [f"ifc={ifc}"]
+            if settings.filter:
+                pcap_params.append(f"F={settings.filter}")
+            if settings.snaplen:
+                pcap_params.append(f"s={settings.snaplen}")
+
+            for _ in range(settings.queues_count):
+                args += self._get_plugin_arg(
+                    IpfixprobePluginType.INPUT, "pcap", pcap_params
+                )
+
+        args += self._get_common_args(target, protocols, settings)
+        return " ".join(args)
+
+    def _before_start(self):
+        for ifc in self._ifc_names.split(","):
+            Tool(f"ip link set dev {ifc} up", executor=self._executor, sudo=True).run()
+            Tool(
+                f"ip link set dev {ifc} mtu {self._mtu}",
+                executor=self._executor,
+                sudo=True,
+            ).run()
+            Tool(
+                f"ethtool --set-channels {ifc} combined {self._settings.rss_queues}",
+                executor=self._executor,
+                sudo=self._sudo,
             ).run()
 
 
@@ -899,7 +1005,12 @@ class IpfixprobeDpdk(Ipfixprobe):
                 if value.startswith("drv="):
                     kernel = value.split("=")[1]
                 if value.startswith("unused="):
-                    dpdk_compatible = value.split("=")[1]
+                    drivers = value.split("=")[1]
+                    for driver in drivers.split(","):
+                        if "vfio-pci" == driver:
+                            dpdk_compatible = driver
+                    if not dpdk_compatible:
+                        dpdk_compatible = driver
             interface_to_driver[interface] = (kernel, dpdk_compatible)
 
         return interface_to_driver
