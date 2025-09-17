@@ -178,7 +178,7 @@ class IpfixprobeRawSettings(IpfixprobeSettings):
     queues_count: int = 1
 
     # For interface setup defaults to number of cpus
-    rss_queues: int = 0
+    rss_queues: int = 1
 
     def __post_init__(self):
         assert len(self.interfaces) > 0
@@ -205,7 +205,7 @@ class IpfixprobePcapSettings(IpfixprobeSettings):
     snaplen: Optional[int] = None
 
     # For interface setup defaults to number of cpus
-    rss_queues: int = 0
+    rss_queues: int = 1
 
     def __post_init__(self):
         assert len(self.interfaces) > 0
@@ -812,8 +812,6 @@ class IpfixprobeRaw(Ipfixprobe):
         super().__init__(
             executor, target, protocols, interfaces, verbose, self._settings, sudo
         )
-        if self._settings.rss_queues == 0:
-            self._settings.rss_queues = self.host_statistics.cpus
         self._mtu = mtu
 
     def _prepare_cmd(
@@ -882,8 +880,6 @@ class IpfixprobePcap(Ipfixprobe):
         super().__init__(
             executor, target, protocols, interfaces, verbose, self._settings, sudo
         )
-        if self._settings.rss_queues == 0:
-            self._settings.rss_queues = self.host_statistics.cpus
         self._mtu = mtu
 
     def _prepare_cmd(

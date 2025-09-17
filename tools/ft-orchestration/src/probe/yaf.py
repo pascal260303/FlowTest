@@ -182,6 +182,7 @@ class Yaf(ProbeInterface):
         sudo: bool = False,
         inactive_timeout: int = 50,
         cache_size=None,
+        rss_queues: int = 1,
         **kwargs: dict,
     ):
         if len(interfaces) > 1:
@@ -246,6 +247,7 @@ class Yaf(ProbeInterface):
         self._cmd = None
         self.host_statistics = MpStat(stats_executor, "yaf")
         self._rsync = Rsync(executor)
+        self._rss_queues_pcap = rss_queues
 
     def _write_config(self, settings: YafSettings):
         def to_lua_literal(value) -> str:
@@ -306,6 +308,11 @@ class Yaf(ProbeInterface):
             ).run()
             Tool(
                 f"ip link set {self._settings.input.inf} mtu {self._mtu}",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
+                f"ethtool --set-channels {self._settings.input.inf} combined {self._rss_queues_pcap}",
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()
