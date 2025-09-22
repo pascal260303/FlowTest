@@ -1,6 +1,7 @@
 import json
 import logging
 from pathlib import Path
+import os
 import tempfile
 import time
 import xml.etree.ElementTree as ET
@@ -71,6 +72,8 @@ class JQ(CollectorOutputReaderInterface):
     def __init__(self, executor: Executor, file: str):
         assert_tool_is_installed("ipfixcol2", executor)
         assert_tool_is_installed("jq", executor)
+        # needs to be gnu parallel not preinstalled parallel, cant be checked
+        assert_tool_is_installed("parallel", executor)
 
         global CONN_USER, CONN_HOST, CONN_KWARGS, CMD_CSV
         connection: fabric.Connection = executor._connection
@@ -96,28 +99,32 @@ class JQ(CollectorOutputReaderInterface):
         self._executor = executor
         self._file = stdout.strip()
         self._cmd_json = f"ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)}"
-        fields = ", ".join(
-            [f'.\\"{field}\\"' for field in CSV_HEADER_TO_ANALYZER_HEADER.keys()]
+        fields_list = ", ".join(
+            [f'.["{field}"]' for field in CSV_HEADER_TO_ANALYZER_HEADER.keys()]
         )
         self._cmd_csv = f"""set -e
-ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} | jq -r "
-  .[\\"iana:sourceIPAddress\\"] = (.\\"iana:sourceIPv4Address\\" // .\\"iana:sourceIPv6Address\\") |
-  .[\\"iana:destinationIPAddress\\"] = (.\\"iana:destinationIPv4Address\\" // .\\"iana:destinationIPv6Address\\") |
-  
-  .[\\"iana:flowStartMilliseconds\\"] //= .[\\"iana:systemInitTimeMilliseconds\\"] + .[\\"iana:flowStartSysUpTime\\"] |
-  .[\\"iana:flowEndMilliseconds\\"] //= .[\\"iana:systemInitTimeMilliseconds\\"] + .[\\"iana:flowEndSysUpTime\\"] |
-  del(
-    .\\"iana:sourceIPv4Address\\",
-    .\\"iana:sourceIPv6Address\\",
-    .\\"iana:destinationIPv4Address\\",
-    .\\"iana:destinationIPv6Address\\"
-  ) |
-  [{fields}] | @csv"
+file="$(mktemp)"
+
+cat > "$file" <<EOF
+.["iana:sourceIPAddress"] = (.["iana:sourceIPv4Address"] // .["iana:sourceIPv6Address"]) |
+.["iana:destinationIPAddress"] = (.["iana:destinationIPv4Address"] // .["iana:destinationIPv6Address"]) |
+
+.["iana:flowStartMilliseconds"] //= .["iana:systemInitTimeMilliseconds"] + .["iana:flowStartSysUpTime"] |
+.["iana:flowEndMilliseconds"] //= .["iana:systemInitTimeMilliseconds"] + .["iana:flowEndSysUpTime"] |
+del(
+    .["iana:sourceIPv4Address"],
+    .["iana:sourceIPv6Address"],
+    .["iana:destinationIPv4Address"],
+    .["iana:destinationIPv6Address"]
+) |
+[{fields_list}] | @csv  
+EOF
+
+ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} |
+parallel --pipe --block 10M --recend "}}" --recstart "{{" -j 0 -- jq -r -f "$file"
 """
-        """Reads fds file and output as json with ipfixcol2, then converts json with `jq` to csv\\
-        In the csv output the columns `iana:sourceIPv4Address` and `iana:sourceIPv6Address` are merged to `iana:sourceIPAddress`\\
-        The same is done for `iana:destinationIPAddress`
-        """
+        # Reads fds file and outputs json with ipfixcol2, then converts json with jq to csv.
+        # In the csv output the IPv4/IPv6 addresses are merged to source/destinationIPAddress.
         CMD_CSV = self._cmd_csv
 
         self._process = None
@@ -309,12 +316,24 @@ ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} | jq -r "
         """
         header = CSV_HEADER_TO_ANALYZER_HEADER.values()
 
-        if "key_filename" in CONN_KWARGS:
-            key_filename = CONN_KWARGS["key_filename"][0]
-            ssh_cmd = f"ssh -i {key_filename} {CONN_USER}@{CONN_HOST} '{CMD_CSV}' >> {csv_file}"
-        else:
-            password = CONN_KWARGS["password"]
-            ssh_cmd = f"sshpass -p {password} ssh {CONN_USER}@{CONN_HOST} '{CMD_CSV}' >> {csv_file}"
+        # Write the remote script into a local temp file and feed it via stdin to avoid quoting issues
+        tmp_script = tempfile.NamedTemporaryFile(
+            prefix="ipfixcol2_jq_", suffix=".sh", delete=False, mode="w"
+        )
+        try:
+            tmp_script.write(CMD_CSV)
+            tmp_script.flush()
+            tmp_script.close()
+
+            if "key_filename" in CONN_KWARGS:
+                key_filename = CONN_KWARGS["key_filename"][0]
+                ssh_cmd = f"ssh -i {key_filename} {CONN_USER}@{CONN_HOST} bash -s < {tmp_script.name} >> {csv_file}"
+            else:
+                password = CONN_KWARGS["password"]
+                ssh_cmd = f"sshpass -p {password} ssh {CONN_USER}@{CONN_HOST} bash -s < {tmp_script.name} >> {csv_file}"
+        finally:
+            # Cleanup in the end after execution below (we cannot unlink before run)
+            pass
 
         logging.getLogger().info(
             "Preparing CSV output by calling ipfixcol2 + jq command..."
@@ -327,4 +346,9 @@ ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} | jq -r "
         Tool(ssh_cmd).run()
 
         end = time.time()
+        try:
+            os.unlink(tmp_script.name)
+        except Exception:  # noqa: BLE001 - best-effort cleanup
+            pass
+        logging.getLogger().info("CSV output saved in %.2f seconds.", (end - start))
         logging.getLogger().info("CSV output saved in %.2f seconds.", (end - start))
