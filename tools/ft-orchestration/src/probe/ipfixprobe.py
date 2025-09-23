@@ -150,6 +150,7 @@ class IpfixprobeSettings(ABC):
     input_packet_block_size: Optional[int] = None
     output_queue_size: Optional[int] = None
     packet_buffer_size: Optional[int] = None
+    telemetry: Optional[str] = None
 
 
 @typed_dataclass
@@ -451,19 +452,26 @@ class Ipfixprobe(ProbeInterface, ABC):
             self._stop_process(running_pid)
             time.sleep(2)
 
-        self._process = Daemon(self._cmd, executor=self._executor, sudo=self._sudo)
+        self._process = Daemon(
+            self._cmd,
+            executor=self._executor,
+            sudo=self._sudo,
+            failure_verbosity="no-exception",
+        )
         # stderr is implicitly redirected to stdout
         self._process.set_outputs(self._log_file)
         self._process.start()
         time.sleep(1)
 
         if not self._process.is_running():
-            res = self._process.stop()
+            self._process.stop()
             return_code = self._process.returncode()
-            self._process = None
 
             # stderr is redirected to stdout
-            err = res[0]
+            with open(self._process._output_files["stdout"].name) as file:
+                err = file.readlines()
+
+            self._process = None
             logging.getLogger().error(
                 "Unable to start probe on %s. ipfixprobe return code: %d, error: %s",
                 self._ifc_names,
@@ -757,8 +765,8 @@ class Ipfixprobe(ProbeInterface, ABC):
             args += ["-B", str(settings.packet_buffer_size)]
 
         # telemetry args
-
-        args += ["-t", "/tmp/telemetry"]
+        if settings.telemetry:
+            args += ["-t", settings.telemetry]
 
         return args
 
@@ -901,10 +909,9 @@ class IpfixprobePcap(Ipfixprobe):
             if settings.snaplen:
                 pcap_params.append(f"s={settings.snaplen}")
 
-            for _ in range(settings.queues_count):
-                args += self._get_plugin_arg(
-                    IpfixprobePluginType.INPUT, "pcap", pcap_params
-                )
+            args += self._get_plugin_arg(
+                IpfixprobePluginType.INPUT, "pcap", pcap_params
+            )
 
         args += self._get_common_args(target, protocols, settings)
         return " ".join(args)
@@ -936,6 +943,7 @@ class IpfixprobeDpdk(Ipfixprobe):
         verbose: bool = False,
         mtu: int = 2048,
         sudo: bool = False,
+        unsafe_iommu: bool = False,
         **kwargs: dict,
     ):
         interfaces_names = [ifc.name for ifc in interfaces]
@@ -947,6 +955,7 @@ class IpfixprobeDpdk(Ipfixprobe):
         self._interface_to_drivers = self._get_interface_to_drivers()
         self._settings = settings
         self._previous_driver: dict[str, str] = {}
+        self._unsafe_iommu = unsafe_iommu
         assert_tool_is_installed("dpdk-devbind.py", executor)
 
     def _get_interface_to_drivers(self) -> dict[str, tuple[str, str]]:
@@ -1025,11 +1034,12 @@ class IpfixprobeDpdk(Ipfixprobe):
                 # Already enabled dpdk driver
                 continue
 
-            Tool(
-                "echo 1 > /sys/module/vfio/parameters/enable_unsafe_noiommu_mode",
-                executor=self._executor,
-                sudo=self._sudo,
-            ).run()
+            if self._unsafe_iommu:
+                Tool(
+                    "echo 1 > /sys/module/vfio/parameters/enable_unsafe_noiommu_mode",
+                    executor=self._executor,
+                    sudo=self._sudo,
+                ).run()
             Tool(
                 f"dpdk-devbind.py -b {self._interface_to_drivers[interface][1]} {interface}",
                 executor=self._executor,
@@ -1078,10 +1088,12 @@ class IpfixprobeDpdk(Ipfixprobe):
         eal_params_str = " ".join(eal_params)
         dpdk_params.append(f"e={eal_params_str}")
 
-        args += self._get_plugin_arg(IpfixprobePluginType.INPUT, "dpdk", dpdk_params)
+        args += self._get_plugin_arg(IpfixprobePluginType.INPUT, "dpdk@0", dpdk_params)
 
-        for _ in range(settings.queues_count - 1):
-            args += self._get_plugin_arg(IpfixprobePluginType.INPUT, "dpdk", [])
+        for i in range(settings.queues_count - 1):
+            args += self._get_plugin_arg(
+                IpfixprobePluginType.INPUT, f"dpdk@{i + 1}", []
+            )
 
         args += self._get_common_args(target, protocols, settings)
         return " ".join(args)
