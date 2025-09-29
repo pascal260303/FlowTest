@@ -25,7 +25,7 @@ default:
 # individual tests for general simulation scenario
 sim_general:
   - id: munich_precise
-    marks: [precise]
+    marks: [precise, with_all]
     speed_multiplier: 1.0
     loops: 3
     analysis:
@@ -34,6 +34,7 @@ sim_general:
 
 sim_threshold:
   - id: munich_throughput
+    marks: [with_all]
     mbps_accuracy: 50
     mbps_required: 2500
     analysis:

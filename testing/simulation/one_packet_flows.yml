@@ -23,13 +23,14 @@ sim_general:
   - id: one_packet_precise
     speed_multiplier: 1.0
     loops: 1
-    marks: [precise]
+    marks: [precise, with_all]
     analysis:
       model: "precise"
       use_statistic_counter: true
 
 sim_threshold:
   - id: one_packet_throughput
+    marks: [with_all]
     mbps_accuracy: 100
     mbps_required: 700
     speed_max: 12500
