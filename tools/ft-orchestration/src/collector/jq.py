@@ -121,7 +121,7 @@ del(
 EOF
 
 ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} |
-parallel --pipe --block 10M --recend "}}" --recstart "{{" -j 0 -- jq -r -f "$file"
+parallel --pipe --recend '\n' --line-buffer --memfree 6G -L 200K --retries 0 -j 100% -- jq -r -f "$file"
 """
         # Reads fds file and outputs json with ipfixcol2, then converts json with jq to csv.
         # In the csv output the IPv4/IPv6 addresses are merged to source/destinationIPAddress.
@@ -350,5 +350,4 @@ parallel --pipe --block 10M --recend "}}" --recstart "{{" -j 0 -- jq -r -f "$fil
             os.unlink(tmp_script.name)
         except Exception:  # noqa: BLE001 - best-effort cleanup
             pass
-        logging.getLogger().info("CSV output saved in %.2f seconds.", (end - start))
         logging.getLogger().info("CSV output saved in %.2f seconds.", (end - start))
