@@ -121,7 +121,7 @@ del(
 EOF
 
 ipfixcol2 -c {Path(self._conf_dir, self.CONFIG_FILE)} |
-parallel --pipe --recend '\n' --line-buffer --memfree 6G -L 200K --retries 0 -j 100% -- jq -r -f "$file"
+parallel --pipe --round-robin --recend '\n' --line-buffer -j 100% -- jq -r -f "$file"
 """
         # Reads fds file and outputs json with ipfixcol2, then converts json with jq to csv.
         # In the csv output the IPv4/IPv6 addresses are merged to source/destinationIPAddress.
@@ -343,7 +343,11 @@ parallel --pipe --recend '\n' --line-buffer --memfree 6G -L 200K --retries 0 -j 
         with open(csv_file, mode="w") as f:
             f.write(",".join(header) + "\n")
 
-        Tool(ssh_cmd).run()
+        cmd = Tool(ssh_cmd)
+        cmd.run()
+
+        if cmd.returncode() > 0:
+            raise CollectorOutputReaderException(cmd)
 
         end = time.time()
         try:
