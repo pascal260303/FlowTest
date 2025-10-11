@@ -26,6 +26,7 @@ from lbr_testsuite.executable import Tool
 import numpy as np
 import pandas as pd
 import psutil
+import shutil
 from ftanalyzer.common.pandas_multiprocessing import PandasMultiprocessingHelper
 from src.generator.interface import GeneratorStats
 
@@ -299,6 +300,22 @@ class FlowReplicator:
         loop_length = int((loop_end - loop_start) * time_multiplier)
 
         first_write = True
+
+        # adapt chunksize to available memory to avoid swapping
+        try:
+            recommended = self._recommend_chunksize()
+            if chunksize is None:
+                chunksize = recommended
+            elif chunksize > recommended:
+                logging.getLogger().warning(
+                    "Provided chunksize %d is large for available memory, reducing to %d",
+                    chunksize,
+                    recommended,
+                )
+                chunksize = recommended
+        except Exception:
+            # fallback to provided chunksize on any error
+            pass
 
         with PandasMultiprocessingHelper() as pool:
             for chunk in pd.read_csv(
@@ -581,20 +598,20 @@ class FlowReplicator:
             group.reindex()
 
             # create column with start time of following flow (shift by 1)
-            next_start = group["START_TIME"][1:]
-            next_start.reset_index(drop=True, inplace=True)
-            next_start.reindex()
+            # vectorized: GAP = START_TIME of next row - END_TIME of current row
+            group["GAP"] = group["START_TIME"].shift(-1) - group["END_TIME"]
 
-            group["GAP"] = next_start - group["END_TIME"]
-            group["AGGR_NO"] = 0
-
+            # AGGR_NO is the number of splits that occurred before the given row
+            # a split occurs when GAP >= inactive_timeout. We compute a boolean series
+            # of split points, take its cumulative sum and shift it by 1 so that the
+            # AGGR_NO for the current row equals the number of splits in previous rows.
             if self._inactive_timeout:
-                # split merge group when gap between flows are greater or equal inactive timeout
-                aggr_no = 0
-                for index, row in group.iterrows():
-                    group.at[index, "AGGR_NO"] = aggr_no
-                    if row["GAP"] >= self._inactive_timeout:
-                        aggr_no += 1
+                splits = (
+                    (group["GAP"] >= self._inactive_timeout).fillna(False).astype(int)
+                )
+                group["AGGR_NO"] = splits.cumsum().shift(1, fill_value=0).astype(int)
+            else:
+                group["AGGR_NO"] = 0
 
             res_group = (
                 group.groupby(self.FLOW_KEY + ["AGGR_NO"])
@@ -622,12 +639,83 @@ class FlowReplicator:
         pd.DataFrame
             Merged flows.
         """
-        if (
-            psutil.virtual_memory().available - 1024**3
-        ) < self._estimate_memory_from_file(flows_file):
-            logging.error("Not merging accross loops because not enough free memory")
+        # memory-aware partitioned merge to avoid peak RAM growth
+        available = psutil.virtual_memory().available
+        estimated = self._estimate_memory_from_file(flows_file, self.CSV_COLUMN_TYPES)
+        if available < estimated + 1024**3:
+            logging.getLogger().info(
+                "Available RAM low, using partitioned merge to reduce peak memory usage"
+            )
+
+            # number of partitions chosen heuristically based on size
+            partitions = max(2, min(32, int(estimated // (200 * 1024**2)) + 1))
+
+            tmp_dir = tempfile.mkdtemp(prefix="merge_parts_")
+            _TEMP_FILES.append(tmp_dir)
+
+            part_files = [
+                tempfile.NamedTemporaryFile(
+                    mode="w", delete=False, dir=tmp_dir, suffix=".csv"
+                )
+                for _ in range(partitions)
+            ]
+
+            # write headers
+            header = ",".join(self.CSV_COLUMN_TYPES.keys()) + "\n"
+            for f in part_files:
+                f.write(header)
+                f.flush()
+
+            # partition rows by hash of FLOW_KEY
+            for chunk in pd.read_csv(
+                flows_file, dtype=self.CSV_COLUMN_TYPES, chunksize=100_000
+            ):
+                # compute partition index
+                keys = chunk[self.FLOW_KEY].astype(str).agg("|".join, axis=1)
+                idx = (keys.apply(hash).abs() % partitions).to_numpy()
+                for i in range(partitions):
+                    sel = idx == i
+                    if sel.any():
+                        chunk.loc[sel, list(self.CSV_COLUMN_TYPES.keys())].to_csv(
+                            part_files[i].name, mode="a", index=False, header=False
+                        )
+
+            for f in part_files:
+                f.close()
+
+            # process each partition independently and append to final file
+            out_tmp = tempfile.NamedTemporaryFile(
+                mode="w", delete=False, dir=tmp_dir, suffix="_out.csv"
+            )
+            out_tmp.close()
+
+            first = True
+            for pf in [p.name for p in part_files]:
+                df = pd.read_csv(pf, dtype=self.CSV_COLUMN_TYPES)
+                if df.empty:
+                    continue
+                df = df.groupby(self.FLOW_KEY, sort=False).apply(self._merge_func)
+                df.to_csv(
+                    out_tmp.name, mode="w" if first else "a", index=False, header=first
+                )
+                first = False
+
+            # replace original file
+            shutil.move(out_tmp.name, flows_file)
+
+            # cleanup partition files
+            for p in part_files:
+                try:
+                    os.remove(p.name)
+                except Exception:
+                    pass
+            try:
+                shutil.rmtree(tmp_dir)
+            except Exception:
+                pass
             return
 
+        # default path when enough memory: perform in-memory groupby.apply
         (
             pd.read_csv(
                 flows_file,
@@ -639,6 +727,24 @@ class FlowReplicator:
             .apply(self._merge_func)
             .to_csv(flows_file, index=False)
         )
+
+    def _recommend_chunksize(self) -> int:
+        """Recommend chunksize based on available memory and approximate row size.
+
+        Returns an integer number of rows to read per chunk.
+        """
+        available = psutil.virtual_memory().available
+        # aim to use at most 1/8 of available memory for chunk data
+        budget = max(10 * 1024**2, int(available // 8))
+        # estimate bytes per row similar to _estimate_memory_from_file
+        bytes_per_row = 0
+        for t in self.CSV_COLUMN_TYPES.values():
+            if hasattr(t, "itemsize"):
+                bytes_per_row += int(np.dtype(t).itemsize)
+            else:
+                bytes_per_row += 60
+        rows = max(1000, int(budget // max(1, bytes_per_row)))
+        return rows
 
     def _estimate_memory_from_file(csv_path: str, column_types: dict):
         bytes_per_row = sum(
