@@ -186,7 +186,7 @@ class StatisticalModel:
         if isinstance(reference, str):
             self._ref_path = reference
         else:
-            self._ref_path = self._ref_path = tempfile.NamedTemporaryFile(
+            self._ref_path = tempfile.NamedTemporaryFile(
                 delete=False, prefix="tmp_ref", suffix=".csv"
             ).name
             reference.to_csv(
@@ -200,11 +200,7 @@ class StatisticalModel:
         self._ref_ip_addresses_converted = isinstance(reference, pd.DataFrame)
         self._stat_counter = use_statistical_counter
         self._inactive_timeout = inactive_timeout
-
-        try:
-            self._flows_path = self._init_flows(flows)
-        except Exception as err:
-            raise SMException("Unable to read file with flows.") from err
+        self._flows_path = flows
 
         if merge:
             self._merge_flows(biflows_ts_correction)
@@ -236,7 +232,8 @@ class StatisticalModel:
             self._future_ref = None
             self._future_sim = None
 
-    def _init_flows(self, path: os.PathLike):
+    @staticmethod
+    def prepare_flows_file(path: os.PathLike, generator_stats: GeneratorStats):
         """initial read of flows.csv in chunks
         replaces faulty values and filters out some flows
 
@@ -252,47 +249,50 @@ class StatisticalModel:
         first_write = True
         logging.getLogger().debug("reading file with flows=%s", path)
         # ports could be empty in flows with protocol like ICMP
-        for chunk in pd.read_csv(
-            path, dtype=self.CSV_COLUMN_TYPES_NULLABLE, chunksize=10_000
-        ):
-            chunk = chunk.fillna(
-                {
-                    "START_TIME": 0,
-                    "END_TIME": 0,
-                    "PROTOCOL": 0,
-                    "SRC_IP": "",
-                    "DST_IP": "",
-                    "SRC_PORT": 0,
-                    "DST_PORT": 0,
-                    "PACKETS": 0,
-                    "BYTES": 0,
-                    "EXPORT_TIME": 0,
-                    "SEQ_NUMBER": 0,
-                    "MSG_LENGTH": 0,
-                }
-            ).astype(self.CSV_COLUMN_TYPES)
+        # open output file once to avoid repeated open/close syscalls
+        with open(out_file, "w", newline="", encoding="ascii") as csvf:
+            for chunk in pd.read_csv(
+                path, dtype=StatisticalModel.CSV_COLUMN_TYPES_NULLABLE, chunksize=10_000
+            ):
+                # fill missing values in-place to avoid extra copy
+                chunk.fillna(
+                    {
+                        "START_TIME": 0,
+                        "END_TIME": 0,
+                        "PROTOCOL": 0,
+                        "SRC_IP": "",
+                        "DST_IP": "",
+                        "SRC_PORT": 0,
+                        "DST_PORT": 0,
+                        "PACKETS": 0,
+                        "BYTES": 0,
+                        "EXPORT_TIME": 0,
+                        "SEQ_NUMBER": 0,
+                        "MSG_LENGTH": 0,
+                    },
+                    inplace=True,
+                )
 
-            self._zero_icmp_ports(chunk)
+                chunk = chunk.astype(StatisticalModel.CSV_COLUMN_TYPES)
 
-            if self._generator_stats.start_time > 0:
-                # filter out flows that start before the start time with 500 ms tolerance
-                chunk = chunk[
-                    chunk["START_TIME"] >= self._generator_stats.start_time - 500
-                ]
+                # zero ICMP ports (vectorized)
+                StatisticalModel._zero_icmp_ports(chunk)
 
-            # if stats.end_time > 0:
-            #    # filter out flows that start before the end time
-            #    chunk = chunk[chunk["START_TIME"] <= stats.end_time]
+                # build a single combined mask to apply all filters in one go
+                mask = np.ones(len(chunk), dtype=bool)
+                if generator_stats.start_time > 0:
+                    mask &= chunk["START_TIME"] >= generator_stats.start_time - 500
 
-            self._filter_multicast(chunk)
+                # multicast filters: ipv4 and ipv6
+                # DST_IP might be empty string for some rows (we set that above), so startswith is safe
+                mask &= chunk["DST_IP"] != "255.255.255.255"
+                mask &= ~chunk["DST_IP"].str.startswith("ff02:")
 
-            chunk.to_csv(
-                out_file,
-                index=False,
-                mode="w" if first_write else "a",
-                header=first_write,
-            )
-            first_write = False
+                filtered = chunk.loc[mask]
+
+                # write filtered chunk to CSV using the open file handle
+                filtered.to_csv(csvf, index=False, header=first_write)
+                first_write = False
 
         os.remove(path)
         return out_file
@@ -337,7 +337,8 @@ class StatisticalModel:
             self._ref_path, engine="pyarrow", dtype=self.CSV_COLUMN_TYPES
         )
 
-    def _zero_icmp_ports(self, df: pd.DataFrame):
+    @staticmethod
+    def _zero_icmp_ports(df: pd.DataFrame):
         icmp_protocols = [1, 58]  # ICMP and ICMPv6
         icmp_mask = df["PROTOCOL"].isin(icmp_protocols)
         df.loc[icmp_mask, ["SRC_PORT", "DST_PORT"]] = 0

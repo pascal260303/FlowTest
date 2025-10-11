@@ -227,7 +227,9 @@ def test_simulation_threshold(
     request.addfinalizer(cleanup)
     request.addfinalizer(finalizer_download_logs)
 
-    def run_single_test(loops: int, speed: MbpsSpeed) -> tuple[bool, StatisticalReport]:
+    def run_single_test(
+        loops: int, speed: MbpsSpeed, flows_file: os.PathLike
+    ) -> tuple[bool, StatisticalReport]:
         logging.getLogger().info(
             "running test with speed: %s Mbps (loops: %s)", speed.speed, loops
         )
@@ -272,6 +274,7 @@ def test_simulation_threshold(
                 probe_instance.host_statistics.get_csv(tmp_dir)
 
             flows_file_future.result()
+            flows_file = StatisticalModel.prepare_flows_file(flows_file, stats)
             replicated_ref = replicated_ref_future.result()
 
         flow_replicator = None
@@ -333,6 +336,7 @@ def test_simulation_threshold(
             result, report = run_single_test(
                 max(1, int(math.ceil(speed_current / scenario.default.mbps))),
                 MbpsSpeed(speed_current),
+                flows_file,
             )
             report.print_results()
         except Exception as e:

@@ -322,6 +322,7 @@ def test_simulation_overload(
             probe_instance.host_statistics.get_csv(tmp_dir)
 
         flows_file_future.result()
+        flows_file = StatisticalModel.prepare_flows_file(flows_file, stats)
         replicated_ref = replicated_ref_future.result()
 
     model = StatisticalModel(

@@ -374,6 +374,7 @@ def test_simulation_general(
             probe_instance.host_statistics.get_csv(tmp_dir)
 
         flows_file_future.result()
+        flows_file = StatisticalModel.prepare_flows_file(flows_file, stats)
         replicated_ref = replicated_ref_future.result()
 
     stats_report, precise_report = validate(
