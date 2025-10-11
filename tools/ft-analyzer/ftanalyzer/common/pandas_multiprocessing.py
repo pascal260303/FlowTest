@@ -8,10 +8,11 @@ Run Pandas DataFrame operations in parallel with multiprocessing.
 """
 
 import logging
-import multiprocessing
 import time
+import os
 from functools import partial
 from typing import Callable, List
+import concurrent.futures
 
 import pandas as pd
 
@@ -33,17 +34,17 @@ class PandasMultiprocessingHelper:
         self._number_of_chunks = 0
 
     def __enter__(self):
-        proc_count = int(multiprocessing.cpu_count() / 2)
+        proc_count = os.cpu_count()
         proc_count = int(min(proc_count, MAX_PROC_COUNT))
         logging.getLogger().debug("Setting up pool with %d processes.", proc_count)
-        self._pool = multiprocessing.Pool(processes=proc_count)
+        self._pool = concurrent.futures.ProcessPoolExecutor(max_workers=proc_count)
         self._number_of_chunks = proc_count * 4
         return self
 
     def __exit__(self, *exc):
         if self._pool is not None:
-            self._pool.close()
-            self._pool.join()
+            # shutdown the executor and wait for running futures to finish
+            self._pool.shutdown(wait=True)
 
     def apply(
         self, df: pd.DataFrame, mappings: List[tuple[str, Callable, list]]
@@ -75,9 +76,11 @@ class PandasMultiprocessingHelper:
             if extra:
                 chunksize += 1
             logging.getLogger().debug("Chunksize is %d", chunksize)
-            res = self._pool.imap(func, df[column_name], chunksize)
+            # ProcessPoolExecutor.map returns an iterator of results
+            res = self._pool.map(func, df[column_name], chunksize=chunksize)
 
-            df[column_name] = pd.Series(data=res, index=df[column_name].index)
+            # materialize to preserve behavior (and indexing)
+            df[column_name] = pd.Series(data=list(res), index=df[column_name].index)
 
             end = time.time()
             logging.getLogger().debug(
@@ -111,9 +114,17 @@ class PandasMultiprocessingHelper:
             start = time.time()
             if args:
                 func = partial(func, *args)
-            res = self._pool.starmap_async(func, zip(df[column1], df[column2]))
 
-            df[column_target] = pd.Series(data=res.get(), index=df[column_target].index)
+            # compute chunksize for binary operation based on number of rows
+            chunksize, extra = divmod(len(df[column1]), self._number_of_chunks)
+            if extra:
+                chunksize += 1
+
+            # ProcessPoolExecutor.map can take multiple iterables and will pass
+            # values from both as separate positional arguments to func
+            res = self._pool.map(func, df[column1], df[column2], chunksize=chunksize)
+
+            df[column_target] = pd.Series(data=list(res), index=df[column_target].index)
 
             end = time.time()
             logging.getLogger().debug(
