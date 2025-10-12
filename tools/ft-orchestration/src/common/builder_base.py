@@ -10,6 +10,8 @@ Base class for probe, generator and collector builder. Used by topology for cons
 import datetime
 import logging
 import pkgutil
+import importlib
+import importlib.util
 import shlex
 import tempfile
 from abc import ABC, abstractmethod
@@ -253,7 +255,11 @@ class BuilderBase(ABC):
         for finder, submodule_name, is_pkg in pkgutil.walk_packages(module_paths):
             if is_pkg:
                 continue
-            submodule = finder.find_module(submodule_name).load_module(submodule_name)
+            spec = finder.find_spec(submodule_name)
+            if spec is None:
+                continue
+            submodule = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(submodule)
 
             if class_name in dir(submodule):
                 searched_class = getattr(submodule, class_name)
