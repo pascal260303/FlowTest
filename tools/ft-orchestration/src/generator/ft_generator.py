@@ -169,7 +169,7 @@ class FtGeneratorConfig(YAMLWizard, JSONWizard, key_transform="SNAKE"):
         flow_min_dir_switch_gap: Optional[str] = None
         flow_max_interpacket_gap: Optional[str] = None
 
-        def update(self, other: "Timestamps"):
+        def update(self, other: "Timestamps"):  # noqa # type: ignore
             """
             Update values in this configuration with non-default values from the provided configuration.
 
@@ -193,7 +193,7 @@ class FtGeneratorConfig(YAMLWizard, JSONWizard, key_transform="SNAKE"):
     ipv6: IP = field(default_factory=IP)
     mac: Optional[Mac] = None
     packet_size_probabilities: Optional[dict[str, float]] = None
-    timestamps: Timestamps = Timestamps()
+    timestamps: Timestamps = field(default_factory=Timestamps)
 
     def update(self, other: "FtGeneratorConfig") -> None:
         """

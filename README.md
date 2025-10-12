@@ -209,15 +209,15 @@ Note: For RHEL 8 (and derived distributions), the system Python will be upgraded
 
   ``` bash
   # Install libraries and build tools
-  sudo apt-get install -y git cmake gcc g++ pkg-config
-  sudo apt-get install -y libpcap-dev libxxhash-dev libglpk-dev libbpf-dev libssl-dev
+  sudo apt install -y git cmake gcc g++ pkg-config
+  sudo apt install -y libpcap-dev libxxhash-dev libglpk-dev libbpf-dev libssl-dev
   # On Debian 12+ and Ubuntu 22.04+ install additional library
-  sudo apt-get install -y libxdp-dev
+  sudo apt install -y libxdp-dev libdpdk-dev
 
   # Build and optionally install C++ tools (e.g. ft-generator or ft-replay):
   mkdir build && cd build
   cmake -DCMAKE_INSTALL_PREFIX=/usr -DENABLE_RPMBUILD=Off ..
-  make -j8
+  make -j$(nproc)
   sudo make install
 ```
 </details>
