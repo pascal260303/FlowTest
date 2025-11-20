@@ -312,6 +312,11 @@ class Yaf(ProbeInterface):
                 sudo=self._sudo,
             ).run()
             Tool(
+                "ethtool -K ens17np0 gro off gso off tso off",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
                 f"ethtool --set-channels {self._settings.input.inf} combined {self._rss_queues_pcap}",
                 executor=self._executor,
                 sudo=self._sudo,
@@ -554,6 +559,11 @@ class YafPfring(Yaf):
             ).run()
             Tool(
                 f"ip link set {name} mtu {self._mtu}",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
+                "ethtool -K ens17np0 gro off gso off tso off",
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()

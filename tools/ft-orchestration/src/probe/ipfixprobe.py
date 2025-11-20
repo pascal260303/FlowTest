@@ -863,6 +863,11 @@ class IpfixprobeRaw(Ipfixprobe):
                 sudo=True,
             ).run()
             Tool(
+                "ethtool -K ens17np0 gro off gso off tso off",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
                 f"ethtool --set-channels {ifc} combined {self._settings.rss_queues}",
                 executor=self._executor,
                 sudo=self._sudo,
@@ -923,6 +928,11 @@ class IpfixprobePcap(Ipfixprobe):
                 f"ip link set dev {ifc} mtu {self._mtu}",
                 executor=self._executor,
                 sudo=True,
+            ).run()
+            Tool(
+                "ethtool -K ens17np0 gro off gso off tso off",
+                executor=self._executor,
+                sudo=self._sudo,
             ).run()
             Tool(
                 f"ethtool --set-channels {ifc} combined {self._settings.rss_queues}",
