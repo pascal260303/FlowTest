@@ -1,0 +1,32 @@
+# Profile information which cannot be modified by the orchestration tool.
+name: cbr_10Gb_1P_60s_100MF_1KA
+description: Custom created profiles with predictable traffic
+marks: [cbr, 10Gb, 60s, 100MF, 1KA]
+requirements:
+  speed: 100
+profile: /home/student/2025-bsc-kuppler-flowmeter/cbr_10Gb_1P_60s_100MF_1KA.csv
+mtu: 2048
+sampling: 1.0
+
+# default configuration describing the setup during profile collection
+default:
+  pps: 1666683
+  mbps: 10000
+  generator:
+    packet_size_probabilities:
+      "64-762": .0
+      "763-763": 1 # für konstante paketgröße von 749, wird als MTU (+14) von create_network_profile.py berechnet
+  probe:
+    protocols: []
+    active_timeout: 300
+    inactive_timeout: 30
+
+# individual tests for general simulation scenario
+sim_general:
+  - id: cbr_10Gb_1P_60s_100MF_1KA_precise
+    marks: [precise]
+    speed_multiplier: 1.0
+    loops: 1
+    analysis:
+      model: "precise"
+      use_statistic_counter: true
