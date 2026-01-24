@@ -667,6 +667,12 @@ def setup_statsitic_objects(
             measure_end_time=end_time_offset,
         ),
         "ct_flow_count": ContinuousCounter(
+            "active flows (in cache)",
+            sim,
+            measure_start_time=start_time_offset,
+            measure_end_time=end_time_offset,
+        ),
+        "ct_active_flows": ContinuousCounter(
             "active flows",
             sim,
             measure_start_time=start_time_offset,
@@ -722,6 +728,14 @@ def setup_statsitic_objects(
             measure_end_time=end_time_offset,
         ),
         "tsc_flow_count": TimeSeriesCounter(
+            "active flows (in cache)",
+            sim,
+            start_time,
+            end_time,
+            measure_start_time=start_time_offset,
+            measure_end_time=end_time_offset,
+        ),
+        "tsc_active_flows": TimeSeriesCounter(
             "active flows",
             sim,
             start_time,
@@ -791,6 +805,7 @@ def setup_statsitic_objects(
         "data_rate": ["ct_data_rate", "ct_data_rate_bibit", "tsc_data_rate"],
         "packet_rate": ["ct_packet_rate", "tsc_packet_rate"],
         "flow_count": ["ct_flow_count", "tsc_flow_count"],
+        "active_flows": ["ct_active_flows", "tsc_active_flows"],
         "percent_CPU": ["ct_cpu_usage", "tsc_cpu_usage"],
         "percent_MEM": ["ct_ram_usage", "tsc_mem_usage"],
         "export_rate_f": ["ct_export_rate_f", "tsc_export_rate_f"],
@@ -811,6 +826,7 @@ def _flush_event_data(
     current_data_rate: int,
     current_packet_rate: int,
     current_flows: int,
+    active_flows: int,
     statistic_objects: dict[str, StatisticObject],
     metric_mapping: dict[str, str],
     duration_s: float,
@@ -832,6 +848,7 @@ def _flush_event_data(
         data_rate=total_data_rate,
         packet_rate=total_packet_rate,
         flow_count=current_flows,
+        active_flows=active_flows,
     )
 
     export_events: List[ExportEvent] = [
@@ -905,6 +922,7 @@ def process_events(
     current_data_rate = 0
     current_packet_rate = 0
     current_flows = 0
+    active_flows = 0
 
     # Prime the iterator
     event_iter = iter(event_queue)
@@ -939,6 +957,7 @@ def process_events(
                 current_data_rate,
                 current_packet_rate,
                 current_flows,
+                active_flows,
                 statistic_objects,
                 metric_mapping,
                 duration_s,
@@ -963,6 +982,7 @@ def process_events(
             else:
                 current_data_rate += e.data_rate
                 current_packet_rate += e.packet_rate
+                active_flows += e.flows
                 if isinstance(e, FlowStartEvent):
                     current_flows += e.flows
 
@@ -982,6 +1002,7 @@ def process_events(
             current_data_rate,
             current_packet_rate,
             current_flows,
+            active_flows,
             statistic_objects,
             metric_mapping,
             duration_s,
