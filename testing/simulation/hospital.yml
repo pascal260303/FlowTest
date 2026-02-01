@@ -29,7 +29,7 @@ sim_general:
       use_statistic_counter: true
   - id: hospital_100G
     marks: [100G]
-    mbps: 120000
+    mbps: 100000
     loops: 140
     analysis:
       model: "statistical"
