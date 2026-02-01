@@ -7,16 +7,16 @@
             "command": "${workspaceFolder}/run_tests_nohup.sh",
             "args": [
                 "--config-path=/home/student/2025-bsc-kuppler-flowmeter/flowtest-configs",
-                "--replicator=kuppler-2-xdp-zc",
+                "--replicator=kuppler-2-dpdk",
                 "--collector=ipfixcol-1:protocol=tcp",
-                "--probe=yaf-pfring",
+                "--probe=yaf-pfring-pcap-4",
                 "--disable-ansible",
                 "--html=logs/report.html",
                 "--self-contained-html",
                 "--continue-on-collection-errors",
                 "--capture=tee-sys",
                 "-m",
-                "simulation and hospitals and sim_threshold"
+                "simulation and cbr and 100G and 1MA"
             ],
             "problemMatcher": []
         },

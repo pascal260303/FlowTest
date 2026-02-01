@@ -5,7 +5,9 @@ mkdir -p "$(dirname ${LOG})"
 if [ -z "$NOHUP_STARTED" ]; then
   export NOHUP_STARTED=1
   nohup "$0" "$@" > "${LOG}" 2>&1 &
-  tail -f "${LOG}"
+  tail -f "${LOG}" &
+  wait %1
+  kill %2
 fi
 
 echo "📋 Starting tests with nohup... output in ${LOG}"

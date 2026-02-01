@@ -2,15 +2,15 @@
     "python.testing.pytestArgs": [
         ".",
         "--config-path=/home/student/2025-bsc-kuppler-flowmeter/flowtest-configs",
-        "--replicator=kuppler-2-xdp-zc",
+        "--replicator=kuppler-2-dpdk",
         "--collector=ipfixcol-1:protocol=tcp",
-        "--probe=cento-pfring",
+        "--probe=yaf-pfring-pcap-4",
         "--disable-ansible",
         "--html=logs/report.html",
         "--self-contained-html",
         "--continue-on-collection-errors",
         "--capture=tee-sys",
-        "-m simulation",
+        "-m simulation and cbr and 1MA"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,

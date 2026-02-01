@@ -16,28 +16,28 @@ fi
 )
 
 PROBES=(
-#	"ipfixprobe-raw"
-#	"ipfixprobe-raw-4"
-#	"ipfixprobe-pcap"
-#	"ipfixprobe-pcap-4"
-#	"ipfixprobe-dpdk-1"
-#	"ipfixprobe-dpdk-2"
-	"ipfixprobe-dpdk-4"
-#	"ipfixprobe-dpdk-16"
-#	"nprobe-pcap"
-#	"nprobe-pcap-4"
-#	"nprobe-pfring"
-	"nprobe-zc"
-#	"cento-pcap"
-#	"cento-pcap-4"
-#	"cento-pfring"
-	"cento-zc"
-#	"yaf-pcap"
-#	"yaf-pcap-4"
-#	"yaf-pfring"
-#	"yaf-pfring-pcap"
-#	"yaf-pfring-pcap-4"
-	"yaf-zc"
+	#	"ipfixprobe-raw"
+	#	"ipfixprobe-raw-4"
+	#	"ipfixprobe-pcap"
+	#	"ipfixprobe-pcap-4"
+	#	"ipfixprobe-dpdk-1"
+	#	"ipfixprobe-dpdk-2"
+	#	"ipfixprobe-dpdk-4"
+	#	"ipfixprobe-dpdk-16"
+	#	"nprobe-pcap"
+	#	"nprobe-pcap-4"
+	#	"nprobe-pfring"
+	#	"nprobe-zc"
+	#	"cento-pcap"
+	#	"cento-pcap-4"
+	#	"cento-pfring"
+	#	"cento-zc"
+	#	"yaf-pcap"
+	#	"yaf-pcap-4"
+	#"yaf-pfring"
+	#	"yaf-pfring-pcap"
+	"yaf-pfring-pcap-4"
+	#"yaf-zc"
 )
 
 declare -A PROBE_PROTOCOLS
@@ -69,7 +69,7 @@ PROBE_PROTOCOLS=(
 for probe in ${PROBES[@]}; do
 	ARGS=(
 		"--config-path=/home/student/2025-bsc-kuppler-flowmeter/flowtest-configs"
-		"--replicator=kuppler-2-xdp-zc"
+		"--replicator=kuppler-2-dpdk"
 		"--collector=ipfixcol-1:protocol=${PROBE_PROTOCOLS[$probe]}"
 		"--probe=${probe}"
 		"--disable-ansible"
@@ -78,7 +78,7 @@ for probe in ${PROBES[@]}; do
 		"--continue-on-collection-errors"
 		"--capture=tee-sys"
 		"-m"
-		"simulation and once_per_probe"
+		"simulation and university and precise"
 	)
 
 	echo "📋 Starting tests with nohup... output in ${LOG} for $probe"
