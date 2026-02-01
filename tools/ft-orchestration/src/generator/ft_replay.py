@@ -84,14 +84,25 @@ class FtReplayOutputPluginSettings:
     packet_loss: bool, optional
         Ignore malformed packet on a transmit ring.
         Only for "packet" plugin.
+    pool_size: int, optional
+        DPDK mempool size.
+        Only for "dpdk" plugin.
+    queue_size: int, optional
+        Size of TX queue for DPDK output.
+        Only for "dpdk" plugin.
+    mtu: int, optional
+        MTU passed to DPDK output plugin. Defaults to provided interface MTU.
+        Only for "dpdk" plugin.
     """
 
     output_plugin: str = "raw"
     queue_count: int = field(
-        default=1, metadata={"plugins": ["pcapFile", "xdp", "nfb", "packet"]}
+        default=1,
+        metadata={"plugins": ["pcapFile", "xdp", "nfb", "packet", "dpdk"]},
     )
     burst_size: Optional[int] = field(
-        default=None, metadata={"plugins": ["pcapFile", "raw", "xdp", "nfb", "packet"]}
+        default=None,
+        metadata={"plugins": ["pcapFile", "raw", "xdp", "nfb", "packet", "dpdk"]},
     )
     super_packet: Optional[str] = field(default=None, metadata={"plugins": ["nfb"]})
     umem_size: Optional[int] = field(default=None, metadata={"plugins": ["xdp"]})
@@ -113,11 +124,21 @@ class FtReplayOutputPluginSettings:
     packet_loss: Optional[bool] = field(
         default=None, metadata={"convert_func": bool_convertor, "plugins": ["packet"]}
     )
+    pool_size: Optional[int] = field(default=None, metadata={"plugins": ["dpdk"]})
+    queue_size: Optional[int] = field(default=None, metadata={"plugins": ["dpdk"]})
+    mtu: Optional[int] = field(default=None, metadata={"plugins": ["dpdk"]})
 
     def __post_init__(self) -> None:
         """Check combination of input plugin and parameters."""
 
-        if self.output_plugin not in ["pcapFile", "raw", "xdp", "nfb", "packet"]:
+        if self.output_plugin not in [
+            "pcapFile",
+            "raw",
+            "xdp",
+            "nfb",
+            "packet",
+            "dpdk",
+        ]:
             logging.getLogger().error(
                 "FtReplay: Used unknown output plugin '%s'", self.output_plugin
             )
@@ -162,7 +183,15 @@ class FtReplayOutputPluginSettings:
         if self.super_packet:
             args.append(f"superPacket={self.super_packet}")
 
-        args.append(f"packetSize={mtu}")
+        if self.output_plugin == "dpdk":
+            args.append(f"addr={interface}")
+            if self.pool_size is not None:
+                args.append(f"poolSize={self.pool_size}")
+            if self.queue_size is not None:
+                args.append(f"queueSize={self.queue_size}")
+            args.append(f"MTU={self.mtu if self.mtu is not None else mtu}")
+        else:
+            args.append(f"packetSize={mtu}")
 
         if self.output_plugin in ["raw", "xdp", "packet"]:
             args.append(f"ifc={interface}")
@@ -306,6 +335,9 @@ class FtReplay(Replicator):
         self._dst_mac = None
         self._process = None
         self._rsync = Rsync(executor)
+
+        if self._output_plugin.output_plugin == "dpdk":
+            self._prepare_dpdk_interface()
 
         if self._output_plugin.output_plugin == "xdp":
             if not math.log2(mtu).is_integer():
@@ -687,6 +719,94 @@ class FtReplay(Replicator):
             shutil.move(report, self._report_path)
 
         return GeneratorStats(pkts, bts, start_time, end_time)
+
+    def _prepare_dpdk_interface(self) -> None:
+        """Prepare DPDK interface by checking hugepages and NIC binding.
+
+        Raises
+        ------
+        GeneratorException
+            If critical DPDK requirements are not met.
+        """
+
+        self._check_hugepages()
+        self._check_nic_binding()
+
+    def _check_hugepages(self) -> None:
+        """Check if hugepages are allocated for DPDK.
+
+        Issues a warning if hugepages are not properly allocated.
+        """
+
+        try:
+            stdout, _ = Tool(
+                "cat /proc/meminfo | grep Hugepagesize",
+                executor=self._executor,
+            ).run()
+            if not stdout or "Hugepagesize" not in stdout:
+                logging.getLogger().warning(
+                    "DPDK: Hugepages may not be properly configured. "
+                    "Please allocate hugepages with: dpdk-hugepages.py --setup 1G"
+                )
+                return
+
+            # Check if any hugepages are free
+            stdout, _ = Tool(
+                "cat /proc/meminfo | grep HugePages_Free",
+                executor=self._executor,
+            ).run()
+            if stdout and "0" in stdout:
+                logging.getLogger().warning(
+                    "DPDK: No free hugepages available. "
+                    "Please allocate hugepages with: dpdk-hugepages.py --setup 1G"
+                )
+        except Exception as err:
+            logging.getLogger().warning(f"DPDK: Could not check hugepages: {err}")
+
+    def _check_nic_binding(self) -> None:
+        """Check if NIC is properly bound for DPDK use.
+
+        Issues a warning if NIC binding may be incorrect.
+        """
+
+        try:
+            stdout, _ = Tool(
+                "dpdk-devbind.py --status",
+                executor=self._executor,
+                sudo=True,
+            ).run()
+
+            # Check if interface is in the output
+            if self._interface not in stdout:
+                logging.getLogger().warning(
+                    f"DPDK: Interface {self._interface} not found in dpdk-devbind.py status. "
+                    "Please bind it to vfio-pci or igb_uio driver with: "
+                    f"dpdk-devbind.py -b vfio-pci {self._interface}"
+                )
+                return
+
+            # Check for Nvidia/Mellanox (which don't require binding)
+            if "mlx" in stdout.lower() and self._interface in stdout:
+                logging.getLogger().debug(
+                    f"DPDK: Interface {self._interface} is Nvidia/Mellanox (binding not required)"
+                )
+                return
+
+            # Check if bound to DPDK drivers
+            if (
+                "vfio-pci" not in stdout
+                and "igb_uio" not in stdout
+                and "uio_pci_generic" not in stdout
+            ):
+                logging.getLogger().warning(
+                    f"DPDK: Interface {self._interface} may not be bound to a DPDK-compatible driver. "
+                    "Supported drivers: vfio-pci, igb_uio, uio_pci_generic. "
+                    f"Bind with: dpdk-devbind.py -b vfio-pci {self._interface}"
+                )
+        except Exception as err:
+            logging.getLogger().warning(
+                f"DPDK: Could not check NIC binding (dpdk-devbind.py may not be available): {err}"
+            )
 
     def _save_config(self) -> None:
         """Prepare and save replicator configuration.
