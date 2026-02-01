@@ -199,6 +199,13 @@ void DpdkPlugin::FillDpdkArgs(CStringArray& array)
 		array.Push("-a");
 		array.Push(pciAddress);
 	}
+	if (_enableTelemetry.has_value()) {
+		if (_enableTelemetry.value()) {
+			array.Push("--telemetry");
+		} else {
+			array.Push("--no-telemetry");
+		}
+	}
 }
 
 size_t DpdkPlugin::DetermineQueueCount(std::vector<uint16_t>& queueCountMax)
@@ -279,6 +286,12 @@ void DpdkPlugin::ParseMap(const std::map<std::string, std::string>& argMap)
 			utils::FromString<size_t>(value, key, _burstSize);
 		} else if (key == "MTU") {
 			utils::FromString<size_t>(value, key, _MTUSize);
+		} else if (key == "enableTelemetry") {
+			if (value == "1" || value == "true" || value == "yes") {
+				_enableTelemetry = true;
+			} else if (value == "0" || value == "false" || value == "no") {
+				_enableTelemetry = false;
+			}
 		} else {
 			_logger->error("Unknown parameter {}", key);
 			throw std::runtime_error("DpdkPlugin::ParseMap() has failed");

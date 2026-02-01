@@ -93,6 +93,12 @@ class FtReplayOutputPluginSettings:
     mtu: int, optional
         MTU passed to DPDK output plugin. Defaults to provided interface MTU.
         Only for "dpdk" plugin.
+    enable_telemetry: bool, optional
+        Enable or disable DPDK telemetry for monitoring.
+        - true: Enable `--telemetry` EAL option
+        - false: Disable `--no-telemetry` EAL option
+        - not set: Use default DPDK behavior (telemetry on by default)
+        Only for "dpdk" plugin.
     """
 
     output_plugin: str = "raw"
@@ -127,6 +133,9 @@ class FtReplayOutputPluginSettings:
     pool_size: Optional[int] = field(default=None, metadata={"plugins": ["dpdk"]})
     queue_size: Optional[int] = field(default=None, metadata={"plugins": ["dpdk"]})
     mtu: Optional[int] = field(default=None, metadata={"plugins": ["dpdk"]})
+    enable_telemetry: Optional[bool] = field(
+        default=None, metadata={"convert_func": bool_convertor, "plugins": ["dpdk"]}
+    )
 
     def __post_init__(self) -> None:
         """Check combination of input plugin and parameters."""
@@ -190,6 +199,9 @@ class FtReplayOutputPluginSettings:
             if self.queue_size is not None:
                 args.append(f"queueSize={self.queue_size}")
             args.append(f"MTU={self.mtu if self.mtu is not None else mtu}")
+            if self.enable_telemetry is not None:
+                telemetry_val = "1" if self.enable_telemetry else "0"
+                args.append(f"enableTelemetry={telemetry_val}")
         else:
             args.append(f"packetSize={mtu}")
 
