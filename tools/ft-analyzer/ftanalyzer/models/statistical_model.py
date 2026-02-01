@@ -175,7 +175,9 @@ class StatisticalModel:
         """
 
         if fast_analyzer_available() and not merge and not biflows_ts_correction:
-            self._fast_model = create_statistical_model(flows, reference, stats.start_time)
+            self._fast_model = create_statistical_model(
+                flows, reference, stats.start_time
+            )
             return
 
         # fallback to python analyzer implementation
@@ -685,8 +687,9 @@ def setup_statsitic_objects(
             measure_end_time=end_time_offset,
         ),
         "ct_ram_usage": ContinuousCounter(
-            "RAM Usage in percent",
+            "RAM Usage in GiB",
             sim,
+            factor=1 / 1024**2,  # convert KiB to GiB
             measure_start_time=start_time_offset,
             measure_end_time=end_time_offset,
         ),
@@ -752,10 +755,11 @@ def setup_statsitic_objects(
             measure_end_time=end_time_offset,
         ),
         "tsc_mem_usage": TimeSeriesCounter(
-            "RAM Usage in percent",
+            "RAM Usage in GiB",
             sim,
             start_time,
             end_time,
+            factor=1 / (1024**2),  # convert KiB to GiB
             measure_start_time=start_time_offset,
             measure_end_time=end_time_offset,
         ),
@@ -807,7 +811,7 @@ def setup_statsitic_objects(
         "flow_count": ["ct_flow_count", "tsc_flow_count"],
         "active_flows": ["ct_active_flows", "tsc_active_flows"],
         "percent_CPU": ["ct_cpu_usage", "tsc_cpu_usage"],
-        "percent_MEM": ["ct_ram_usage", "tsc_mem_usage"],
+        "total_MEM": ["ct_ram_usage", "tsc_mem_usage"],
         "export_rate_f": ["ct_export_rate_f", "tsc_export_rate_f"],
         "export_rate_p": ["ct_export_rate_p", "tsc_export_rate_p"],
         "export_flows_p_packet": [

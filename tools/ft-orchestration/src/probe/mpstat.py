@@ -164,6 +164,8 @@ class MpStat(HostStats):
             (100 - df["percent_idle"]) * self.cpus
         )  # multiply with cpu core count to get better understanding of core usage
 
+        df["total_MEM"] = df["percent_MEM"] * self.total_ram / 100  # in KiB
+
         self.local_file = os.path.join(output_dir, "mpstat_and_pidstat.csv")
         df.to_csv(self.local_file, index=False, sep=";")
         return self.local_file

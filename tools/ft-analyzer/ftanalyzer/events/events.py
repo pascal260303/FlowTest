@@ -57,11 +57,13 @@ STATS_CSV_COLUMN_TYPES = {
     # "threads": np.uint64,
     # "fd-nr": np.uint64,
     # "Command": str,
+    "total_MEM": np.float64,
 }
 
 SUM_PIDSTAT_COLS = [
     "percent_CPU",
     "percent_MEM",
+    "total_MEM",
 ]
 
 _TEMP_DIRS = []
