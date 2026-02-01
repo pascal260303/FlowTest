@@ -863,7 +863,7 @@ class IpfixprobeRaw(Ipfixprobe):
                 sudo=True,
             ).run()
             Tool(
-                "ethtool -K ens17np0 gro off gso off tso off",
+                f"ethtool -K {ifc} gro off gso off tso off",
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()
@@ -930,7 +930,7 @@ class IpfixprobePcap(Ipfixprobe):
                 sudo=True,
             ).run()
             Tool(
-                "ethtool -K ens17np0 gro off gso off tso off",
+                f"ethtool -K {ifc} gro off gso off tso off",
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()

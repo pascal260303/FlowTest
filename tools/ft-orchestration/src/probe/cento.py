@@ -245,7 +245,7 @@ class Cento(ProbeInterface):
                 sudo=self._sudo,
             ).run()
             Tool(
-                "ethtool -K ens17np0 gro off gso off tso off",
+                f"ethtool -K {name} gro off gso off tso off",
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()
