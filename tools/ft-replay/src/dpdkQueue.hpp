@@ -83,6 +83,11 @@ public:
 	void SendBurst(const PacketBuffer* burst) override;
 
 	/**
+	 * @brief Flush TX ring to ensure all packets are transmitted
+	 */
+	void Flush() override;
+
+	/**
 	 * @brief Get the Maximal Burst Size
 	 *
 	 * @return size_t maximal possible burst size

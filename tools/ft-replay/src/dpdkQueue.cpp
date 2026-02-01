@@ -77,9 +77,24 @@ void DpdkQueue::GetBurst(PacketBuffer* burst, size_t burstSize)
 		throw std::runtime_error("DpdkQueue::GetBurst() has failed");
 	}
 
-	// Loop until you get the needed memory
+	// Loop until you get the needed memory, with exponential backoff
+	constexpr size_t MAX_RETRIES = 10000;  // ~10ms with rte_pause()
+	constexpr size_t FLUSH_TRIGGER = 1000; // Trigger flush after 1000 retries
+	size_t retries = 0;
 	while (rte_pktmbuf_alloc_bulk(_pool.get(), _mainMbuf.get(), burstSize)) {
 		rte_pause();
+		if (++retries == FLUSH_TRIGGER) {
+			// Pool might be exhausted, try to flush pending TX
+			_logger->warn("Mempool allocation stalling, attempting to flush TX ring");
+			Flush();
+		}
+		if (retries > MAX_RETRIES) {
+			_logger->error(
+				"Failed to allocate {} mbufs from pool after {} retries. Pool may be exhausted.",
+				burstSize,
+				MAX_RETRIES);
+			throw std::runtime_error("DpdkQueue::GetBurst() timed out");
+		}
 	}
 
 	for (size_t packetId = 0; packetId < burstSize; packetId++) {
@@ -117,12 +132,53 @@ void DpdkQueue::SendBurst(const PacketBuffer* buffer)
 	}
 }
 
+void DpdkQueue::Flush()
+{
+	// Drain TX rings to free mbufs back to the pool
+	// This is critical with RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE
+	constexpr size_t MAX_DRAIN_ITERATIONS = 1000;
+	
+	for (size_t iter = 0; iter < MAX_DRAIN_ITERATIONS; iter++) {
+		bool any_drained = false;
+		
+		// Call tx_burst with 0 packets to drain completions
+		for (uint16_t port : _ports) {
+			uint16_t drained = rte_eth_tx_burst(port, _queueId, nullptr, 0);
+			if (drained > 0) {
+				any_drained = true;
+			}
+		}
+		
+		// If nothing drained in last iteration, pool should be clearing
+		if (!any_drained) {
+			// Try one more time with a small delay
+			for (int j = 0; j < 10000; j++) {
+				rte_pause();
+			}
+			break;
+		}
+		
+		// Small pause between iterations
+		rte_pause();
+	}
+	
+	_logger->debug("Flush() completed: attempting to drain TX descriptors");
+}
+
 void DpdkQueue::DoBurst(uint16_t port, size_t pktsToSend, struct rte_mbuf** mbuf)
 {
 	size_t sentCount {0};
 	size_t confirmed;
+	constexpr size_t TX_DRAIN_INTERVAL = 128; // Drain every N packets
 
 	while (true) {
+		// Before sending next batch, drain some completed TXs
+		// This is critical with RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE
+		if (sentCount > 0 && sentCount % TX_DRAIN_INTERVAL == 0) {
+			// Call tx_burst with 0 packets to process TX completions
+			rte_eth_tx_burst(port, _queueId, nullptr, 0);
+		}
+		
 		confirmed = rte_eth_tx_burst(port, _queueId, mbuf + sentCount, pktsToSend - sentCount);
 		sentCount += confirmed;
 
@@ -130,6 +186,12 @@ void DpdkQueue::DoBurst(uint16_t port, size_t pktsToSend, struct rte_mbuf** mbuf
 			break;
 		}
 
+		rte_pause();
+	}
+	
+	// Final drain to ensure completions are processed
+	for (int i = 0; i < 10; i++) {
+		rte_eth_tx_burst(port, _queueId, nullptr, 0);
 		rte_pause();
 	}
 

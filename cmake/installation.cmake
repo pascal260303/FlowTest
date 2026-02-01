@@ -36,5 +36,5 @@ endif()
 set(INSTALL_DIR_MAN "${INSTALL_DIR_SHARE}/man/")
 set(INSTALL_DIR_DOC "${INSTALL_DIR_SHARE}/doc/${CMAKE_PROJECT_NAME}/")
 
-find_package(Python 3.9 EXACT REQUIRED COMPONENTS Interpreter Development)
+find_package(Python 3.9 REQUIRED COMPONENTS Interpreter Development)
 set(PYTHON_INSTALL_SITE_DIR "${Python_SITEARCH}/${CMAKE_PROJECT_NAME}")
