@@ -190,6 +190,26 @@ void DpdkPlugin::ConfigureDpdkPort(uint16_t portId)
 		_logger->error("rte_eth_dev_set_mtu() has failed with code {}", ret);
 		throwErr();
 	}
+
+	// Configure flow control based on disableFlowControl setting
+	if (_disableFlowControl) {
+		struct rte_eth_fc_conf fc_conf;
+		std::memset(&fc_conf, 0, sizeof(fc_conf));
+		fc_conf.mode = RTE_ETH_FC_NONE;  // Disable both RX and TX flow control
+		ret = rte_eth_dev_flow_ctrl_set(portId, &fc_conf);
+		if (ret < 0) {
+			_logger->warn(
+				"Failed to disable flow control on port {} (error: {}). "
+				"Receiver may be able to slow down the sender via pause frames.",
+				portId,
+				ret);
+			// Don't throw - some NICs don't support flow control configuration
+		} else {
+			_logger->info("Flow control disabled on port {}", portId);
+		}
+	} else {
+		_logger->info("Flow control enabled on port {} (default NIC behavior)", portId);
+	}
 }
 
 void DpdkPlugin::FillDpdkArgs(CStringArray& array)
@@ -291,6 +311,12 @@ void DpdkPlugin::ParseMap(const std::map<std::string, std::string>& argMap)
 				_enableTelemetry = true;
 			} else if (value == "0" || value == "false" || value == "no") {
 				_enableTelemetry = false;
+			}
+		} else if (key == "disableFlowControl") {
+			if (value == "1" || value == "true" || value == "yes") {
+				_disableFlowControl = true;
+			} else if (value == "0" || value == "false" || value == "no") {
+				_disableFlowControl = false;
 			}
 		} else {
 			_logger->error("Unknown parameter {}", key);

@@ -516,8 +516,11 @@ class YafPfring(Yaf):
         self._yaf_instances: List[Yaf] = []
         self._executors = self._duplicate_executor(self._executor, rss_queues)
         inf_speed = interfaces[0].speed
+        inf_name = interfaces[0].name
+        if inf_name.startswith("mlx:"):
+            inf_name = self._get_mlx_name(inf_name)
         for i in range(rss_queues):
-            in_inf = f"{self._interfaces[0]}@{i}"
+            in_inf = f"{inf_name}@{i}"
             instance = Yaf(
                 interfaces=[InterfaceCfg(in_inf, inf_speed)],
                 target=target,
@@ -570,6 +573,20 @@ class YafPfring(Yaf):
             if ifc.startswith("zc:"):
                 self._switch_to_zc(name)
             self._set_rss_queues(name)
+
+    def _get_mlx_name(self, if_name: str):
+        if ":" in if_name:
+            if_prefix, if_name = if_name.split(":", maxsplit=1)
+        else:
+            if_prefix = ""
+        mlx_name, _ = Tool(
+            f"ls /sys/class/net/{if_name}/device/infiniband/",
+            executor=self._executor,
+            sudo=self._sudo,
+            failure_verbosity="silent",
+        ).run()
+        mlx_name = mlx_name.strip()
+        return f"{if_prefix}:{mlx_name}" if if_prefix else mlx_name
 
     def start(self):
         """

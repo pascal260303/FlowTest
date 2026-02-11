@@ -93,6 +93,7 @@ private:
 	std::vector<uint16_t> _ports;
 	NumaNode _numaNode;
 	std::optional<bool> _enableTelemetry;
+	bool _disableFlowControl = true;
 
 	std::shared_ptr<spdlog::logger> _logger = ft::LoggerGet("DpdkPlugin");
 };

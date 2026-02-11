@@ -99,6 +99,13 @@ class FtReplayOutputPluginSettings:
         - false: Disable `--no-telemetry` EAL option
         - not set: Use default DPDK behavior (telemetry on by default)
         Only for "dpdk" plugin.
+    disable_flow_control: bool, optional
+        Disable Ethernet flow control (pause frames) to prevent receiver from slowing down sender.
+        - true (default): Disable flow control, sender ignores pause frames
+        - false: Enable flow control, sender respects pause frames from receiver
+        For "dpdk" plugin: configured via DPDK API.
+        For "raw", "xdp", "packet" plugins: configured via ethtool before starting ft-replay.
+        Not supported for "nfb" and "pcapFile" plugins.
     """
 
     output_plugin: str = "raw"
@@ -135,6 +142,13 @@ class FtReplayOutputPluginSettings:
     mtu: Optional[int] = field(default=None, metadata={"plugins": ["dpdk"]})
     enable_telemetry: Optional[bool] = field(
         default=None, metadata={"convert_func": bool_convertor, "plugins": ["dpdk"]}
+    )
+    disable_flow_control: Optional[bool] = field(
+        default=None,
+        metadata={
+            "convert_func": bool_convertor,
+            "plugins": ["raw", "xdp", "packet", "dpdk"],
+        },
     )
 
     def __post_init__(self) -> None:
@@ -202,6 +216,9 @@ class FtReplayOutputPluginSettings:
             if self.enable_telemetry is not None:
                 telemetry_val = "1" if self.enable_telemetry else "0"
                 args.append(f"enableTelemetry={telemetry_val}")
+            if self.disable_flow_control is not None:
+                flow_control_val = "1" if self.disable_flow_control else "0"
+                args.append(f"disableFlowControl={flow_control_val}")
         else:
             args.append(f"packetSize={mtu}")
 
@@ -556,6 +573,42 @@ class FtReplay(Replicator):
                 executor=self._executor,
                 sudo=True,
             ).run()
+
+            # Configure flow control via ethtool for kernel-based output plugins
+            if self._output_plugin.disable_flow_control is not None:
+                if self._output_plugin.disable_flow_control:
+                    # Disable flow control (default behavior)
+                    try:
+                        Tool(
+                            f"ethtool -A {self._interface} rx off tx off",
+                            executor=self._executor,
+                            sudo=True,
+                        ).run()
+                        logging.getLogger().info(
+                            f"Flow control disabled on {self._interface} via ethtool"
+                        )
+                    except ExecutableProcessError:
+                        logging.getLogger().warning(
+                            f"Failed to disable flow control on {self._interface}. "
+                            "Interface may not support flow control configuration."
+                        )
+                else:
+                    # Enable flow control (explicit user request)
+                    try:
+                        Tool(
+                            f"ethtool -A {self._interface} rx on tx on",
+                            executor=self._executor,
+                            sudo=True,
+                        ).run()
+                        logging.getLogger().info(
+                            f"Flow control enabled on {self._interface} via ethtool"
+                        )
+                    except ExecutableProcessError:
+                        logging.getLogger().warning(
+                            f"Failed to enable flow control on {self._interface}. "
+                            "Interface may not support flow control configuration."
+                        )
+
             # find maxmtu and use that instead
             stdout, _ = Tool(
                 f"ip -d link show dev {self._interface}",
