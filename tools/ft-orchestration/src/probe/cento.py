@@ -220,7 +220,7 @@ class Cento(ProbeInterface):
             return
         driver = driver[:-3]
         Tool(
-            f"pf_ringcfg --configure-driver {driver}    ",
+            f"nohup pf_ringcfg --configure-driver {driver}    ",
             executor=self._executor,
             sudo=self._sudo,
         ).run()

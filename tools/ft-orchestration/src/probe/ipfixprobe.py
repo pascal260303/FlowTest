@@ -1026,22 +1026,29 @@ class IpfixprobeDpdk(Ipfixprobe):
                             dpdk_compatible = driver
                     if not dpdk_compatible:
                         dpdk_compatible = driver
+            if kernel.startswith("mlx"):
+                dpdk_compatible = kernel
             interface_to_driver[interface] = (kernel, dpdk_compatible)
 
         return interface_to_driver
 
+    def _get_current_driver(self, interface: str):
+        stdout, _ = Tool(
+            f"dpdk-devbind.py -s | grep '{interface}' | grep --color=no -o 'drv=[^ ]*'",
+            executor=self._executor,
+            sudo=self._sudo,
+            failure_verbosity="silent",
+        ).run()
+        splitted = stdout.split("=")
+        if len(splitted) < 2:
+            return ""
+        return splitted[1].strip()
+
     def _before_start(self):
-        grep_regex: str = r"(?m)^.*using DPDK-compatible driver(\n[^\n]+)+\n"
         for interface in self._ifc_names.split(","):
-            tool = Tool(
-                f"dpdk-devbind.py -s | grep -Pzo '{grep_regex}' | grep -q {interface}",
-                executor=self._executor,
-                sudo=self._sudo,
-                failure_verbosity="silent",
-            )
-            tool.run()
-            if tool.returncode() == 0:
-                # Already enabled dpdk driver
+            driver = self._get_current_driver(interface)
+            if self._interface_to_drivers[interface][1] == driver:
+                # already using compatible driver
                 continue
 
             if self._unsafe_iommu:

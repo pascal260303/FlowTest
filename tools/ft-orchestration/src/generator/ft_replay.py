@@ -349,7 +349,8 @@ class FtReplay(Replicator):
         self._rsync = Rsync(executor)
 
         if self._output_plugin.output_plugin == "dpdk":
-            self._prepare_dpdk_interface()
+            # self._prepare_dpdk_interface()
+            pass
 
         if self._output_plugin.output_plugin == "xdp":
             if not math.log2(mtu).is_integer():
