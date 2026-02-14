@@ -181,7 +181,10 @@ class NProbe(ProbeInterface):
             f"{target.protocol}://{target.host}:{target.port}",
         ]
 
-        args.extend(["-i", settings.interface])
+        if settings.interface.startswith("mlx:"):
+            args.extend(["-i", self._get_mlx_name(settings.interface)])
+        else:
+            args.extend(["-i", settings.interface])
 
         for setting, arg in SETTINGS_TO_ARGS.items():
             if hasattr(settings, setting):
@@ -193,6 +196,26 @@ class NProbe(ProbeInterface):
                     args.append(str(value))
 
         return " ".join(args)
+
+    def _get_mlx_name(self, if_name: str):
+        if ":" in if_name:
+            if_prefix, if_name = if_name.split(":", maxsplit=1)
+            if_prefix += ":"
+        else:
+            if_prefix = ""
+        if "@" in if_name:
+            if_name, if_suffix = if_name.split("@", maxsplit=1)
+            if_suffix = "@" + if_suffix
+        else:
+            if_suffix = ""
+        mlx_name, _ = Tool(
+            f"ls /sys/class/net/{if_name}/device/infiniband/",
+            executor=self._executor,
+            sudo=self._sudo,
+            failure_verbosity="silent",
+        ).run()
+        mlx_name = mlx_name.strip()
+        return if_prefix + mlx_name + if_suffix
 
     def _switch_to_zc(self, interface_name: str):
         driver, _ = Tool(
