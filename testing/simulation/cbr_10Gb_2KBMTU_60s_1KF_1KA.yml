@@ -10,7 +10,7 @@ sampling: 1.0
 
 # default configuration describing the setup during profile collection
 default:
-  pps: 6103520
+  pps: 610360
   mbps: 10000
   generator:
     packet_size_probabilities:

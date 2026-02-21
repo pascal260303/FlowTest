@@ -10,12 +10,12 @@ sampling: 1.0
 
 # default configuration describing the setup during profile collection
 default:
-  pps: 6120000
+  pps: 620000
   mbps: 10000
   generator:
     packet_size_probabilities:
-      "64-2055": .0
-      "2056-2056": 1 # für konstante paketgröße von 2042, wird als MTU (+14) von create_network_profile.py berechnet
+      "64-2029": .0
+      "2030-2030": 1 # für konstante paketgröße von 2016, wird als MTU (+14) von create_network_profile.py berechnet
   probe:
     protocols: []
     active_timeout: 300
