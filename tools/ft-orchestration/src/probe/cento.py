@@ -10,17 +10,15 @@ from typing import List, Optional
 from src.common.required_field import required_field
 from src.common.tool_is_installed import assert_tool_is_installed
 from src.common.typed_dataclass import typed_dataclass
+from src.common.utils import duplicate_executor
 from src.config.common import InterfaceCfg
 from src.probe.interface import ProbeException, ProbeInterface
 from lbr_testsuite.executable import (
     Executor,
-    RemoteExecutor,
-    LocalExecutor,
     Tool,
     Daemon,
     ExecutableProcessError,
 )
-from fabric import Connection
 from src.probe.mpstat import MpStat
 from src.probe.probe_target import ProbeTarget
 
@@ -130,17 +128,7 @@ class Cento(ProbeInterface):
             **kwargs,
         )
         self._executor = executor
-        if isinstance(executor, RemoteExecutor):
-            connection: Connection = executor.get_connection()
-            self._fallback_executor = RemoteExecutor(
-                executor.get_host(), **connection.connect_kwargs
-            )
-            stats_executor = RemoteExecutor(
-                executor.get_host(), **connection.connect_kwargs
-            )
-        else:
-            self._fallback_executor = LocalExecutor()
-            stats_executor = LocalExecutor()
+        self._fallback_executor, stats_executor = duplicate_executor(executor, 2)
 
         self._process = None
         self._sudo = sudo

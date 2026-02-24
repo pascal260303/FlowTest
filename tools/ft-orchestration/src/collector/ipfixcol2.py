@@ -13,7 +13,6 @@ import os
 import shutil
 import tempfile
 import xml.etree.ElementTree as ET
-from fabric import Connection
 from pathlib import Path
 from typing import List
 
@@ -23,8 +22,6 @@ from lbr_testsuite.executable import (
     Executor,
     Rsync,
     Tool,
-    RemoteExecutor,
-    LocalExecutor,
 )
 from lbr_testsuite.executable.rsync import RsyncException
 from src.collector.interface import (
@@ -34,6 +31,7 @@ from src.collector.interface import (
 )
 from src.collector.jq import JQ
 from src.common.tool_is_installed import assert_tool_is_installed
+from src.common.utils import duplicate_executor
 
 
 # pylint: disable=too-many-instance-attributes
@@ -109,13 +107,7 @@ class Ipfixcol2(CollectorInterface):
             self._verbosity = "-v"
 
         self._executor = executor
-        if isinstance(executor, RemoteExecutor):
-            connection: Connection = executor.get_connection()
-            self._fallback_executor = RemoteExecutor(
-                executor.get_host(), **connection.connect_kwargs
-            )
-        else:
-            self._fallback_executor = LocalExecutor()
+        self._fallback_executor = duplicate_executor(self._executor)[0]
         self._rsync = Rsync(executor)
         self._work_dir = Path(tempfile.mkdtemp())
 

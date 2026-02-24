@@ -10,8 +10,10 @@ Functions with different purpose which can be utilized in testing scenarios.
 import ipaddress
 import logging
 import os
-from typing import Optional, Union
+from typing import List, Optional, Union
 
+from lbr_testsuite.executable import Executor, RemoteExecutor
+from fabric import Connection
 import pytest
 from dataclass_wizard.errors import MissingFields, ParseError
 from src.config.scenario import ScenarioCfg, ScenarioCfgException, SimulationScenario
@@ -205,3 +207,37 @@ def ip_network_add_offset(
     except ValueError as ex:
         logging.error("ip_network_add_offset error: %s", ex)
         return address
+
+
+def duplicate_executor(executor: Executor, num: int = 1) -> List[Executor]:
+    """Create multiple copies of an executor.
+
+    This function duplicates an executor instance the specified number of times.
+    For RemoteExecutor instances, new executors are created with the same host
+    and connection parameters. For other executor types, new LocalExecutor
+    instances are created.
+    The original Executor is not modified and can also be used.
+
+    Parameters
+    ----------
+    executor: Executor
+        Original Executor object from which to copy the parameters
+    num: int, 1
+        The number of duplicates
+
+    Returns
+    -------
+    List[Executor]
+        The duplicated Executors
+    """
+    executors = []
+    for _ in range(num):
+        if isinstance(executor, RemoteExecutor):
+            connection: Connection = executor.get_connection()
+            executors.append(
+                RemoteExecutor(executor.get_host(), **connection.connect_kwargs)
+            )
+        else:
+            executors.append(executor.__class__())
+
+    return executors

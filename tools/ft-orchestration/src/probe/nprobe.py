@@ -13,17 +13,15 @@ from typing import List, Optional
 from src.common.required_field import required_field
 from src.common.tool_is_installed import assert_tool_is_installed
 from src.common.typed_dataclass import typed_dataclass
+from src.common.utils import duplicate_executor
 from src.config.common import InterfaceCfg
 from src.probe.interface import ProbeException, ProbeInterface
 from lbr_testsuite.executable import (
     Executor,
-    RemoteExecutor,
-    LocalExecutor,
     Tool,
     Daemon,
     ExecutableProcessError,
 )
-from fabric import Connection
 from src.probe.mpstat import MpStat
 from src.probe.probe_target import ProbeTarget
 
@@ -135,7 +133,7 @@ class NProbe(ProbeInterface):
         )
         self._executor = executor
 
-        self._fallback_executor, stats_executor = self._duplicate_executor(executor, 2)
+        self._fallback_executor, stats_executor = duplicate_executor(executor, 2)
 
         self._processes: List[Daemon] = []
         self._sudo = sudo
@@ -156,19 +154,6 @@ class NProbe(ProbeInterface):
 
         self._local_workdir = tempfile.mkdtemp()
         self._log_files = []
-
-    def _duplicate_executor(self, executor: Executor, num: int = 1) -> List[Executor]:
-        executors = []
-        for i in range(num):
-            if isinstance(executor, RemoteExecutor):
-                connection: Connection = executor.get_connection()
-                executors.append(
-                    RemoteExecutor(executor.get_host(), **connection.connect_kwargs)
-                )
-            else:
-                executors.append(LocalExecutor())
-
-        return executors
 
     def _prepare_cmd(
         self, target: ProbeTarget, protocols: List[str], settings: NProbeSettings
@@ -312,7 +297,7 @@ class NProbe(ProbeInterface):
         self._before_start()
 
         self._processes: List[Daemon] = []
-        executors = self._duplicate_executor(self._executor, self._settings.rss_queues)
+        executors = duplicate_executor(self._executor, self._settings.rss_queues)
 
         for i in range(self._settings.rss_queues):
             settings = copy.copy(self._settings)

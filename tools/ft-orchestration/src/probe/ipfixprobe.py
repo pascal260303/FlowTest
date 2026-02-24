@@ -14,7 +14,6 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from fabric import Connection
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -22,12 +21,11 @@ from lbr_testsuite.executable import (
     Daemon,
     Executor,
     Tool,
-    RemoteExecutor,
-    LocalExecutor,
 )
 from src.common.required_field import required_field
 from src.common.tool_is_installed import assert_tool_is_installed
 from src.common.typed_dataclass import bool_convertor, typed_dataclass
+from src.common.utils import duplicate_executor
 from src.config.common import InterfaceCfg
 from src.probe.interface import ProbeException, ProbeInterface
 from src.probe.mpstat import MpStat
@@ -382,17 +380,7 @@ class Ipfixprobe(ProbeInterface, ABC):
         """
 
         self._executor = executor
-        if isinstance(executor, RemoteExecutor):
-            connection: Connection = executor.get_connection()
-            self._fallback_executor = RemoteExecutor(
-                executor.get_host(), **connection.connect_kwargs
-            )
-            stats_executor = RemoteExecutor(
-                executor.get_host(), **connection.connect_kwargs
-            )
-        else:
-            self._fallback_executor = LocalExecutor()
-            stats_executor = LocalExecutor()
+        self._fallback_executor, stats_executor = duplicate_executor(executor, 2)
 
         self._process = None
         self._sudo = sudo

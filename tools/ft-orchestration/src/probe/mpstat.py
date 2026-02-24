@@ -2,10 +2,10 @@ import logging
 import os
 import shutil
 import time
-from typing import List
 
 import pandas as pd
 from src.common.tool_is_installed import assert_tool_is_installed
+from src.common.utils import duplicate_executor
 from src.probe.interface import HostStats
 from lbr_testsuite.executable import (
     Executor,
@@ -14,10 +14,7 @@ from lbr_testsuite.executable import (
     RsyncException,
     Tool,
     ExecutableProcessError,
-    RemoteExecutor,
-    LocalExecutor,
 )
-from fabric import Connection
 from src.probe.pidstat import PidStat
 
 
@@ -28,7 +25,7 @@ class MpStat(HostStats):
 
     def __init__(self, executor: Executor, watch_cmd: str, sudo: bool = False):
         assert_tool_is_installed("mpstat", executor)
-        self.pidstat = PidStat(self._duplicate_executor(executor)[0], watch_cmd, sudo)
+        self.pidstat = PidStat(duplicate_executor(executor)[0], watch_cmd, sudo)
         self._sudo = sudo
         self._executor = executor
         self._rsync = Rsync(executor)
@@ -67,24 +64,11 @@ class MpStat(HostStats):
         header = "Time;CPU;percent_usr;percent_nice;percent_sys;percent_iowait;percent_irq;percent_soft;percent_steal;percent_guest;percent_gnice;percent_idle"
         self._cmd = f"""
         echo '{header}' > {self._outfile}
-        stdbuf -oL mpstat -U 1 | stdbuf -oL sed -E -e 's/[ ]+/;/g' -e '/^([^0-9].*)?$/d' | stdbuf -oL tail -n +2 >> {self._outfile}
+        stdbuf -oL mpstat -U -P ALL 1 | stdbuf -oL sed -E -e 's/[ ]+/;/g' -e '/^([^0-9].*)?$/d' | stdbuf -oL grep -vF CPU >> {self._outfile}
         """
         """command that writes every second one line in `self._outfile` in csv format (; separated,  with header)
         see `man mpstat` for the meaning of the metrics`
         """
-
-    def _duplicate_executor(self, executor: Executor, num: int = 1) -> List[Executor]:
-        executors = []
-        for i in range(num):
-            if isinstance(executor, RemoteExecutor):
-                connection: Connection = executor.get_connection()
-                executors.append(
-                    RemoteExecutor(executor.get_host(), **connection.connect_kwargs)
-                )
-            else:
-                executors.append(LocalExecutor())
-
-        return executors
 
     def start(self):
         """
@@ -150,6 +134,7 @@ class MpStat(HostStats):
 
         # merge pidstat and mpstat in one file
         df = pd.read_csv(self.local_file, sep=";", engine="pyarrow")
+        df = df[df["CPU"] == "all"]
         pidstat_df = pd.read_csv(
             self.pidstat.get_csv(output_dir), sep=";", engine="pyarrow"
         )
@@ -159,7 +144,10 @@ class MpStat(HostStats):
         df = pd.merge(df, pidstat_df, on="Time", how="left")
 
         # calculate CPU usage by mpstat output
-        df.rename(columns={"percent_CPU": f"percent_CPU_{self.pidstat._watch_cmd}"})
+        df.rename(
+            columns={"percent_CPU": f"percent_CPU_{self.pidstat._watch_cmd}"},
+            inplace=True,
+        )
         df["percent_CPU"] = (
             (100 - df["percent_idle"]) * self.cpus
         )  # multiply with cpu core count to get better understanding of core usage

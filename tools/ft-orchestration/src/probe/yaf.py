@@ -1,25 +1,24 @@
-from abc import ABC
-from dataclasses import dataclass, fields, is_dataclass
 import logging
-from os import path
 import shutil
 import tempfile
 import time
+from abc import ABC
+from dataclasses import dataclass, fields, is_dataclass
+from os import path
 from typing import List, Optional
-from src.common.tool_is_installed import assert_tool_is_installed
-from src.common.typed_dataclass import typed_dataclass
-from src.config.common import InterfaceCfg
-from src.probe.interface import ProbeException, ProbeInterface
+
 from lbr_testsuite.executable import (
-    Executor,
-    RemoteExecutor,
-    LocalExecutor,
-    Tool,
     Daemon,
     ExecutableProcessError,
+    Executor,
     Rsync,
+    Tool,
 )
-from fabric import Connection
+from src.common.tool_is_installed import assert_tool_is_installed
+from src.common.typed_dataclass import typed_dataclass
+from src.common.utils import duplicate_executor
+from src.config.common import InterfaceCfg
+from src.probe.interface import ProbeException, ProbeInterface
 from src.probe.mpstat import MpStat
 from src.probe.probe_target import ProbeTarget
 
@@ -215,17 +214,7 @@ class Yaf(ProbeInterface):
             **kwargs,
         )
         self._executor = executor
-        if isinstance(executor, RemoteExecutor):
-            connection: Connection = executor.get_connection()
-            self._fallback_executor = RemoteExecutor(
-                executor.get_host(), **connection.connect_kwargs
-            )
-            stats_executor = RemoteExecutor(
-                executor.get_host(), **connection.connect_kwargs
-            )
-        else:
-            self._fallback_executor = LocalExecutor()
-            stats_executor = LocalExecutor()
+        self._fallback_executor, stats_executor = duplicate_executor(executor, 2)
         if protocols:
             raise NotImplementedError(
                 "To support protocol filtering a ndpi_proto_file must be created which is currently not implemented"
@@ -514,7 +503,7 @@ class YafPfring(Yaf):
         self._interfaces = [interface.name for interface in interfaces]
 
         self._yaf_instances: List[Yaf] = []
-        self._executors = self._duplicate_executor(self._executor, rss_queues)
+        self._executors = duplicate_executor(self._executor, rss_queues)
         inf_speed = interfaces[0].speed
         inf_name = interfaces[0].name
         if inf_name.startswith("mlx:"):
@@ -533,19 +522,6 @@ class YafPfring(Yaf):
                 instance._local_workdir, f"settings_{i}.conf"
             )
             self._yaf_instances.append(instance)
-
-    def _duplicate_executor(self, executor: Executor, num: int = 1) -> List[Executor]:
-        executors = []
-        for i in range(num):
-            if isinstance(executor, RemoteExecutor):
-                connection: Connection = executor.get_connection()
-                executors.append(
-                    RemoteExecutor(executor.get_host(), **connection.connect_kwargs)
-                )
-            else:
-                executors.append(LocalExecutor())
-
-        return executors
 
     def _set_rss_queues(self, interface_name):
         Tool(
