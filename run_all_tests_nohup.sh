@@ -8,6 +8,7 @@ if [ -z "$NOHUP_STARTED" ]; then
 	tail -f "${LOG}" &
 	wait %1
 	kill %2
+	exit
 fi
 
 . .venv/bin/activate || (
@@ -85,7 +86,7 @@ for probe in ${PROBES[@]}; do
 		"simulation and cpr"
 	)
 
-	echo "📋 Starting tests with nohup... output in ${LOG} for $probe"
+	echo "Starting tests with nohup... output in ${LOG} for $probe"
 	pytest "${ARGS[@]}"
 	NEWEST_DIR=$(ls -d logs/[0-9]*/ | sort -r | head -n1)
 	if ! [ -e "${NEWEST_DIR}/report.html" ]; then

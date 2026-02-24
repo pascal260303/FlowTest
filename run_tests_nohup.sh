@@ -8,6 +8,7 @@ if [ -z "$NOHUP_STARTED" ]; then
   tail -f "${LOG}" &
   wait %1
   kill %2
+  exit
 fi
 
 echo "📋 Starting tests with nohup... output in ${LOG}"
