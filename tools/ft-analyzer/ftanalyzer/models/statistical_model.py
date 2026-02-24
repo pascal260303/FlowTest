@@ -363,26 +363,17 @@ class StatisticalModel:
         """
         start = time.time()
 
-        # run _validate_helper in parallel on different files
-        self._future_flow_values = self._executor.submit(
-            _validate_helper, self._flows_path, rules, self._generator_stats
-        )
-        self._future_ref_values = self._executor.submit(
-            _validate_helper, self._ref_path, rules, self._generator_stats, is_ref=True
-        )
-        flow_values, all_flow_masks = self._future_flow_values.result()
-
-        # run _validate_helper in parallel on different files
-        self._future_flow_values = self._executor.submit(
-            _validate_helper, self._flows_path, rules, self._generator_stats
-        )
-        self._future_ref_values = self._executor.submit(
-            _validate_helper, self._ref_path, rules, self._generator_stats, is_ref=True
-        )
-        flow_values, all_flow_masks = self._future_flow_values.result()
-
         if self._fast_model is not None:
             return validate_statistical_model(self._fast_model, rules, check_complement)
+
+        # run _validate_helper in parallel on different files
+        self._future_flow_values = self._executor.submit(
+            _validate_helper, self._flows_path, rules, self._generator_stats
+        )
+        self._future_ref_values = self._executor.submit(
+            _validate_helper, self._ref_path, rules, self._generator_stats, is_ref=True
+        )
+        flow_values, all_flow_masks = self._future_flow_values.result()
 
         report = StatisticalReport(self._log_dir)
         if check_complement:
