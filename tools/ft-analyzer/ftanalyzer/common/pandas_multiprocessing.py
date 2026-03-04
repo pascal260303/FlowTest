@@ -8,13 +8,15 @@ Run Pandas DataFrame operations in parallel with multiprocessing.
 """
 
 import logging
+import sys
 import time
 import os
+import pandas as pd
 from functools import partial
 from typing import Callable, List
-import concurrent.futures
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
-import pandas as pd
+EXECUTOR_CLS = ThreadPoolExecutor if sys.gettrace() is not None else ProcessPoolExecutor
 
 # Max processes to create in multiprocessing pool.
 # It helps to reduce RAM usage. For example,
@@ -37,7 +39,7 @@ class PandasMultiprocessingHelper:
         proc_count = os.cpu_count()
         proc_count = int(min(proc_count, MAX_PROC_COUNT))
         logging.getLogger().debug("Setting up pool with %d processes.", proc_count)
-        self._pool = concurrent.futures.ProcessPoolExecutor(max_workers=proc_count)
+        self._pool = EXECUTOR_CLS(max_workers=proc_count)
         self._number_of_chunks = proc_count * 4
         return self
 

@@ -73,7 +73,7 @@ class Manual(ProbeInterface):
             return
 
         logging.warning("you can stop the probe now")
-        wait_time = max(self._timeouts)
+        wait_time = self._timeouts[1]  # inactive timeout is enough
         for i in range(wait_time, -1, -1):
             logging.info(i)
             time.sleep(1)
