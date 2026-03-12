@@ -359,7 +359,7 @@ def create_event_queue(
             tmp_one_pack.append(temp_one.name)
             # One-packet flows
             (
-                chunk[chunk["PACKETS"] == 1]
+                chunk[chunk["START_TIME"] == chunk["END_TIME"]]
                 .groupby(["START_TIME", "ACTIVE_TIME", "CACHE_TIME"], as_index=False)
                 .agg(**agg_dict)
                 .sort_values("START_TIME")
@@ -392,7 +392,7 @@ def create_event_queue(
             tmp_start_time.append(temp_start.name)
             # Multi-packet flows
             (
-                chunk[chunk["PACKETS"] > 1]
+                chunk[chunk["START_TIME"] != chunk["END_TIME"]]
                 .groupby(
                     ["START_TIME", "END_TIME", "ACTIVE_TIME", "CACHE_TIME"],
                     as_index=False,
@@ -410,7 +410,7 @@ def create_event_queue(
         ) as temp_end:
             tmp_end_time.append(temp_end.name)
             (
-                chunk[chunk["PACKETS"] > 1]
+                chunk[chunk["START_TIME"] != chunk["END_TIME"]]
                 .groupby(
                     ["START_TIME", "END_TIME", "ACTIVE_TIME", "CACHE_TIME"],
                     as_index=False,
