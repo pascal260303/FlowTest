@@ -59,7 +59,7 @@ CMD_CSV = None
 
 
 class JQ(CollectorOutputReaderInterface):
-    CONFIG_FILE = "config.xml"
+    CONFIG_FILE = "config-jq.xml"
 
     """Read FDS file again with ipfixcol2 and use json output wich is converted using jq to csv
     This has the advantage that in the json output of ipfixcol2 more information can be included 

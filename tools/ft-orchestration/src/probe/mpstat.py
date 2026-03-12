@@ -124,7 +124,12 @@ class MpStat(HostStats):
         if self.local_file:
             if os.path.dirname(self.local_file) == output_dir:
                 return self.local_file
-            return shutil.copy(self.local_file, output_dir)
+            for item in os.listdir(os.path.dirname(self.local_file)):
+                shutil.copy(item, output_dir)
+            self.local_file = os.path.join(
+                output_dir, os.path.basename(self.local_file)
+            )
+            return self.local_file
 
         try:
             self.local_file = self._rsync.pull_path(self._outfile, output_dir)
