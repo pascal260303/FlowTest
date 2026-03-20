@@ -1,5 +1,5 @@
 from typing import List
-
+import os
 import numpy as np
 from .continuous_counter import ContinuousCounter
 from .counter import Counter
@@ -166,3 +166,11 @@ class BatchMeansCounter(Counter):
             + f"\tmean of batch variances: {self.mean_of_vars()}"
         )
         return out
+
+    def csv_report(self, output_dir, is_ref=False, create_subdir=True):
+        super().csv_report(output_dir, is_ref, create_subdir)
+        batch_out_dir = os.path.join(
+            output_dir, "expected-counters" if is_ref else "counters", "batch-counters"
+        )
+        for c in self.batch_counters:
+            c.csv_report(batch_out_dir, is_ref, create_subdir=False)

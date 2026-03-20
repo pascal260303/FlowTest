@@ -182,19 +182,36 @@ class Counter(StatisticObject, ABC):
 
         return out
 
-    def csv_report(self, output_dir: PathLike, is_ref: bool = False) -> None:
+    def csv_report(
+        self,
+        output_dir: PathLike,
+        is_ref: bool = False,
+        create_subdir: bool = True,
+    ) -> None:
         """
         Write counter details to a CSV file.
         Args:
             output_dir: Output directory for CSV file.
             is_ref: If True, write to expected-counters folder.
+            create_subdir: If True, create and use the counter or expected-counter dir
         """
         content: str = f"{self._observed_variable};{self.__num_samples};{self.get_mean()};{self.get_variance()};{self.get_std_deviation()};{self.get_cvar()};{self.get_min()};{self.get_max()}\n"
         labels: str = "#counter ; numSamples ; MEAN; VAR; STD; CVAR; MIN; MAX\n"
-        self._write_csv(output_dir, content, labels, is_ref)
+        if create_subdir:
+            output_dir = os.path.join(
+                output_dir, "expected-counters" if is_ref else "counters"
+            )
+        self._write_csv(
+            output_dir,
+            content,
+            labels,
+        )
 
     def _write_csv(
-        self, output_dir: PathLike, content: str, labels: str, is_ref: bool = False
+        self,
+        output_dir: PathLike,
+        content: str,
+        labels: str,
     ) -> None:
         """
         Helper to write CSV content to file.
@@ -202,15 +219,11 @@ class Counter(StatisticObject, ABC):
             output_dir: Output directory.
             content: CSV content string.
             labels: CSV header string.
-            is_ref: If True, write to expected-counters folder.
         """
         try:
-            dest = os.path.join(
-                output_dir, "expected-counters" if is_ref else "counters"
-            )
-            os.makedirs(dest, exist_ok=True)
+            os.makedirs(output_dir, exist_ok=True)
 
-            filename = os.path.join(dest, f"{self.__class__.__name__}.csv")
+            filename = os.path.join(output_dir, f"{self.__class__.__name__}.csv")
             file_exists = os.path.exists(filename)
 
             with open(filename, "a", encoding="utf-8") as csvwriter:
