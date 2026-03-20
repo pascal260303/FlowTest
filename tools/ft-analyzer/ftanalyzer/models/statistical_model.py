@@ -316,7 +316,7 @@ class StatisticalModel:
         event_queue = create_event_queue(
             flows_file, host_stats, inactive_timeout, output_dir
         )
-        process_events(event_queue, statistic_objects, metric_to_obj, sim)
+        process_events(event_queue, metric_to_obj, sim)
 
         shutil.rmtree(output_dir, ignore_errors=True)
 
@@ -422,13 +422,11 @@ class StatisticalModel:
                     )
                 )
 
-        statistic_objects = self._future_sim.result() if self._future_sim else dict()
-        ref_statistic_objects = (
-            self._future_ref.result() if self._future_ref else dict()
-        )
+        statistic_objects = self._future_sim.result() if self._future_sim else []
+        ref_statistic_objects = self._future_ref.result() if self._future_ref else []
         if self._executor:
             self._executor.shutdown()
-        for objects in zip(statistic_objects.values(), ref_statistic_objects.values()):
+        for objects in zip(statistic_objects, ref_statistic_objects):
             report.add_statistic_object(*objects)
 
         end = time.time()
@@ -635,7 +633,7 @@ class StatisticalModel:
 
 def setup_statsitic_objects(
     sim: SimState, start_time: np.uint64, end_time: np.uint64, inactive_timeout: int
-) -> tuple[dict[str, StatisticObject], dict[str, List[str]]]:
+) -> tuple[List[StatisticObject], dict[str, List[StatisticObject]]]:
     """Create two dicts.
     The first one maps strings to StatisticObjects.
     The second one maps a metric name to a list of strings, that are from the first dict
@@ -645,172 +643,193 @@ def setup_statsitic_objects(
     """
     start_time_offset = np.uint64(start_time + 10000)  # ten seconds transient phase
     end_time_offset = np.uint64(end_time - 10000)  # ten seconds end phase
-    statistic_objects: dict[str, StatisticObject] = {
-        "ct_data_rate": ContinuousCounter(
-            "data rate in Gb/s",
-            sim,
-            1 / (10**9),
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
-        ),
-        "ct_packet_rate": ContinuousCounter(
-            "packets per second",
-            sim,
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
-        ),
-        "ct_flow_count": ContinuousCounter(
-            "active flows (in cache)",
-            sim,
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
-        ),
-        "ct_active_flows": ContinuousCounter(
-            "active flows",
-            sim,
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
-        ),
-        "ct_cpu_usage": ContinuousCounter(
-            "CPU usage in percent",
-            sim,
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
-        ),
-        "ct_ram_usage": ContinuousCounter(
-            "RAM Usage in GiB",
-            sim,
-            factor=1 / 1024**2,  # convert KiB to GiB
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
-        ),
-        "ct_export_rate_f": ContinuousCounter(
-            "Export Rate in flows/s",
-            sim,
-            measure_start_time=start_time_offset + inactive_timeout * 1000,
-            measure_end_time=end_time,
-        ),
-        "ct_export_rate_p": ContinuousCounter(
-            "Export Rate in packets/s",
-            sim,
-            measure_start_time=start_time_offset + inactive_timeout * 1000,
-            measure_end_time=end_time,
-        ),
-        "ct_flows_per_export_packet": ContinuousCounter(
-            "Flows per exported Packet in flows/packet",
-            sim,
-            measure_start_time=start_time_offset + inactive_timeout * 1000,
-            measure_end_time=end_time,
-        ),
-        "dt_flows_active_time": DiscreteCounter("Flow Duration Active"),
-        "dt_flows_cache_time": DiscreteCounter("Flow Duration in Cache"),
-        "tsc_data_rate": TimeSeriesCounter(
-            "data rate in Gb/s",
-            sim,
-            start_time_offset,
-            end_time_offset,
-            1 / (10**9),
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
-        ),
-        "tsc_packet_rate": TimeSeriesCounter(
-            "packets per second",
-            sim,
-            start_time,
-            end_time,
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
-        ),
-        "tsc_flow_count": TimeSeriesCounter(
-            "active flows (in cache)",
-            sim,
-            start_time,
-            end_time,
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
-        ),
-        "tsc_active_flows": TimeSeriesCounter(
-            "active flows",
-            sim,
-            start_time,
-            end_time,
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
-        ),
-        "tsc_cpu_usage": TimeSeriesCounter(
-            "CPU usage in percent",
-            sim,
-            start_time,
-            end_time,
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
-        ),
-        "tsc_mem_usage": TimeSeriesCounter(
-            "RAM Usage in GiB",
-            sim,
-            start_time,
-            end_time,
-            factor=1 / (1024**2),  # convert KiB to GiB
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
-        ),
-        "tsc_export_rate_f": TimeSeriesCounter(
-            "Export Rate in flows/s",
-            sim,
-            start_time,
-            end_time,
-            measure_start_time=start_time_offset + inactive_timeout * 1000,
-            measure_end_time=end_time,
-        ),
-        "tsc_export_rate_p": TimeSeriesCounter(
-            "Export Rate in packets/s",
-            sim,
-            start_time,
-            end_time,
-            measure_start_time=start_time_offset + inactive_timeout * 1000,
-            measure_end_time=end_time,
-        ),
-        "tsc_flows_per_export_packet": TimeSeriesCounter(
-            "Flows per exported Packet in flows/packet",
-            sim,
-            start_time,
-            end_time,
-            measure_start_time=start_time_offset + inactive_timeout * 1000,
-            measure_end_time=end_time,
-        ),
-        "tsc_flows_active_time": TimeSeriesCounter(
-            "Flow Duration Active",
-            sim,
-            start_time,
-            end_time,
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
-        ),
-        "tsc_flows_cache_time": TimeSeriesCounter(
-            "Flow Duration in Cache",
-            sim,
-            start_time,
-            end_time,
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
-        ),
-    }
+    statistic_objects: List[StatisticObject] = List()
+    ct_data_rate = ContinuousCounter(
+        "data rate in Gb/s",
+        sim,
+        1 / (10**9),
+        measure_start_time=start_time_offset,
+        measure_end_time=end_time_offset,
+    )
+    statistic_objects.append(ct_data_rate)
+    ct_packet_rate = ContinuousCounter(
+        "packets per second",
+        sim,
+        measure_start_time=start_time_offset,
+        measure_end_time=end_time_offset,
+    )
+    statistic_objects.append(ct_packet_rate)
+    ct_flow_count = ContinuousCounter(
+        "active flows (in cache)",
+        sim,
+        measure_start_time=start_time_offset,
+        measure_end_time=end_time_offset,
+    )
+    statistic_objects.append(ct_flow_count)
+    ct_active_flows = ContinuousCounter(
+        "active flows",
+        sim,
+        measure_start_time=start_time_offset,
+        measure_end_time=end_time_offset,
+    )
+    statistic_objects.append(ct_active_flows)
+    ct_cpu_usage = ContinuousCounter(
+        "CPU usage in percent",
+        sim,
+        measure_start_time=start_time_offset,
+        measure_end_time=end_time_offset,
+    )
+    statistic_objects.append(ct_cpu_usage)
+    ct_ram_usage = ContinuousCounter(
+        "RAM Usage in GiB",
+        sim,
+        factor=1 / 1024**2,  # convert KiB to GiB
+        measure_start_time=start_time_offset,
+        measure_end_time=end_time_offset,
+    )
+    statistic_objects.append(ct_ram_usage)
+    ct_export_rate_f = ContinuousCounter(
+        "Export Rate in flows/s",
+        sim,
+        measure_start_time=start_time_offset + inactive_timeout * 1000,
+        measure_end_time=end_time,
+    )
+    statistic_objects.append(ct_export_rate_f)
+    ct_export_rate_p = ContinuousCounter(
+        "Export Rate in packets/s",
+        sim,
+        measure_start_time=start_time_offset + inactive_timeout * 1000,
+        measure_end_time=end_time,
+    )
+    statistic_objects.append(ct_export_rate_p)
+    ct_flows_per_export_packet = ContinuousCounter(
+        "Flows per exported Packet in flows/packet",
+        sim,
+        measure_start_time=start_time_offset + inactive_timeout * 1000,
+        measure_end_time=end_time,
+    )
+    statistic_objects.append(ct_flows_per_export_packet)
+    dt_flows_active_time = DiscreteCounter("Flow Duration Active")
+    statistic_objects.append(dt_flows_active_time)
+    dt_flows_cache_time = DiscreteCounter("Flow Duration in Cache")
+    statistic_objects.append(dt_flows_cache_time)
+    tsc_data_rate = TimeSeriesCounter(
+        "data rate in Gb/s",
+        sim,
+        start_time_offset,
+        end_time_offset,
+        1 / (10**9),
+        measure_start_time=start_time_offset,
+        measure_end_time=end_time_offset,
+    )
+    statistic_objects.append(tsc_data_rate)
+    tsc_packet_rate = TimeSeriesCounter(
+        "packets per second",
+        sim,
+        start_time,
+        end_time,
+        measure_start_time=start_time_offset,
+        measure_end_time=end_time_offset,
+    )
+    statistic_objects.append(tsc_packet_rate)
+    tsc_flow_count = TimeSeriesCounter(
+        "active flows (in cache)",
+        sim,
+        start_time,
+        end_time,
+        measure_start_time=start_time_offset,
+        measure_end_time=end_time_offset,
+    )
+    statistic_objects.append(tsc_flow_count)
+    tsc_active_flows = TimeSeriesCounter(
+        "active flows",
+        sim,
+        start_time,
+        end_time,
+        measure_start_time=start_time_offset,
+        measure_end_time=end_time_offset,
+    )
+    statistic_objects.append(tsc_active_flows)
+    tsc_cpu_usage = TimeSeriesCounter(
+        "CPU usage in percent",
+        sim,
+        start_time,
+        end_time,
+        measure_start_time=start_time_offset,
+        measure_end_time=end_time_offset,
+    )
+    statistic_objects.append(tsc_cpu_usage)
+    tsc_mem_usage = TimeSeriesCounter(
+        "RAM Usage in GiB",
+        sim,
+        start_time,
+        end_time,
+        factor=1 / (1024**2),  # convert KiB to GiB
+        measure_start_time=start_time_offset,
+        measure_end_time=end_time_offset,
+    )
+    statistic_objects.append(tsc_mem_usage)
+    tsc_export_rate_f = TimeSeriesCounter(
+        "Export Rate in flows/s",
+        sim,
+        start_time,
+        end_time,
+        measure_start_time=start_time_offset + inactive_timeout * 1000,
+        measure_end_time=end_time,
+    )
+    statistic_objects.append(tsc_export_rate_f)
+    tsc_export_rate_p = TimeSeriesCounter(
+        "Export Rate in packets/s",
+        sim,
+        start_time,
+        end_time,
+        measure_start_time=start_time_offset + inactive_timeout * 1000,
+        measure_end_time=end_time,
+    )
+    statistic_objects.append(tsc_export_rate_p)
+    tsc_flows_per_export_packet = TimeSeriesCounter(
+        "Flows per exported Packet in flows/packet",
+        sim,
+        start_time,
+        end_time,
+        measure_start_time=start_time_offset + inactive_timeout * 1000,
+        measure_end_time=end_time,
+    )
+    statistic_objects.append(tsc_flows_per_export_packet)
+    tsc_flows_active_time = TimeSeriesCounter(
+        "Flow Duration Active",
+        sim,
+        start_time,
+        end_time,
+        measure_start_time=start_time_offset,
+        measure_end_time=end_time_offset,
+    )
+    statistic_objects.append(tsc_flows_active_time)
+    tsc_flows_cache_time = TimeSeriesCounter(
+        "Flow Duration in Cache",
+        sim,
+        start_time,
+        end_time,
+        measure_start_time=start_time_offset,
+        measure_end_time=end_time_offset,
+    )
+    statistic_objects.append(tsc_flows_cache_time)
 
     metric_mapping: dict[str, List[str]] = {
-        "data_rate": ["ct_data_rate", "ct_data_rate_bibit", "tsc_data_rate"],
-        "packet_rate": ["ct_packet_rate", "tsc_packet_rate"],
-        "flow_count": ["ct_flow_count", "tsc_flow_count"],
-        "active_flows": ["ct_active_flows", "tsc_active_flows"],
-        "percent_CPU": ["ct_cpu_usage", "tsc_cpu_usage"],
-        "total_MEM": ["ct_ram_usage", "tsc_mem_usage"],
-        "export_rate_f": ["ct_export_rate_f", "tsc_export_rate_f"],
-        "export_rate_p": ["ct_export_rate_p", "tsc_export_rate_p"],
+        "data_rate": [ct_data_rate, tsc_data_rate],
+        "packet_rate": [ct_packet_rate, tsc_packet_rate],
+        "flow_count": [ct_flow_count, tsc_flow_count],
+        "active_flows": [ct_active_flows, tsc_active_flows],
+        "percent_CPU": [ct_cpu_usage, tsc_cpu_usage],
+        "total_MEM": [ct_ram_usage, tsc_mem_usage],
+        "export_rate_f": [ct_export_rate_f, tsc_export_rate_f],
+        "export_rate_p": [ct_export_rate_p, tsc_export_rate_p],
         "export_flows_p_packet": [
-            "tsc_flows_per_export_packet",
-            "ct_flows_per_export_packet",
+            tsc_flows_per_export_packet,
+            ct_flows_per_export_packet,
         ],
-        "active_time": ["dt_flows_active_time", "tsc_flows_active_time"],
-        "cache_time": ["dt_flows_cache_time", "tsc_flows_cache_time"],
+        "active_time": [dt_flows_active_time, tsc_flows_active_time],
+        "cache_time": [dt_flows_cache_time, tsc_flows_cache_time],
     }
 
     return (statistic_objects, metric_mapping)
@@ -822,8 +841,7 @@ def _flush_event_data(
     current_packet_rate: int,
     current_flows: int,
     active_flows: int,
-    statistic_objects: dict[str, StatisticObject],
-    metric_mapping: dict[str, str],
+    metric_mapping: dict[str, List[StatisticObject]],
     duration_s: float,
     simultaneous_events: List[Event],
     sim: SimState,
@@ -838,7 +856,6 @@ def _flush_event_data(
     total_packet_rate = one_packet_packet_rate + current_packet_rate
 
     update_statistic_objects(
-        statistic_objects,
         metric_mapping,
         data_rate=total_data_rate,
         packet_rate=total_packet_rate,
@@ -857,7 +874,6 @@ def _flush_event_data(
         export_packets = len(export_events)
         export_flows_p_packet = export_flows / export_packets
         update_statistic_objects(
-            statistic_objects,
             metric_mapping,
             export_rate_f=export_flows / time_since_export_s,
             export_rate_b=export_bytes / time_since_export_s,
@@ -868,7 +884,6 @@ def _flush_event_data(
     elif since_last_export >= 1000:
         # use 0 as datapoint every second to register absence of exports
         update_statistic_objects(
-            statistic_objects,
             metric_mapping,
             export_rate_f=0,
             export_rate_b=0,
@@ -882,14 +897,11 @@ def _flush_event_data(
         None,
     )
     if host_stats_event:
-        update_statistic_objects(
-            statistic_objects, metric_mapping, **host_stats_event.row._asdict()
-        )
+        update_statistic_objects(metric_mapping, **host_stats_event.row._asdict())
 
     for event in simultaneous_events:
         if isinstance(event, OnePacketFlow) or isinstance(event, FlowEndEvent):
             update_statistic_objects(
-                statistic_objects,
                 metric_mapping,
                 active_time=event.active_time,
                 cache_time=event.cache_time,
@@ -900,8 +912,7 @@ def _flush_event_data(
 
 def process_events(
     event_queue: Iterable[Event],
-    statistic_objects: dict[str, StatisticObject],
-    metric_mapping: dict[str, List[str]],
+    metric_mapping: dict[str, List[StatisticObject]],
     sim: SimState,
 ) -> None:
     """
@@ -953,7 +964,6 @@ def process_events(
                 current_packet_rate,
                 current_flows,
                 active_flows,
-                statistic_objects,
                 metric_mapping,
                 duration_s,
                 simultaneous_events,
@@ -998,7 +1008,6 @@ def process_events(
             current_packet_rate,
             current_flows,
             active_flows,
-            statistic_objects,
             metric_mapping,
             duration_s,
             simultaneous_events,
@@ -1008,18 +1017,15 @@ def process_events(
 
 
 def update_statistic_objects(
-    statistic_objects: dict[str, StatisticObject],
-    metric_mapping: dict[str, List[str]],
+    metric_mapping: dict[str, List[StatisticObject]],
     **kwargs: dict | None,
 ):
     for key, rate in kwargs.items():
         if rate is None:
             continue
-        stat_obj_names = metric_mapping.get(key, [])
-        for stat_obj_name in stat_obj_names:
-            stat_obj = statistic_objects.get(stat_obj_name)
-            if stat_obj is not None:
-                stat_obj.count(rate)
+        stat_objects = metric_mapping.get(key, [])
+        for stat_obj in stat_objects:
+            stat_obj.count(rate)
 
 
 def all_instance_of(iterable: Iterable, cls):
