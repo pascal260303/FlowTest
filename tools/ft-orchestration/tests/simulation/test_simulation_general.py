@@ -63,6 +63,10 @@ def validate(
     biflows: bool,
     log_dir: os.PathLike,
     host_stats_file: os.PathLike,
+    loops: int,
+    start_phase_duration: int,
+    end_phase_duration: int,
+    speed_multiplier: float,
 ) -> tuple[StatisticalReport, Optional[PreciseReport]]:
     """Perform statistical and/or precise model evaluation of the test scenario.
 
@@ -92,15 +96,19 @@ def validate(
 
     if analysis.model == "precise":
         model = PreciseModel(
-            flows_file,
-            ref_file,
             active_timeout,
-            inactive_timeout,
-            stats,
-            log_dir,
+            flows=flows_file,
+            reference=ref_file,
+            inactive_timeout=inactive_timeout,
+            stats=stats,
+            log_dir=log_dir,
             biflows_ts_correction=biflows,
             use_statistical_counter=analysis.use_statistic_counter,
             host_stats=host_stats_file,
+            loops=loops,
+            start_phase_duration=start_phase_duration,
+            end_phase_duration=end_phase_duration,
+            speed_multiplier=speed_multiplier,
         )
         if len(prefilter_conf) > 0:
             precise_report = model.validate_precise(
@@ -128,6 +136,10 @@ def validate(
             use_statistical_counter=analysis.use_statistic_counter,
             host_stats=host_stats_file,
             inactive_timeout=inactive_timeout,
+            loops=loops,
+            start_phase_duration=start_phase_duration,
+            end_phase_duration=end_phase_duration,
+            speed_multiplier=speed_multiplier,
         )
         precise_report = None
         metrics = analysis.metrics
@@ -375,7 +387,7 @@ def test_simulation_general(
 
         flows_file_future.result()
         flows_file = StatisticalModel.prepare_flows_file(flows_file, stats)
-        replicated_ref = replicated_ref_future.result()
+        replicated_ref, speed_multiplier = replicated_ref_future.result()
 
     stats_report, precise_report = validate(
         analysis=scenario.test.analysis,
@@ -388,6 +400,10 @@ def test_simulation_general(
         log_dir=log_dir,
         host_stats_file=probe_instance.host_statistics.local_file,
         inactive_timeout=inactive_t,
+        loops=scenario.test.loops,
+        start_phase_duration=scenario.default.start_phase_duration,
+        end_phase_duration=scenario.default.end_phase_duration,
+        speed_multiplier=speed_multiplier,
     )
 
     print("")

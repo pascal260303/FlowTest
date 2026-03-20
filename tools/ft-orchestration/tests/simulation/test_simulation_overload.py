@@ -323,7 +323,7 @@ def test_simulation_overload(
 
         flows_file_future.result()
         flows_file = StatisticalModel.prepare_flows_file(flows_file, stats)
-        replicated_ref = replicated_ref_future.result()
+        replicated_ref, speed_multiplier = replicated_ref_future.result()
 
     model = StatisticalModel(
         flows_file,
@@ -333,6 +333,10 @@ def test_simulation_overload(
         use_statistical_counter=scenario.test.analysis.use_statistic_counter,
         host_stats=probe_instance.host_statistics.local_file,
         inactive_timeout=inactive_t,
+        loops=scenario.test.loops,
+        start_phase_duration=scenario.default.start_phase_duration,
+        end_phase_duration=scenario.default.end_phase_duration,
+        speed_multiplier=speed_multiplier,
     )
     report = model.validate(
         [SMRule(scenario.test.analysis.metrics, segment) for segment in segments]

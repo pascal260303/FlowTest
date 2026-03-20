@@ -109,6 +109,8 @@ class SimConfig(YAMLWizard):
     pps: Optional[int] = None
     mbps: Optional[int] = None
     speed_multiplier: Optional[float] = None
+    start_phase_duration: Optional[int] = 10
+    end_phase_duration: Optional[int] = 10
     probe: Optional[ProbeCfg] = None
     generator: Optional[FtGeneratorConfig] = None
     prefilter_ranges: Optional[list[str]] = None

@@ -53,6 +53,10 @@ def validate(
     log_dir: os.PathLike,
     host_stats_file: os.PathLike,
     inactive_timeout: int,
+    loops: int,
+    start_phase_duration: int,
+    end_phase_duration: int,
+    speed_mutliplier: float,
 ) -> tuple[bool, StatisticalReport]:
     """Perform statistical and/or precise model evaluation of the test scenario.
 
@@ -82,6 +86,10 @@ def validate(
         use_statistical_counter=analysis.use_statistic_counter,
         host_stats=host_stats_file,
         inactive_timeout=inactive_timeout,
+        loops=loops,
+        start_phase_duration=start_phase_duration,
+        end_phase_duration=end_phase_duration,
+        speed_multiplier=speed_mutliplier,
     )
     stats_report = model.validate([SMRule(analysis.metrics)])
     print("")
@@ -275,7 +283,7 @@ def test_simulation_threshold(
 
             flows_file_future.result()
             flows_file = StatisticalModel.prepare_flows_file(flows_file, stats)
-            replicated_ref = replicated_ref_future.result()
+            replicated_ref, speed_multiplier = replicated_ref_future.result()
 
         flow_replicator = None
         gc.collect()
@@ -288,6 +296,10 @@ def test_simulation_threshold(
             log_dir=current_log_dir,
             host_stats_file=probe_instance.host_statistics.local_file,
             inactive_timeout=inactive_t,
+            loops=scenario.test.loops,
+            start_phase_duration=scenario.default.start_phase_duration,
+            end_phase_duration=scenario.default.end_phase_duration,
+            speed_mutliplier=speed_multiplier,
         )
 
         return ret, report
