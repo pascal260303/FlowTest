@@ -21,8 +21,8 @@ class TimeSeriesCounter(DiscreteCounter):
         end_time: np.uint64,
         factor: float = 1.0,
         target_sample_count: int = 10000,
-        measure_start_time: np.uint64 = None,
-        measure_end_time: np.uint64 = None,
+        measure_start_times: List[np.uint64] = None,
+        measure_end_times: List[np.uint64] = None,
     ) -> None:
         """
         Initialize a time series counter.
@@ -47,13 +47,15 @@ class TimeSeriesCounter(DiscreteCounter):
         self._agg_start_time: np.uint64 | None = None
         self._agg_sum = 0.0
         self._agg_count = 0
-        self._measure_start_time = (
-            self._sim.convert_to_seconds(measure_start_time)
-            if measure_start_time
-            else None
+        self._measure_start_times = (
+            [self._sim.convert_to_seconds(time) for time in measure_start_times]
+            if measure_start_times
+            else []
         )
-        self._measure_end_time = (
-            self._sim.convert_to_seconds(measure_end_time) if measure_end_time else None
+        self._measure_end_times = (
+            [self._sim.convert_to_seconds(time) for time in measure_end_times]
+            if measure_end_times
+            else []
         )
 
     def count(self, x: np.float64) -> None:
@@ -170,12 +172,10 @@ class TimeSeriesCounter(DiscreteCounter):
             linewidth=1.5,
             label=self._observed_variable,
         )
-        if self._measure_start_time:
-            plt.axvline(
-                self._measure_start_time - df["time_sec"].iloc[0], color="green"
-            )
-        if self._measure_end_time:
-            plt.axvline(self._measure_end_time - df["time_sec"].iloc[0], color="red")
+        for time in self._measure_start_times:
+            plt.axvline(time - df["time_sec"].iloc[0], color="green")
+        for time in self._measure_end_times:
+            plt.axvline(time - df["time_sec"].iloc[0], color="red")
         plt.xlabel(time_unit)
         plt.ylabel(self._observed_variable)
         plt.title(f"Time Series of {self._observed_variable}")

@@ -51,6 +51,9 @@ class Counter(StatisticObject, ABC):
         self.__num_samples = 0
         self._has_negatives = has_negatives
 
+    def get_counter_type(self):
+        return self.__counter_type
+
     @abstractmethod
     def get_mean(self) -> np.float64:
         """

@@ -221,7 +221,7 @@ class FlowReplicator:
         inactive_timeout: int = -1,
         speed_multiplier: float = 1,
         chunksize: int = 5_000_000,
-    ) -> pd.DataFrame | os.PathLike:
+    ) -> tuple[pd.DataFrame | os.PathLike, float]:
         """Read source data and replicate source flows based on configuration.
         Save replication result to CSV file. Helper columns like "ORIG_INDEX" are not exported.
 
@@ -347,7 +347,7 @@ class FlowReplicator:
 
         end = time.time()
         logging.getLogger().info("CSV replicated in %.2f seconds.", (end - start))
-        return output_file
+        return (output_file, speed_multiplier)
 
     @staticmethod
     def _parse_config_item(item: str, src_dict: dict) -> Optional[IpAddConstant]:

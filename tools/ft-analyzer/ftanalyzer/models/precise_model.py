@@ -9,7 +9,6 @@ SPDX-License-Identifier: BSD-3-Clause
 import logging
 import operator
 from functools import reduce
-from os import PathLike
 import time
 from typing import List, Optional, Union
 
@@ -17,7 +16,6 @@ import pandas as pd
 from ftanalyzer.models.sm_data_types import SMSubnetSegment, SMTimeSegment
 from ftanalyzer.models.statistical_model import StatisticalModel
 from ftanalyzer.reports.precise_report import PMFlow, PMTestCategory, PreciseReport
-from src.generator.interface import GeneratorStats
 
 
 # pylint: disable=too-few-public-methods
@@ -45,15 +43,8 @@ class PreciseModel(StatisticalModel):
 
     def __init__(
         self,
-        flows: str,
-        reference: Union[str, pd.DataFrame],
         active_timeout: int,
-        inactive_timeout: int,
-        stats: GeneratorStats,
-        log_dir: PathLike,
-        host_stats: PathLike,
-        biflows_ts_correction: bool = False,
-        use_statistical_counter: bool = False,
+        **kwargs: dict | None,
     ) -> None:
         """
         Initialize the precise model with sorted input data.
@@ -73,17 +64,7 @@ class PreciseModel(StatisticalModel):
             SMException: Unable to process provided files.
         """
 
-        super().__init__(
-            flows,
-            reference,
-            stats,
-            log_dir,
-            merge=True,
-            biflows_ts_correction=biflows_ts_correction,
-            use_statistical_counter=use_statistical_counter,
-            host_stats=host_stats,
-            inactive_timeout=inactive_timeout,
-        )
+        super().__init__(merge=True, **kwargs)
         self._report = None
         self._active_timeout = active_timeout * 1000
 
