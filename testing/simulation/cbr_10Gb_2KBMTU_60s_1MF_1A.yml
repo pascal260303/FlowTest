@@ -26,7 +26,20 @@ sim_general:
   - id: cbr_10Gb_2KBMTU_60s_1MF_1A_precise
     marks: [precise]
     speed_multiplier: 1.0
-    loops: 1
+    loops: 20
     analysis:
-      model: "precise"
+      model: "statistical"
       use_statistic_counter: true
+      metrics:
+        - key: PACKETS
+          diff: 0.001
+        - key: BYTES
+          diff: 0.001
+        - key: FLOWS
+          diff: 0.001
+        - key: PACKETS / S
+          diff: 1
+        - key: MB / S
+          diff: 1
+        - key: DURATION
+          diff: 1
