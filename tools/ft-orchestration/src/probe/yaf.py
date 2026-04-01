@@ -98,7 +98,7 @@ class YafSettings(ABC):
     )
 
     active_timeout: int = 300
-    idle_timeout: int = 50
+    idle_timeout: int = 30
 
     filter: Optional[str] = None
 
@@ -179,7 +179,7 @@ class Yaf(ProbeInterface):
         verbose: bool = False,
         mtu: int = 2048,
         sudo: bool = False,
-        inactive_timeout: int = 50,
+        inactive_timeout: int = 30,
         cache_size=None,
         rss_queues: int = 1,
         **kwargs: dict,
