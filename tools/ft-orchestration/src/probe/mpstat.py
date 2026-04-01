@@ -122,10 +122,11 @@ class MpStat(HostStats):
             os.PathLike: Path to the merged CSV file.
         """
         if self.local_file:
-            if os.path.dirname(self.local_file) == output_dir:
+            local_dir = os.path.dirname(self.local_file)
+            if local_dir == output_dir:
                 return self.local_file
-            for item in os.listdir(os.path.dirname(self.local_file)):
-                shutil.copy(item, output_dir)
+            for item in os.listdir(local_dir):
+                shutil.copy(os.path.join(local_dir, item), output_dir)
             self.local_file = os.path.join(
                 output_dir, os.path.basename(self.local_file)
             )
