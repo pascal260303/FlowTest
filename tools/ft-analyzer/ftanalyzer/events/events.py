@@ -51,19 +51,23 @@ STATS_CSV_COLUMN_TYPES = {
     # "majflt/s": np.float64,
     # "VSZ": np.uint64,
     # "RSS": np.uint64,
-    "percent_MEM": np.float64,
+    # "percent_MEM": np.float64,
     # "StkSize": np.uint64,
     # "StkRef": np.uint64,
     # "threads": np.uint64,
     # "fd-nr": np.uint64,
     # "Command": str,
-    "total_MEM": np.float64,
+    "total_MEM": np.uint64,
+    "buff": np.uint64,
+    "cache": np.uint64,
 }
 
 SUM_PIDSTAT_COLS = [
     "percent_CPU",
-    "percent_MEM",
+    # "percent_MEM",
     "total_MEM",
+    "buff",
+    "cache",
 ]
 
 _TEMP_DIRS = []

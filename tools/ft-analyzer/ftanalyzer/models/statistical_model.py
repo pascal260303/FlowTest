@@ -684,6 +684,8 @@ def setup_statsitic_objects(
         "active_flows": [],
         "percent_CPU": [],
         "total_MEM": [],
+        "buff": [],
+        "cache": [],
         "export_rate_f": [],
         "export_rate_p": [],
         "export_flows_p_packet": [],
@@ -704,71 +706,98 @@ def setup_statsitic_objects(
         export_start_offset = min(start_time_offset + scaled_timeout, end_time)
         export_end_offset = min(end_time_offset + scaled_timeout, end_time)
 
-        ct_data_rate = ContinuousCounter(
-            "data rate in Gb/s",
-            sim,
-            1 / (10**9),
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
+        metric_mapping["data_rate"].append(
+            ContinuousCounter(
+                "data rate in Gb/s",
+                sim,
+                1 / (10**9),
+                measure_start_time=start_time_offset,
+                measure_end_time=end_time_offset,
+            )
         )
-        metric_mapping["data_rate"].append(ct_data_rate)
-        ct_packet_rate = ContinuousCounter(
-            "packets per second",
-            sim,
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
+        metric_mapping["packet_rate"].append(
+            ContinuousCounter(
+                "packets per second",
+                sim,
+                measure_start_time=start_time_offset,
+                measure_end_time=end_time_offset,
+            )
         )
-        metric_mapping["packet_rate"].append(ct_packet_rate)
-        ct_flow_count = ContinuousCounter(
-            "active flows (in cache)",
-            sim,
-            measure_start_time=export_start_offset,
-            measure_end_time=export_end_offset,
+        metric_mapping["flow_count"].append(
+            ContinuousCounter(
+                "active flows (in cache)",
+                sim,
+                measure_start_time=export_start_offset,
+                measure_end_time=export_end_offset,
+            )
         )
-        metric_mapping["flow_count"].append(ct_flow_count)
-        ct_active_flows = ContinuousCounter(
-            "active flows",
-            sim,
-            measure_start_time=start_time_offset,
-            measure_end_time=end_time_offset,
+        metric_mapping["active_flows"].append(
+            ContinuousCounter(
+                "active flows",
+                sim,
+                measure_start_time=start_time_offset,
+                measure_end_time=end_time_offset,
+            )
         )
-        metric_mapping["active_flows"].append(ct_active_flows)
-        ct_cpu_usage = ContinuousCounter(
-            "CPU usage in percent",
-            sim,
-            measure_start_time=loop_start_time,
-            measure_end_time=loop_end_time,
+        metric_mapping["percent_CPU"].append(
+            ContinuousCounter(
+                "CPU usage in percent",
+                sim,
+                measure_start_time=loop_start_time,
+                measure_end_time=loop_end_time,
+            )
         )
-        metric_mapping["percent_CPU"].append(ct_cpu_usage)
-        ct_ram_usage = ContinuousCounter(
-            "RAM Usage in GiB",
-            sim,
-            factor=1 / 1024**2,  # convert KiB to GiB
-            measure_start_time=loop_start_time,
-            measure_end_time=loop_end_time,
+        metric_mapping["total_MEM"].append(
+            ContinuousCounter(
+                "RAM Usage in GiB (without Cache/Buffer)",
+                sim,
+                factor=1 / 1024**2,  # convert KiB to GiB
+                measure_start_time=loop_start_time,
+                measure_end_time=loop_end_time,
+            )
         )
-        metric_mapping["total_MEM"].append(ct_ram_usage)
-        ct_export_rate_f = ContinuousCounter(
-            "Export Rate in flows/s",
-            sim,
-            measure_start_time=export_start_offset,
-            measure_end_time=export_end_offset,
+        metric_mapping["buff"].append(
+            ContinuousCounter(
+                "Buffer size in MiB",
+                sim,
+                factor=1 / 1024,  # convert KiB to MiB
+                measure_start_time=loop_start_time,
+                measure_end_time=loop_end_time,
+            )
         )
-        metric_mapping["export_rate_f"].append(ct_export_rate_f)
-        ct_export_rate_p = ContinuousCounter(
-            "Export Rate in packets/s",
-            sim,
-            measure_start_time=export_start_offset,
-            measure_end_time=export_end_offset,
+        metric_mapping["cache"].append(
+            ContinuousCounter(
+                "Cache size in MiB",
+                sim,
+                factor=1 / 1024,  # convert KiB to MiB
+                measure_start_time=loop_start_time,
+                measure_end_time=loop_end_time,
+            )
         )
-        metric_mapping["export_rate_p"].append(ct_export_rate_p)
-        ct_flows_per_export_packet = ContinuousCounter(
-            "Flows per exported Packet in flows/packet",
-            sim,
-            measure_start_time=export_start_offset,
-            measure_end_time=export_end_offset,
+        metric_mapping["export_rate_f"].append(
+            ContinuousCounter(
+                "Export Rate in flows/s",
+                sim,
+                measure_start_time=export_start_offset,
+                measure_end_time=export_end_offset,
+            )
         )
-        metric_mapping["export_flows_p_packet"].append(ct_flows_per_export_packet)
+        metric_mapping["export_rate_p"].append(
+            ContinuousCounter(
+                "Export Rate in packets/s",
+                sim,
+                measure_start_time=export_start_offset,
+                measure_end_time=export_end_offset,
+            )
+        )
+        metric_mapping["export_flows_p_packet"].append(
+            ContinuousCounter(
+                "Flows per exported Packet in flows/packet",
+                sim,
+                measure_start_time=export_start_offset,
+                measure_end_time=export_end_offset,
+            )
+        )
 
     statistic_objects: List[StatisticObject] = list()
 
