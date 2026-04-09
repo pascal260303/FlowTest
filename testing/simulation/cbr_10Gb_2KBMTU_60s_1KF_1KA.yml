@@ -1,10 +1,10 @@
 # Profile information which cannot be modified by the orchestration tool.
 name: cbr_10Gb_2KBMTU_60s_1KF_1KA
 description: Custom created profiles with predictable traffic
-marks: [cbr, 10Gb, 60s, 1KF, 1KA]
+marks: [cbr, 10Gb/s, 1min, 1M-FLOWS, 1M-ACTIVE, 30518ppf]
 requirements:
   speed: 100
-profile: /home/student/2025-bsc-kuppler-flowmeter/cbr_10Gb_2KBMTU_60s_1KF_1KA.csv
+profile: /home/student/2025-bsc-kuppler-flowmeter/profiles/cbr_10Gb_2KBMTU_60s_1KF_1KA.csv
 mtu: 4096
 sampling: 1.0
 
@@ -23,8 +23,8 @@ default:
 
 # individual tests for general simulation scenario
 sim_general:
-  - id: cbr_10Gb_2KBMTU_60s_1KF_1KA_precise
-    marks: [precise]
+  - id: cbr_10Gb_2KBMTU_60s_1KF_1KA_statistical
+    marks: []
     speed_multiplier: 1.0
     loops: 20
     analysis:

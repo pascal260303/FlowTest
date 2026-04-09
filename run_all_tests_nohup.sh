@@ -18,9 +18,9 @@ fi
 
 PROBES=(
 	#"ipfixprobe-raw"
-	#"ipfixprobe-raw-4"
+	"ipfixprobe-raw-4"
 	#"ipfixprobe-pcap"
-	#"ipfixprobe-pcap-4"
+	"ipfixprobe-pcap-4"
 	#"ipfixprobe-dpdk-1"
 	#"ipfixprobe-dpdk-2"
 	"ipfixprobe-dpdk-4"
@@ -34,48 +34,57 @@ PROBES=(
 	#"cento-pcap-4"
 	"cento-mlx"
 	#"yaf-pcap"
-	#"yaf-pcap-4"
+	"yaf-pcap-4"
 	"yaf-pfring"
 	#"yaf-pfring-pcap"
 	#"yaf-pfring-pcap-4"
 	"yaf-mlx"
 	#"manual"
 	#"mikrotik-nic"
+	"mikrotik-flowmeter"
+	"pmacct-pcap"
+	"pmacct-pfring-pcap"
 )
 
-declare -A PROBE_PROTOCOLS
-PROBE_PROTOCOLS=(
-	"ipfixprobe-raw" "tcp"
-	"ipfixprobe-raw-4" "tcp"
-	"ipfixprobe-pcap" "tcp"
-	"ipfixprobe-pcap-4" "tcp"
-	"ipfixprobe-dpdk-1" "tcp"
-	"ipfixprobe-dpdk-2" "tcp"
-	"ipfixprobe-dpdk-4" "tcp"
-	"ipfixprobe-dpdk-16" "tcp"
-	"nprobe-pfring" "udp"
-	"nprobe-pcap" "udp"
-	"nprobe-pcap-4" "udp"
-	"nprobe-mlx" "udp"
-	"cento-pfring" "tcp"
-	"cento-pcap" "tcp"
-	"cento-pcap-4" "tcp"
-	"cento-mlx" "tcp"
-	"yaf-pcap" "tcp"
-	"yaf-pcap-4" "tcp"
-	"yaf-pfring" "tcp"
-	"yaf-pfring-pcap" "tcp"
-	"yaf-pfring-pcap-4" "tcp"
-	"yaf-mlx" "tcp"
-	"manual" "tcp"
-	"mikrotik-nic" "tcp"
-)
+get_collector() {
+	case $1 in
+	mikrotik-flowmeter)
+		echo ipfixcol-kuppler-3
+		;;
+	*)
+		echo ipfixcol-1
+		;;
+	esac
+}
+
+get_protocol() {
+	case $1 in
+	nprobe*)
+		echo "udp"
+		;;
+	*)
+		#echo "tcp"
+		echo "udp"
+		;;
+	esac
+}
+
+get_replicator() {
+	case $1 in
+	mikrotik-flowmeter)
+		echo "kuppler-2-dpdk-2"
+		;;
+	*)
+		echo "kuppler-2-dpdk"
+		;;
+	esac
+}
 
 for probe in ${PROBES[@]}; do
 	ARGS=(
 		"--config-path=/home/student/2025-bsc-kuppler-flowmeter/flowtest-configs"
-		"--replicator=kuppler-2-dpdk"
-		"--collector=ipfixcol-1:protocol=${PROBE_PROTOCOLS[$probe]}"
+		"--replicator=$(get_replicator ${probe})"
+		"--collector=$(get_collector ${probe}):protocol=$(get_protocol ${probe})"
 		"--probe=${probe}"
 		"--disable-ansible"
 		"--html=logs/report.html"
@@ -83,7 +92,7 @@ for probe in ${PROBES[@]}; do
 		"--continue-on-collection-errors"
 		"--capture=tee-sys"
 		"-m"
-		"simulation and cpr"
+		"simulation and cpr and 100M-ACTIVE"
 	)
 
 	echo "Starting tests with nohup... output in ${LOG} for $probe"

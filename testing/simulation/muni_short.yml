@@ -33,7 +33,7 @@ sim_general:
       use_statistic_counter: true
 
   - id: munich_short_statistical
-    enabled: false
+    enabled: true
     marks: []
     speed_multiplier: 1.0
     analysis:
