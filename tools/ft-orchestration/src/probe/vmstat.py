@@ -1,12 +1,9 @@
-from datetime import datetime
 import logging
 import os
 import shutil
 import time
 
-import pandas as pd
 from src.common.tool_is_installed import assert_tool_is_installed
-from src.common.utils import duplicate_executor
 from src.probe.interface import HostStats
 from lbr_testsuite.executable import (
     Executor,
@@ -16,17 +13,15 @@ from lbr_testsuite.executable import (
     Tool,
     ExecutableProcessError,
 )
-from src.probe.vmstat import VmStat
 
 
-class MpStat(HostStats):
+class VmStat(HostStats):
     cpus: int = 0
     total_ram: int = 0
     local_file: os.PathLike = None
 
-    def __init__(self, executor: Executor, watch_cmd: str, sudo: bool = False):
-        assert_tool_is_installed("mpstat", executor)
-        self.vmstat = VmStat(duplicate_executor(executor)[0], sudo)
+    def __init__(self, executor: Executor, sudo: bool = False):
+        assert_tool_is_installed("vmstat", executor)
         self._sudo = sudo
         self._executor = executor
         self._rsync = Rsync(executor)
@@ -37,7 +32,7 @@ class MpStat(HostStats):
             sudo=self._sudo,
             failure_verbosity="silent",
         ).run()  # make sure dir exists
-        self._outfile = os.path.join(self._work_dir, "mpstat.csv")
+        self._outfile = os.path.join(self._work_dir, "vmstat.csv")
         self.cpus = int(
             Tool(
                 "bash -c 'cat /proc/cpuinfo | grep \"cpu cores\" | head -n1'",
@@ -60,26 +55,23 @@ class MpStat(HostStats):
             .split(" ")[0]
         )  # in kB
 
-        self.tz = (
-            Tool("date +%z", executor=self._executor, sudo=self._sudo).run()[0].strip()
-        )
-
         self._process = None
 
-        header = "Time;CPU;percent_usr;percent_nice;percent_sys;percent_iowait;percent_irq;percent_soft;percent_steal;percent_guest;percent_gnice;percent_idle"
+        header = (
+            "r;b;swpd;free;buff;cache;si;so;bi;bo;in;cs;us;sy;id;wa;st;gu;date;time"
+        )
         self._cmd = f"""
         echo '{header}' > {self._outfile}
-        stdbuf -oL mpstat -U -P ALL 1 | stdbuf -oL sed -E -e 's/[ ]+/;/g' -e '/^([^0-9].*)?$/d' | stdbuf -oL grep -vF CPU >> {self._outfile}
+        stdbuf -oL vmstat -nytS K 1 | stdbuf -oL sed -E -e 's/^ //g' -e 's/[ ]+/;/g' -e '/^([^0-9].*)?$/d' >> {self._outfile}
         """
         """command that writes every second one line in `self._outfile` in csv format (; separated,  with header)
-        see `man mpstat` for the meaning of the metrics`
+        see `man vmstat` for the meaning of the metrics`
         """
 
     def start(self):
         """
-        Start collecting mpstat statistics.
+        Start collecting vmstat statistics.
         """
-        self.vmstat.start()
         self._process = Daemon(
             self._cmd,
             executor=self._executor,
@@ -97,16 +89,16 @@ class MpStat(HostStats):
             # stderr is redirected to stdout
             err = res[0]
             logging.getLogger().error(
-                "Unable to start mpstat: return code: %d, error: %s",
+                "Unable to start vmstat: return code: %d, error: %s",
                 self._ifc_names,
                 return_code,
                 err,
             )
-            raise Exception("mpstat startup error")
+            raise Exception("vmstat startup error")
 
     def stop(self):
         """
-        Stop collecting mpstat statistics.
+        Stop collecting vmstat statistics.
         """
         if self._process is None:
             return
@@ -114,17 +106,16 @@ class MpStat(HostStats):
             self._process.stop()
         except ExecutableProcessError:
             pass
-        self.vmstat.stop()
 
     def get_csv(self, output_dir: os.PathLike) -> os.PathLike:
         """
-        Download the CSV file containing mpstat and vmstat statistics to the output directory.
+        Download the CSV file containing vmstat statistics to the output directory.
 
         Args:
             output_dir (os.PathLike): Path where to copy CSV to.
 
         Returns:
-            os.PathLike: Path to the merged CSV file.
+            os.PathLike: Path to the CSV file.
         """
         if self.local_file:
             local_dir = os.path.dirname(self.local_file)
@@ -143,49 +134,12 @@ class MpStat(HostStats):
             logging.getLogger().warning("%s", err)
             return ""
 
-        # merge vmstat and mpstat in one file
-        df = pd.read_csv(self.local_file, sep=";", engine="pyarrow")
-        df = df[df["CPU"] == "all"]
-        df["Time"] = df["Time"].astype("int64")
-
-        vmstat_df = pd.read_csv(
-            self.vmstat.get_csv(output_dir),
-            sep=";",
-            engine="pyarrow",
-            dtype={"date": str, "time": str},
-        )
-
-        # convert "date" and "time" to unix timestamp
-        vmstat_df["Time"] = pd.to_datetime(
-            vmstat_df["date"] + ";" + vmstat_df["time"],
-            format="%Y-%m-%d;%H:%M:%S",
-        )
-        tzinfo = datetime.strptime(self.tz, "%z").tzinfo
-        vmstat_df["Time"] = vmstat_df["Time"].dt.tz_localize(tzinfo)
-        vmstat_df["Time"] = (
-            vmstat_df["Time"].dt.tz_convert("UTC").astype("int64") // 10**9
-        )
-
-        df = pd.merge(df, vmstat_df, on="Time", how="left")
-
-        # calculate CPU usage by mpstat output
-        df["percent_CPU"] = (
-            (100 - df["percent_idle"]) * self.cpus
-        )  # multiply with cpu core count to get better understanding of core usage
-
-        df["total_MEM"] = (
-            self.total_ram - df["free"] - df["buff"] - df["cache"]
-        )  # in KiB
-
-        self.local_file = os.path.join(output_dir, "mpstat_and_vmstat.csv")
-        df.to_csv(self.local_file, index=False, sep=";")
         return self.local_file
 
     def cleanup(self):
         """
         Remove temporary files and clean up resources.
         """
-        self.vmstat.cleanup()
         self._rsync.wipe_data_directory()
         Tool(
             f"rmdir {self._work_dir}",
