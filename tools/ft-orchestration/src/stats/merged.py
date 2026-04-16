@@ -1,32 +1,26 @@
 from datetime import datetime
-import logging
 import os
-import shutil
-import time
 
 import pandas as pd
-from src.common.tool_is_installed import assert_tool_is_installed
 from src.common.utils import duplicate_executor
-from src.probe.interface import HostStats
+from src.stats.interface import HostStats
 from lbr_testsuite.executable import (
     Executor,
-    Daemon,
     Rsync,
-    RsyncException,
     Tool,
-    ExecutableProcessError,
 )
-from src.probe.vmstat import VmStat
+from src.stats.pidstat import PidStat
+from src.stats.vmstat import VmStat
+from src.stats.mpstat import MpStat
+import functools as ft
 
 
-class MpStat(HostStats):
+class MergedStats(HostStats):
     cpus: int = 0
     total_ram: int = 0
     local_file: os.PathLike = None
 
     def __init__(self, executor: Executor, watch_cmd: str, sudo: bool = False):
-        assert_tool_is_installed("mpstat", executor)
-        self.vmstat = VmStat(duplicate_executor(executor)[0], sudo)
         self._sudo = sudo
         self._executor = executor
         self._rsync = Rsync(executor)
@@ -37,7 +31,6 @@ class MpStat(HostStats):
             sudo=self._sudo,
             failure_verbosity="silent",
         ).run()  # make sure dir exists
-        self._outfile = os.path.join(self._work_dir, "mpstat.csv")
         self.cpus = int(
             Tool(
                 "bash -c 'cat /proc/cpuinfo | grep \"cpu cores\" | head -n1'",
@@ -64,57 +57,31 @@ class MpStat(HostStats):
             Tool("date +%z", executor=self._executor, sudo=self._sudo).run()[0].strip()
         )
 
-        self._process = None
-
-        header = "Time;CPU;percent_usr;percent_nice;percent_sys;percent_iowait;percent_irq;percent_soft;percent_steal;percent_guest;percent_gnice;percent_idle"
-        self._cmd = f"""
-        echo '{header}' > {self._outfile}
-        stdbuf -oL mpstat -U -P ALL 1 | stdbuf -oL sed -E -e 's/[ ]+/;/g' -e '/^([^0-9].*)?$/d' | stdbuf -oL grep -vF CPU >> {self._outfile}
-        """
-        """command that writes every second one line in `self._outfile` in csv format (; separated,  with header)
-        see `man mpstat` for the meaning of the metrics`
-        """
+        self.vmstat = VmStat(
+            duplicate_executor(executor)[0], sudo, self.cpus, self.total_ram
+        )
+        self.mpstat = MpStat(
+            duplicate_executor(executor)[0], sudo, self.cpus, self.total_ram
+        )
+        self.pidstat = PidStat(
+            duplicate_executor(executor)[0], watch_cmd, sudo, self.cpus, self.total_ram
+        )
 
     def start(self):
         """
         Start collecting mpstat statistics.
         """
         self.vmstat.start()
-        self._process = Daemon(
-            self._cmd,
-            executor=self._executor,
-            sudo=self._sudo,
-            failure_verbosity="silent",
-        )
-        self._process.start()
-        time.sleep(1)
-
-        if not self._process.is_running():
-            res = self._process.stop()
-            return_code = self._process.returncode()
-            self._process = None
-
-            # stderr is redirected to stdout
-            err = res[0]
-            logging.getLogger().error(
-                "Unable to start mpstat: return code: %d, error: %s",
-                self._ifc_names,
-                return_code,
-                err,
-            )
-            raise Exception("mpstat startup error")
+        self.mpstat.start()
+        self.pidstat.start()
 
     def stop(self):
         """
         Stop collecting mpstat statistics.
         """
-        if self._process is None:
-            return
-        try:
-            self._process.stop()
-        except ExecutableProcessError:
-            pass
         self.vmstat.stop()
+        self.mpstat.stop()
+        self.pidstat.stop()
 
     def get_csv(self, output_dir: os.PathLike) -> os.PathLike:
         """
@@ -126,27 +93,12 @@ class MpStat(HostStats):
         Returns:
             os.PathLike: Path to the merged CSV file.
         """
-        if self.local_file:
-            local_dir = os.path.dirname(self.local_file)
-            if local_dir == output_dir:
-                return self.local_file
-            for item in os.listdir(local_dir):
-                shutil.copy(os.path.join(local_dir, item), output_dir)
-            self.local_file = os.path.join(
-                output_dir, os.path.basename(self.local_file)
-            )
-            return self.local_file
-
-        try:
-            self.local_file = self._rsync.pull_path(self._outfile, output_dir)
-        except RsyncException as err:
-            logging.getLogger().warning("%s", err)
-            return ""
-
         # merge vmstat and mpstat in one file
-        df = pd.read_csv(self.local_file, sep=";", engine="pyarrow")
-        df = df[df["CPU"] == "all"]
-        df["Time"] = df["Time"].astype("int64")
+        mpstat_df = pd.read_csv(
+            self.mpstat.get_csv(output_dir), sep=";", engine="pyarrow"
+        )
+        mpstat_df = mpstat_df[mpstat_df["CPU"] == "all"]
+        mpstat_df["Time"] = mpstat_df["Time"].astype("int64")
 
         vmstat_df = pd.read_csv(
             self.vmstat.get_csv(output_dir),
@@ -166,18 +118,42 @@ class MpStat(HostStats):
             vmstat_df["Time"].dt.tz_convert("UTC").astype("int64") // 10**9
         )
 
-        df = pd.merge(df, vmstat_df, on="Time", how="left")
+        pidstat_df: pd.DataFrame = pd.read_csv(
+            self.pidstat.get_csv(output_dir), sep=";", enginge="pyarrow"
+        )
+        agg_dict = {col: "sum" for col in pidstat_df.columns if col != "Time"}
+        pidstat_df = pidstat_df.groupby(["Time"], as_index=False).agg(agg_dict)
+        pidstat_df["Time"] = pidstat_df["Time"].astype("int64")
+
+        mpstat_df = mpstat_df.add_prefix("mpstat_")
+        vmstat_df = vmstat_df.add_prefix("vmstat_")
+        pidstat_df = pidstat_df.add_prefix("pidstat_")
+        mpstat_df.rename(columns={"mpstat_Time": "Time"}, inplace=True)
+        vmstat_df.rename(columns={"vmtat_Time": "Time"}, inplcae=True)
+        pidstat_df.rename(columns={"pidstat_Time": "Time"}, inplace=True)
+
+        df: pd.DataFrame = ft.reduce(
+            lambda left, right: pd.merge(left, right, on="Time", how="outer"),
+            (mpstat_df, vmstat_df, pidstat_df),
+        )
 
         # calculate CPU usage by mpstat output
         df["percent_CPU"] = (
-            (100 - df["percent_idle"]) * self.cpus
+            (100 - df["mpstat_percent_idle"]) * self.cpus
         )  # multiply with cpu core count to get better understanding of core usage
 
         df["total_MEM"] = (
-            self.total_ram - df["free"] - df["buff"] - df["cache"]
+            self.total_ram - df["vmstat_free"] - df["vmstat_buff"] - df["vmstat_cache"]
         )  # in KiB
 
-        self.local_file = os.path.join(output_dir, "mpstat_and_vmstat.csv")
+        df.rename(
+            columns={"vmstat_cache": "cache", "vmstat_buff": "buff"}, inplace=True
+        )
+
+        df = df.sort_values("Time").reset_index(drop=True)
+        df.fillna(method="ffill", inplace=True)
+
+        self.local_file = os.path.join(output_dir, "merged_stats.csv")
         df.to_csv(self.local_file, index=False, sep=";")
         return self.local_file
 

@@ -19,7 +19,7 @@ from lbr_testsuite.executable import (
     Daemon,
     ExecutableProcessError,
 )
-from src.probe.mpstat import MpStat
+from src.stats.merged import MergedStats
 from src.probe.probe_target import ProbeTarget
 
 SETTINGS_TO_ARGS: dict[str, str] = {
@@ -141,7 +141,7 @@ class Cento(ProbeInterface):
         if self._zero_copy:
             assert_tool_is_installed("pf_ringcfg", executor)
         self._cmd = self._prepare_cmd(target, protocols, settings)
-        self.host_statistics = MpStat(stats_executor, self._cmd.split(" ", 1)[0])
+        self.host_statistics = MergedStats(stats_executor, self._cmd.split(" ", 1)[0])
 
         self._local_workdir = tempfile.mkdtemp()
         self._log_file = Path(self._local_workdir, "cento.log")

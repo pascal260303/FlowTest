@@ -20,7 +20,7 @@ from src.common.typed_dataclass import typed_dataclass
 from src.common.utils import duplicate_executor
 from src.config.common import InterfaceCfg
 from src.probe.interface import ProbeException, ProbeInterface
-from src.probe.mpstat import MpStat
+from src.stats.merged import MergedStats
 from src.probe.probe_target import ProbeTarget
 
 
@@ -150,7 +150,7 @@ class Pmacct(ProbeInterface):
         self._log_file = path.join(self._local_workdir, f"{self._binary}.log")
         self._config_file = path.join(self._local_workdir, "settings.conf")
         self._cmd = None
-        self.host_statistics = MpStat(stats_executor, self._binary)
+        self.host_statistics = MergedStats(stats_executor, self._binary)
         self._rsync = Rsync(executor)
         self._rss_queues_pcap = rss_queues
 

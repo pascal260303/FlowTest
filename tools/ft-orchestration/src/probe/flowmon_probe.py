@@ -25,7 +25,7 @@ from lbr_testsuite.executable import (
 )
 from lbr_testsuite.executable.rsync import RsyncException
 from src.probe.interface import ProbeException, ProbeInterface
-from src.probe.mpstat import MpStat
+from src.stats.merged import MergedStats
 
 FLOWMONEXP_BIN = "/usr/bin/flowmonexp5"
 FLOWMONEXP_LOG = Path("/data/components/flowmonexp/log")
@@ -193,7 +193,9 @@ class FlowmonProbe(ProbeInterface):
         else:
             stats_executor = LocalExecutor()
 
-        self.host_statistics = MpStat(stats_executor, os.path.basename(FLOWMONEXP_BIN))
+        self.host_statistics = MergedStats(
+            stats_executor, os.path.basename(FLOWMONEXP_BIN)
+        )
 
         dpdk_is_active = Tool(
             "systemctl -q is-active dpdk-controller.service",

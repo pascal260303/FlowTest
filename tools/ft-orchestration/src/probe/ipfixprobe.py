@@ -28,7 +28,7 @@ from src.common.typed_dataclass import bool_convertor, typed_dataclass
 from src.common.utils import duplicate_executor
 from src.config.common import InterfaceCfg
 from src.probe.interface import ProbeException, ProbeInterface
-from src.probe.mpstat import MpStat
+from src.stats.merged import MergedStats
 from src.probe.probe_target import ProbeTarget
 from lbr_testsuite.executable import ExecutableProcessError
 
@@ -392,7 +392,7 @@ class Ipfixprobe(ProbeInterface, ABC):
 
         assert_tool_is_installed("ipfixprobe", executor)
         self._cmd = self._prepare_cmd(target, protocols, settings)
-        self.host_statistics = MpStat(stats_executor, self._cmd.split(" ", 1)[0])
+        self.host_statistics = MergedStats(stats_executor, self._cmd.split(" ", 1)[0])
 
         self._local_workdir = tempfile.mkdtemp()
         self._log_file = Path(self._local_workdir, "ipfixprobe.log")

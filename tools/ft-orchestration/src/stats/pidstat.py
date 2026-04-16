@@ -2,7 +2,7 @@ import logging
 import os
 import shutil
 import time
-from src.probe.interface import HostStats
+from src.stats.interface import HostStats
 from lbr_testsuite.executable import (
     Executor,
     Daemon,
@@ -18,7 +18,14 @@ class PidStat(HostStats):
     total_ram: int = 0
     local_file: os.PathLike = None
 
-    def __init__(self, executor: Executor, watch_cmd: str, sudo: bool = False):
+    def __init__(
+        self,
+        executor: Executor,
+        watch_cmd: str,
+        sudo: bool = False,
+        cpus=None,
+        total_ram=None,
+    ):
         self._sudo = sudo
         self._executor = executor
         self._rsync = Rsync(executor)
@@ -30,27 +37,34 @@ class PidStat(HostStats):
             failure_verbosity="silent",
         ).run()  # make sure dir exists
         self._outfile = os.path.join(self._work_dir, "pidstat.csv")
-        self.cpus = int(
-            Tool(
-                "bash -c 'cat /proc/cpuinfo | grep \"cpu cores\" | head -n1'",
-                executor=self._executor,
-                sudo=self._sudo,
+        if cpus is not None:
+            self.cpus = cpus
+        else:
+            self.cpus = int(
+                Tool(
+                    "bash -c 'cat /proc/cpuinfo | grep \"cpu cores\" | head -n1'",
+                    executor=self._executor,
+                    sudo=self._sudo,
+                )
+                .run()[0]
+                .split(":")[1]
+                .strip()
             )
-            .run()[0]
-            .split(":")[1]
-            .strip()
-        )
-        self.total_ram = int(
-            Tool(
-                "bash -c 'cat /proc/meminfo | grep \"MemTotal\"'",
-                executor=self._executor,
-                sudo=self._sudo,
-            )
-            .run()[0]
-            .split(":")[1]
-            .strip()
-            .split(" ")[0]
-        )  # in kB
+
+        if total_ram is not None:
+            self.total_ram = total_ram
+        else:
+            self.total_ram = int(
+                Tool(
+                    "bash -c 'cat /proc/meminfo | grep \"MemTotal\"'",
+                    executor=self._executor,
+                    sudo=self._sudo,
+                )
+                .run()[0]
+                .split(":")[1]
+                .strip()
+                .split(" ")[0]
+            )  # in kB
 
         self._process = None
         self._watch_cmd = watch_cmd
