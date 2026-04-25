@@ -118,8 +118,8 @@ class MergedStats(HostStats):
             vmstat_df["Time"].dt.tz_convert("UTC").astype("int64") // 10**9
         )
 
-        pidstat_df: pd.DataFrame = pd.read_csv(
-            self.pidstat.get_csv(output_dir), sep=";", enginge="pyarrow"
+        pidstat_df = pd.read_csv(
+            self.pidstat.get_csv(output_dir), sep=";", engine="pyarrow"
         )
         agg_dict = {col: "sum" for col in pidstat_df.columns if col != "Time"}
         pidstat_df = pidstat_df.groupby(["Time"], as_index=False).agg(agg_dict)
@@ -129,7 +129,7 @@ class MergedStats(HostStats):
         vmstat_df = vmstat_df.add_prefix("vmstat_")
         pidstat_df = pidstat_df.add_prefix("pidstat_")
         mpstat_df.rename(columns={"mpstat_Time": "Time"}, inplace=True)
-        vmstat_df.rename(columns={"vmtat_Time": "Time"}, inplcae=True)
+        vmstat_df.rename(columns={"vmstat_Time": "Time"}, inplace=True)
         pidstat_df.rename(columns={"pidstat_Time": "Time"}, inplace=True)
 
         df: pd.DataFrame = ft.reduce(
@@ -151,7 +151,7 @@ class MergedStats(HostStats):
         )
 
         df = df.sort_values("Time").reset_index(drop=True)
-        df.fillna(method="ffill", inplace=True)
+        df.ffill(inplace=True)
 
         self.local_file = os.path.join(output_dir, "merged_stats.csv")
         df.to_csv(self.local_file, index=False, sep=";")
