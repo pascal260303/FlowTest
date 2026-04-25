@@ -8,12 +8,12 @@ from os import path
 from typing import List, Optional
 
 from lbr_testsuite.executable import (
-    Daemon,
     ExecutableProcessError,
     Executor,
     Rsync,
     Tool,
 )
+from src.probe.process_group import Daemon
 from src.common.tool_is_installed import assert_tool_is_installed
 from src.common.typed_dataclass import typed_dataclass
 from src.common.utils import duplicate_executor
@@ -182,6 +182,8 @@ class Yaf(ProbeInterface):
         inactive_timeout: int = 30,
         cache_size=None,
         rss_queues: int = 1,
+        mem_limit=None,
+        cpu_limit=None,
         **kwargs: dict,
     ):
         if len(interfaces) > 1:
@@ -227,6 +229,8 @@ class Yaf(ProbeInterface):
         )
         self._mtu = mtu
         self._sudo = sudo
+        self._cpu_limit = cpu_limit
+        self._mem_limit = mem_limit
 
         assert_tool_is_installed("yaf", executor)
 
@@ -335,7 +339,13 @@ class Yaf(ProbeInterface):
                     time.sleep(2)
         self._before_start()
 
-        self._process = Daemon(self._cmd, executor=self._executor, sudo=self._sudo)
+        self._process = Daemon(
+            self._cmd,
+            executor=self._executor,
+            sudo=self._sudo,
+            cpu_limit=self._cpu_limit,
+            mem_limit=self._mem_limit,
+        )
         # stderr is implicitly redirected to stdout
         self._process.set_outputs(self._log_file)
         self._process.start()

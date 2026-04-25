@@ -19,9 +19,9 @@ from src.probe.interface import ProbeException, ProbeInterface
 from lbr_testsuite.executable import (
     Executor,
     Tool,
-    Daemon,
     ExecutableProcessError,
 )
+from src.probe.process_group import Daemon
 from src.stats.merged import MergedStats
 from src.probe.probe_target import ProbeTarget
 
@@ -118,6 +118,8 @@ class NProbe(ProbeInterface):
         mtu: int = 2048,
         sudo: bool = False,
         cache_size=None,
+        mem_limit=None,
+        cpu_limit=None,
         **kwargs: dict,
     ):
         interfaces_names = [ifc.name for ifc in interfaces]
@@ -145,6 +147,8 @@ class NProbe(ProbeInterface):
         self._mtu = mtu
         self._target = target
         self._protocols = protocols
+        self._cpu_limit = cpu_limit
+        self._mem_limit = mem_limit
 
         assert_tool_is_installed("nprobe", executor)
         if self._zero_copy:
@@ -304,7 +308,13 @@ class NProbe(ProbeInterface):
             if self._settings.rss_queues > 1:
                 settings.interface = f"{settings.interface}@{i}"
             cmd = self._prepare_cmd(self._target, self._protocols, settings)
-            process = Daemon(cmd, executor=executors[i], sudo=self._sudo)
+            process = Daemon(
+                cmd,
+                executor=executors[i],
+                sudo=self._sudo,
+                cpu_limit=self._cpu_limit,
+                mem_limit=self._mem_limit,
+            )
             self._processes.append(process)
             log_file = Path(self._local_workdir, f"nprobe_{i}.log")
             self._log_files.append(log_file)

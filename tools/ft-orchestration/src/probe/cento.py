@@ -16,9 +16,9 @@ from src.probe.interface import ProbeException, ProbeInterface
 from lbr_testsuite.executable import (
     Executor,
     Tool,
-    Daemon,
     ExecutableProcessError,
 )
+from src.probe.process_group import Daemon
 from src.stats.merged import MergedStats
 from src.probe.probe_target import ProbeTarget
 
@@ -109,6 +109,8 @@ class Cento(ProbeInterface):
         mtu: int = 2048,
         sudo: bool = False,
         cache_size=None,
+        mem_limit=None,
+        cpu_limit=None,
         **kwargs: dict,
     ):
         interfaces_names = [ifc.name for ifc in interfaces]
@@ -136,6 +138,8 @@ class Cento(ProbeInterface):
         self._settings: CentoSettings = settings
         self._mtu = mtu
         self._target = target
+        self._cpu_limit = cpu_limit
+        self._mem_limit = mem_limit
 
         assert_tool_is_installed("cento", executor)
         if self._zero_copy:
@@ -287,7 +291,13 @@ class Cento(ProbeInterface):
 
         self._before_start()
 
-        self._process = Daemon(self._cmd, executor=self._executor, sudo=self._sudo)
+        self._process = Daemon(
+            self._cmd,
+            cpu_limit=self._cpu_limit,
+            mem_limit=self._mem_limit,
+            executor=self._executor,
+            sudo=self._sudo,
+        )
         # stderr is implicitly redirected to stdout
         self._process.set_outputs(self._log_file)
         self._process.start()

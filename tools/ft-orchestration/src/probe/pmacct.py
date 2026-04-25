@@ -9,12 +9,12 @@ from os import path
 from typing import List, Optional
 
 from lbr_testsuite.executable import (
-    Daemon,
     ExecutableProcessError,
     Executor,
     Rsync,
     Tool,
 )
+from src.probe.process_group import Daemon
 from src.common.tool_is_installed import assert_tool_is_installed
 from src.common.typed_dataclass import typed_dataclass
 from src.common.utils import duplicate_executor
@@ -83,6 +83,8 @@ class Pmacct(ProbeInterface):
         cache_size=None,
         rss_queues: int = 1,
         binary: str = "pmacctd",
+        mem_limit=None,
+        cpu_limit=None,
         **kwargs: dict,
     ):
         # initialize PmacctSettings and map FlowTest values to pmacct values
@@ -143,6 +145,8 @@ class Pmacct(ProbeInterface):
         self._mtu = mtu
         self._sudo = sudo
         self._binary = binary
+        self._cpu_limit = cpu_limit
+        self._mem_limit = mem_limit
 
         assert_tool_is_installed(self._binary, executor)
 
@@ -249,7 +253,13 @@ class Pmacct(ProbeInterface):
                 time.sleep(2)
         self._before_start()
 
-        self._process = Daemon(self._cmd, executor=self._executor, sudo=self._sudo)
+        self._process = Daemon(
+            self._cmd,
+            executor=self._executor,
+            sudo=self._sudo,
+            cpu_limit=self._cpu_limit,
+            mem_limit=self._mem_limit,
+        )
         # stderr is implicitly redirected to stdout
         self._process.set_outputs(self._log_file)
         self._process.start()

@@ -18,10 +18,10 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from lbr_testsuite.executable import (
-    Daemon,
     Executor,
     Tool,
 )
+from src.probe.process_group import Daemon
 from src.common.required_field import required_field
 from src.common.tool_is_installed import assert_tool_is_installed
 from src.common.typed_dataclass import bool_convertor, typed_dataclass
@@ -353,6 +353,8 @@ class Ipfixprobe(ProbeInterface, ABC):
         verbose: bool = False,
         settings: IpfixprobeSettings = None,
         sudo: bool = False,
+        mem_limit=None,
+        cpu_limit=None,
     ):
         """Init ipfixprobe connector.
 
@@ -389,6 +391,8 @@ class Ipfixprobe(ProbeInterface, ABC):
         self._enabled_plugins = []
         self._last_run_stats = None
         self._timeouts = (settings.active_timeout, settings.inactive_timeout)
+        self._cpu_limit = cpu_limit
+        self._mem_limit = mem_limit
 
         assert_tool_is_installed("ipfixprobe", executor)
         self._cmd = self._prepare_cmd(target, protocols, settings)
@@ -445,6 +449,8 @@ class Ipfixprobe(ProbeInterface, ABC):
             executor=self._executor,
             sudo=self._sudo,
             failure_verbosity="no-exception",
+            cpu_limit=self._cpu_limit,
+            mem_limit=self._mem_limit,
         )
         # stderr is implicitly redirected to stdout
         self._process.set_outputs(self._log_file)
