@@ -1,21 +1,23 @@
 # Profile information which cannot be modified by the orchestration tool.
-name: cpr_1Mpps_60s_1MA
+name: cpr_8,3Mpps_1024MTU_1f
 description: Custom created profiles with predictable traffic
-marks: [cpr, 512Mb/s, 1min, 1M-FLOWS, 1M-ACTIVE, 50ppf, 1Mp/s]
+marks: [cpr, 67.99Gb/s, 18s, 1-FLOWS, 1-ACTIVE, 149400000ppf, 8.3Mp/s]
 requirements:
   speed: 100
-profile: /home/student/2025-bsc-kuppler-flowmeter/profiles/cpr_1Mpps_60s_1MA.csv
+profile: /home/student/2025-bsc-kuppler-flowmeter/profiles/cpr_8,3Mpps_1024MTU_1f.csv
 mtu: 4096
 sampling: 1.0
 
 # default configuration describing the setup during profile collection
 default:
-  pps: 1000000
-  mbps: 512
+  pps: 8300000
+  mbps: 67993.6
+  start_phase_duration: 0
+  end_phase_duration: 0
   generator:
     packet_size_probabilities:
-      "64-77": .0
-      "78-78": 1 # für konstante paketgröße von 64, wird als MTU (+14) von create_network_profile.py berechnet
+      "64-1037": .0
+      "1038-1038": 1 # für konstante paketgröße von 1024, wird als MTU (+14) von create_network_profile.py berechnet
   probe:
     protocols: []
     active_timeout: 300
@@ -23,10 +25,10 @@ default:
 
 # individual tests for general simulation scenario
 sim_general:
-  - id: cpr_1Mpps_60s_1MA_statistical
+  - id: cpr_8,3Mpps_1024MTU_1f_statistical
     marks: []
     speed_multiplier: 1.0
-    loops: 20
+    loops: 30
     analysis:
       model: "statistical"
       use_statistic_counter: true

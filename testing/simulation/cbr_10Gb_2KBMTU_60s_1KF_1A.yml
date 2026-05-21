@@ -1,7 +1,7 @@
 # Profile information which cannot be modified by the orchestration tool.
 name: cbr_10Gb_2KBMTU_60s_1KF_1A
 description: Custom created profiles with predictable traffic
-marks: [cbr, 10Gb/s, 1min, 1M-FLOWS, 1K-ACTIVE, 36622ppf]
+marks: [cbr, 10Gb/s, 1min, 1K-FLOWS, 1-ACTIVE, 36622ppf, 610.37Kp/s]
 requirements:
   speed: 100
 profile: /home/student/2025-bsc-kuppler-flowmeter/profiles/cbr_10Gb_2KBMTU_60s_1KF_1A.csv

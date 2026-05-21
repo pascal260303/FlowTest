@@ -1,7 +1,7 @@
 # Profile information which cannot be modified by the orchestration tool.
 name: cpr_1ppf_60s_100KF
 description: Custom created profiles with predictable traffic
-marks: [cpr, 853.33Kb/s, 1min, 100M-FLOWS, 1K-ACTIVE, 1ppf]
+marks: [cpr, 853.33Kb/s, 1min, 100K-FLOWS, 1-ACTIVE, 1ppf, 1.67Kp/s]
 requirements:
   speed: 100
 profile: /home/student/2025-bsc-kuppler-flowmeter/profiles/cpr_1ppf_60s_100KF.csv
