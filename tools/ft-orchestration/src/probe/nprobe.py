@@ -224,11 +224,6 @@ class NProbe(ProbeInterface):
                 sudo=self._sudo,
             ).run()
             time.sleep(5)
-        Tool(
-            f"ethtool --set-channels {interface_name} combined {self._settings.rss_queues}",
-            executor=self._executor,
-            sudo=self._sudo,
-        ).run()
 
     def _switch_back_zc(self, interface_name: str):
         driver, _ = Tool(
@@ -249,7 +244,42 @@ class NProbe(ProbeInterface):
 
     def _set_rss_queues(self, interface_name):
         Tool(
+            f"ethtool --set-channels {interface_name} combined $(nproc)",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+        Tool(
+            f"ethtool -X {interface_name} hfunc toeplitz hkey 6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a equal {self._settings.rss_queues}",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+        Tool(
             f"ethtool --set-channels {interface_name} combined {self._settings.rss_queues}",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+        Tool(
+            f"ethtool -N {interface_name} rx-flow-hash tcp4 sd",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+        Tool(
+            f"ethtool -N {interface_name} rx-flow-hash udp4 sd",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+        Tool(
+            f"ethtool -N {interface_name} rx-flow-hash tcp6 sd",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+        Tool(
+            f"ethtool -N {interface_name} rx-flow-hash udp6 sd",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+        Tool(
+            f"ethtool -K {interface_name} gro off gso off tso off",
             executor=self._executor,
             sudo=self._sudo,
         ).run()
@@ -263,11 +293,6 @@ class NProbe(ProbeInterface):
             ).run()
             Tool(
                 f"ip link set {name} mtu {self._mtu}",
-                executor=self._executor,
-                sudo=self._sudo,
-            ).run()
-            Tool(
-                f"ethtool -K {name} gro off gso off tso off",
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()

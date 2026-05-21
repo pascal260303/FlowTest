@@ -225,7 +225,37 @@ class Pmacct(ProbeInterface):
             sudo=self._sudo,
         ).run()
         Tool(
+            f"ethtool --set-channels {self._settings.pcap_interface} combined $(nproc)",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+        Tool(
+            f"ethtool -X {self._settings.pcap_interface} hfunc toeplitz hkey 6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a equal {self._rss_queues_pcap}",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+        Tool(
             f"ethtool --set-channels {self._settings.pcap_interface} combined {self._rss_queues_pcap}",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+        Tool(
+            f"ethtool -N {self._settings.pcap_interface} rx-flow-hash tcp4 sd",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+        Tool(
+            f"ethtool -N {self._settings.pcap_interface} rx-flow-hash udp4 sd",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+        Tool(
+            f"ethtool -N {self._settings.pcap_interface} rx-flow-hash tcp6 sd",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+        Tool(
+            f"ethtool -N {self._settings.pcap_interface} rx-flow-hash udp6 sd",
             executor=self._executor,
             sudo=self._sudo,
         ).run()

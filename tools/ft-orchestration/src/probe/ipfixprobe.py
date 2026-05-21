@@ -840,9 +840,9 @@ class IpfixprobeRaw(Ipfixprobe):
             if settings.packets:
                 raw_params.append(f"p={settings.packets}")
 
-            for _ in range(settings.queues_count):
+            for i in range(settings.queues_count):
                 args += self._get_plugin_arg(
-                    IpfixprobePluginType.INPUT, "raw", raw_params
+                    IpfixprobePluginType.INPUT, f"raw@{i}", raw_params
                 )
 
         args += self._get_common_args(target, protocols, settings)
@@ -862,7 +862,37 @@ class IpfixprobeRaw(Ipfixprobe):
                 sudo=self._sudo,
             ).run()
             Tool(
+                f"ethtool --set-channels {ifc} combined $(nproc)",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
+                f"ethtool -X {ifc} hfunc toeplitz hkey 6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a equal {self._settings.rss_queues}",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
                 f"ethtool --set-channels {ifc} combined {self._settings.rss_queues}",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
+                f"ethtool -N {ifc} rx-flow-hash tcp4 sd",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
+                f"ethtool -N {ifc} rx-flow-hash udp4 sd",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
+                f"ethtool -N {ifc} rx-flow-hash tcp6 sd",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
+                f"ethtool -N {ifc} rx-flow-hash udp6 sd",
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()
@@ -929,7 +959,37 @@ class IpfixprobePcap(Ipfixprobe):
                 sudo=self._sudo,
             ).run()
             Tool(
+                f"ethtool --set-channels {ifc} combined $(nproc)",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
+                f"ethtool -X {ifc} hfunc toeplitz hkey 6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a:6d:5a equal {self._settings.rss_queues}",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
                 f"ethtool --set-channels {ifc} combined {self._settings.rss_queues}",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
+                f"ethtool -N {ifc} rx-flow-hash tcp4 sd",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
+                f"ethtool -N {ifc} rx-flow-hash udp4 sd",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
+                f"ethtool -N {ifc} rx-flow-hash tcp6 sd",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
+                f"ethtool -N {ifc} rx-flow-hash udp6 sd",
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()
