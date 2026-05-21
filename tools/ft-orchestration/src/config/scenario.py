@@ -114,6 +114,7 @@ class SimConfig(YAMLWizard):
     probe: Optional[ProbeCfg] = None
     generator: Optional[FtGeneratorConfig] = None
     prefilter_ranges: Optional[list[str]] = None
+    apply_loop_offsets: Optional[bool] = True
 
     def get_probe_conf(self, probe_type: str, default: ProbeCfg) -> dict:
         """Get probe configuration for a specific probe type (merged with the default configuration).

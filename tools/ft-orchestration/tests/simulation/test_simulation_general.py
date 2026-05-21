@@ -165,6 +165,7 @@ def setup_replicator(
     prefilter_conf: list[str],
     loop_cnt: int,
     unit_cnt: int,
+    apply_loop_offset: bool,
 ) -> tuple[FlowReplicator, list[str]]:
     """
     Setup replicator units and loops so that there is enough bits in an IP prefix
@@ -215,9 +216,9 @@ def setup_replicator(
         )
         for subnet in prefilter_conf:
             extended_prefilter_conf.add(ip_network_add_offset(subnet, offset))
-
-    loop_offset = unit_cnt * 2 ** (32 - prefix)
-    generator.set_loop_modifiers(srcip_offset=loop_offset, dstip_offset=loop_offset)
+    if apply_loop_offset:
+        loop_offset = unit_cnt * 2 ** (32 - prefix)
+        generator.set_loop_modifiers(srcip_offset=loop_offset, dstip_offset=loop_offset)
     extended_prefilter_conf = {
         ip_network_add_offset(subnet, loop_n * loop_offset)
         for subnet in extended_prefilter_conf
@@ -336,6 +337,7 @@ def test_simulation_general(
         scenario.test.get_prefilter_conf(scenario.default),
         scenario.test.loops,
         scenario.test.get_replicator_units(scenario.sampling),
+        scenario.test.apply_loop_offsets,
     )
     if len(prefilter_conf) > 0:
         probe_instance.set_prefilter(prefilter_conf)

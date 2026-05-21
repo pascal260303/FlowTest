@@ -100,7 +100,11 @@ def create_evaluation_segments(
 
 
 def setup_replicator(
-    generator: Replicator, conf: FtGeneratorConfig, multiplier: float, unit_cnt: int
+    generator: Replicator,
+    conf: FtGeneratorConfig,
+    multiplier: float,
+    unit_cnt: int,
+    apply_loop_offsets: bool,
 ) -> tuple[FlowReplicator, list[SMSubnetSegment]]:
     """
     Setup replicator units and loops so that there is enough bits in an IP prefix
@@ -157,10 +161,11 @@ def setup_replicator(
         )
 
     # loop offset
-    generator.set_loop_modifiers(
-        srcip_offset=loop_units * 2 ** (32 - prefix),
-        dstip_offset=loop_units * 2 ** (32 - prefix),
-    )
+    if apply_loop_offsets:
+        generator.set_loop_modifiers(
+            srcip_offset=loop_units * 2 ** (32 - prefix),
+            dstip_offset=loop_units * 2 ** (32 - prefix),
+        )
     segments = create_evaluation_segments(
         conf.ipv4.ip_range, conf.ipv6.ip_range, prefix, unit_cnt, loop_units
     )
@@ -277,6 +282,7 @@ def test_simulation_overload(
         generator_conf,
         scenario.test.multiplier,
         int(1 / scenario.sampling),
+        scenario.test.apply_loop_offsets,
     )
     speed = (
         scenario.test.speed_multiplier

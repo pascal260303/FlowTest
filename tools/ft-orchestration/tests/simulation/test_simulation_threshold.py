@@ -98,7 +98,11 @@ def validate(
 
 
 def setup_replicator(
-    generator: Replicator, conf: FtGeneratorConfig, loop_cnt: int, unit_cnt: int
+    generator: Replicator,
+    conf: FtGeneratorConfig,
+    loop_cnt: int,
+    unit_cnt: int,
+    apply_loop_offsets: bool,
 ) -> FlowReplicator:
     """
     Setup replicator units and loops so that there is enough bits in an IP prefix
@@ -141,10 +145,11 @@ def setup_replicator(
             dstip=Replicator.AddConstant(unit_n * 2 ** (32 - prefix)),
         )
 
-    generator.set_loop_modifiers(
-        srcip_offset=unit_cnt * 2 ** (32 - prefix),
-        dstip_offset=unit_cnt * 2 ** (32 - prefix),
-    )
+    if apply_loop_offsets:
+        generator.set_loop_modifiers(
+            srcip_offset=unit_cnt * 2 ** (32 - prefix),
+            dstip_offset=unit_cnt * 2 ** (32 - prefix),
+        )
     logging.getLogger().info(
         "Generator - ipv4 range: %s, ipv6 range: %s",
         conf.ipv4.ip_range,
@@ -245,7 +250,11 @@ def test_simulation_threshold(
         probe_instance.start()
 
         flow_replicator = setup_replicator(
-            generator_instance, generator_conf, loops, replicator_units
+            generator_instance,
+            generator_conf,
+            loops,
+            replicator_units,
+            scenario.test.apply_loop_offsets,
         )
         generator_instance.start_profile(
             profile_path,
