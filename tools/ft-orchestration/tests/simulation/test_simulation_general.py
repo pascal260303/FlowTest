@@ -337,7 +337,7 @@ def test_simulation_general(
         scenario.test.get_prefilter_conf(scenario.default),
         scenario.test.loops,
         scenario.test.get_replicator_units(scenario.sampling),
-        scenario.test.apply_loop_offsets,
+        scenario.default.apply_loop_offsets and scenario.test.apply_loop_offsets,
     )
     if len(prefilter_conf) > 0:
         probe_instance.set_prefilter(prefilter_conf)
@@ -381,6 +381,9 @@ def test_simulation_general(
             input_file=ref_file,
             loops=scenario.test.loops,
             generator_stats=stats,
+            merge_across_loops=not (
+                scenario.default.apply_loop_offsets and scenario.test.apply_loop_offsets
+            ),
             speed_multiplier=speed.speed if isinstance(speed, MultiplierSpeed) else 1.0,
         )
 

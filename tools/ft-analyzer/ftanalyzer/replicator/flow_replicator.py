@@ -746,7 +746,7 @@ class FlowReplicator:
         rows = max(1000, int(budget // max(1, bytes_per_row)))
         return rows
 
-    def _estimate_memory_from_file(csv_path: str, column_types: dict):
+    def _estimate_memory_from_file(self, csv_path: str, column_types: dict):
         bytes_per_row = sum(
             np.dtype(t).itemsize
             for t in column_types.values()

@@ -254,7 +254,7 @@ def test_simulation_threshold(
             generator_conf,
             loops,
             replicator_units,
-            scenario.test.apply_loop_offsets,
+            scenario.default.apply_loop_offsets and scenario.test.apply_loop_offsets,
         )
         generator_instance.start_profile(
             profile_path,
@@ -284,6 +284,10 @@ def test_simulation_threshold(
                 flow_replicator.replicate,
                 input_file=ref_file,
                 loops=loops,
+                merge_across_loops=not (
+                    scenario.default.apply_loop_offsets
+                    and scenario.test.apply_loop_offsets
+                ),
                 generator_stats=stats,
             )
 

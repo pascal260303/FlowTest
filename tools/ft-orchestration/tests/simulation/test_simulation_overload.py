@@ -282,7 +282,7 @@ def test_simulation_overload(
         generator_conf,
         scenario.test.multiplier,
         int(1 / scenario.sampling),
-        scenario.test.apply_loop_offsets,
+        scenario.default.apply_loop_offsets and scenario.test.apply_loop_offsets,
     )
     speed = (
         scenario.test.speed_multiplier
@@ -320,6 +320,9 @@ def test_simulation_overload(
             flow_replicator.replicate,
             input_file=ref_file,
             loops=LOOPS,
+            merge_across_loops=not (
+                scenario.default.apply_loop_offsets and scenario.test.apply_loop_offsets
+            ),
             generator_stats=stats,
             speed_multiplier=speed.speed if isinstance(speed, MultiplierSpeed) else 1.0,
         )
