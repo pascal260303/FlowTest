@@ -184,6 +184,8 @@ class Yaf(ProbeInterface):
         rss_queues: int = 1,
         mem_limit=None,
         cpu_limit=None,
+        hw_ring_size=8192,
+        pf_ring_rx_queue_size=8192,
         **kwargs: dict,
     ):
         if len(interfaces) > 1:
@@ -241,6 +243,8 @@ class Yaf(ProbeInterface):
         self.host_statistics = MergedStats(stats_executor, "yaf")
         self._rsync = Rsync(executor)
         self._rss_queues_pcap = rss_queues
+        self._hw_ring_size = hw_ring_size
+        self._pf_ring_rx_queue_size = pf_ring_rx_queue_size
 
     def _write_config(self, settings: YafSettings):
         def to_lua_literal(value) -> str:
@@ -283,8 +287,11 @@ class Yaf(ProbeInterface):
             f.write("\n")
 
     def _prepare_cmd(self, config_file: str) -> str:
-        args = ["yaf"]
-        args.extend(["-c", config_file])
+        args = [
+            "yaf",
+            "-c",
+            config_file,
+        ]
         if self._verbose:
             args.append("--verbose")
 
@@ -301,6 +308,11 @@ class Yaf(ProbeInterface):
             ).run()
             Tool(
                 f"ip link set {self._settings.input.inf} mtu {self._mtu}",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
+            Tool(
+                f"ethtool -G {self._settings.input.inf} rx {self._hw_ring_size}",
                 executor=self._executor,
                 sudo=self._sudo,
             ).run()
@@ -375,6 +387,7 @@ class Yaf(ProbeInterface):
             sudo=self._sudo,
             cpu_limit=self._cpu_limit,
             mem_limit=self._mem_limit,
+            env=[f"PF_RING_RX_QUEUE_SIZE={self._pf_ring_rx_queue_size}"],
         )
         # stderr is implicitly redirected to stdout
         self._process.set_outputs(self._log_file)
@@ -564,6 +577,11 @@ class YafPfring(Yaf):
             self._yaf_instances.append(instance)
 
     def _set_rss_queues(self, interface_name):
+        Tool(
+            f"ethtool -G {interface_name} rx {self._hw_ring_size}",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
         Tool(
             f"ethtool --set-channels {interface_name} combined $(nproc)",
             executor=self._executor,

@@ -208,17 +208,22 @@ def _init_group_once(
     _STATE["initialized"] = True
 
 
-def _wrap_command(command: str) -> str:
+def _wrap_command(command: str, env: list) -> str:
     backend = _STATE["backend"]
 
     if backend == "systemd":
+        args = [
+            "systemd-run",
+            "--scope",
+            "--quiet",
+            "--slice",
+            shlex.quote(_STATE["slice"]),
+        ]
+        for e in env:
+            args.append(f"--setenv={e}")
         return " ".join(
-            [
-                "systemd-run",
-                "--scope",
-                "--quiet",
-                "--slice",
-                shlex.quote(_STATE["slice"]),
+            args
+            + [
                 "sh",
                 "-lc",
                 shlex.quote("exec " + command),
@@ -228,7 +233,7 @@ def _wrap_command(command: str) -> str:
     if backend == "cgroup2":
         path = _STATE["path"]
         shell = f"echo $$ > {path}/cgroup.procs; exec {command}"
-        return "sh -lc " + shlex.quote(shell)
+        return " ".join([e for e in env]) + " sh -lc " + shlex.quote(shell)
 
     return command
 
@@ -243,6 +248,7 @@ class Daemon(lb_exec.Daemon):
         mem_limit=None,
         cpu_limit=None,
         process_group_name="flowtest-exporter",
+        env=[],
         **kwargs,
     ):
         with _LOCK:
@@ -253,6 +259,6 @@ class Daemon(lb_exec.Daemon):
                 mem_limit=mem_limit,
                 cpu_limit=cpu_limit,
             )
-            wrapped_command = _wrap_command(command)
+            wrapped_command = _wrap_command(command, env)
 
         super().__init__(wrapped_command, *args, executor=executor, sudo=sudo, **kwargs)

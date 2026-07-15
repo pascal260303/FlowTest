@@ -149,6 +149,7 @@ class IpfixprobeSettings(ABC):
     output_queue_size: Optional[int] = None
     packet_buffer_size: Optional[int] = None
     telemetry: Optional[str] = None
+    hw_ring_size: int = 8192
 
 
 @typed_dataclass
@@ -231,6 +232,7 @@ class IpfixprobeDpdkSettings(IpfixprobeSettings):
     lcores: Optional[str] = None
     memory: Optional[int] = None
     file_prefix: Optional[str] = None
+    additional_device_option: Optional[str] = None
 
     # dpdk plugin params, same values for all devices
     queues_count: int = 1
@@ -342,6 +344,8 @@ class Ipfixprobe(ProbeInterface, ABC):
     """
 
     host_statistics = None
+
+    _settings = None
 
     # pylint: disable=super-init-not-called
     def __init__(
@@ -792,7 +796,34 @@ class Ipfixprobe(ProbeInterface, ABC):
         ).run()
 
     def _before_start(self):
-        """Do preparations before the probe start. Override this function in derived class."""
+        """Do preparations before the probe start. Override this function in derived class, but call it for setting up common parameters"""
+        if isinstance(self._settings, IpfixprobeDpdkSettings):
+            # dpdk does setup rx queue size on it's own
+            return
+        for interface in self._ifc_names.split(","):
+            if not interface.isalnum():
+                # resolve pci device address to interface name
+                if interface.count(":") == 1:
+                    suffix = interface.split(":")[0]
+                    # TODO: Assume bus 0000 replace with more robust version
+                    pci_bus = f"0000:{suffix}"
+                    device = f"0000:{interface}"
+                else:
+                    pci_bus = ":".join(interface.split(":")[0:2])
+                    device = interface
+                interface_name = Tool(
+                    f'ls "/sys/class/pci_bus/{pci_bus}/device/{device}/net/',
+                    executor=self._executor,
+                    sudo=self.sudo,
+                ).run()
+            else:
+                interface_name = interface
+
+            Tool(
+                f"ethtool -G {interface_name} rx {self._settings.hw_ring_size}",
+                executor=self._executor,
+                sudo=self._sudo,
+            ).run()
 
 
 class IpfixprobeRaw(Ipfixprobe):
@@ -849,6 +880,7 @@ class IpfixprobeRaw(Ipfixprobe):
         return " ".join(args)
 
     def _before_start(self):
+        super()._before_start()
         for ifc in self._ifc_names.split(","):
             Tool(f"ip link set dev {ifc} up", executor=self._executor, sudo=True).run()
             Tool(
@@ -946,6 +978,7 @@ class IpfixprobePcap(Ipfixprobe):
         return " ".join(args)
 
     def _before_start(self):
+        super()._before_start()
         for ifc in self._ifc_names.split(","):
             Tool(f"ip link set dev {ifc} up", executor=self._executor, sudo=True).run()
             Tool(
@@ -1099,6 +1132,7 @@ class IpfixprobeDpdk(Ipfixprobe):
         return splitted[1].strip()
 
     def _before_start(self):
+        super()._before_start()
         for interface in self._ifc_names.split(","):
             driver = self._get_current_driver(interface)
             if self._interface_to_drivers[interface][1] == driver:
@@ -1146,6 +1180,8 @@ class IpfixprobeDpdk(Ipfixprobe):
             eal_params += ["--file-prefix", settings.file_prefix]
 
         for dev in settings.devices:
+            if settings.additional_device_option:
+                dev += settings.additional_device_option
             eal_params += ["-a", dev]
         ports = ",".join(str(i) for i in range(len(settings.devices)))
 
@@ -1202,6 +1238,7 @@ class IpfixprobeNdp(Ipfixprobe):
     ):
         interfaces_names = [ifc.name for ifc in interfaces]
         settings = IpfixprobeNdpSettings(devices=interfaces_names, **kwargs)
+        self._settings = settings
         super().__init__(
             executor, target, protocols, interfaces, verbose, settings, sudo
         )
@@ -1234,5 +1271,6 @@ class IpfixprobeNdp(Ipfixprobe):
         return " ".join(args)
 
     def _before_start(self):
+        super()._before_start()
         for ifc in self._ifc_names.split(","):
             Tool(f"nfb-eth -d {ifc} -L {self._mtu}", executor=self._executor).run()

@@ -104,6 +104,8 @@ class NProbeSettings(ABC):
     # zero copy driver options
     rss_queues: int = 1
 
+    hw_ring_size: int = 8192
+
 
 class NProbe(ProbeInterface):
     host_statistics = None
@@ -120,6 +122,7 @@ class NProbe(ProbeInterface):
         cache_size=None,
         mem_limit=None,
         cpu_limit=None,
+        pf_ring_rx_queue_size=8192,
         **kwargs: dict,
     ):
         interfaces_names = [ifc.name for ifc in interfaces]
@@ -149,6 +152,7 @@ class NProbe(ProbeInterface):
         self._protocols = protocols
         self._cpu_limit = cpu_limit
         self._mem_limit = mem_limit
+        self._pf_ring_rx_queue_size = pf_ring_rx_queue_size
 
         assert_tool_is_installed("nprobe", executor)
         if self._zero_copy:
@@ -243,6 +247,11 @@ class NProbe(ProbeInterface):
         ).run()
 
     def _set_rss_queues(self, interface_name):
+        Tool(
+            f"ethtool -G {interface_name} rx {self._settings.hw_ring_size}",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
         Tool(
             f"ethtool --set-channels {interface_name} combined $(nproc)",
             executor=self._executor,
@@ -339,6 +348,9 @@ class NProbe(ProbeInterface):
                 sudo=self._sudo,
                 cpu_limit=self._cpu_limit,
                 mem_limit=self._mem_limit,
+                env=[
+                    f"PF_RING_RX_QUEUE_SIZE={self._pf_ring_rx_queue_size}",
+                ],
             )
             self._processes.append(process)
             log_file = Path(self._local_workdir, f"nprobe_{i}.log")

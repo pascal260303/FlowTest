@@ -85,6 +85,7 @@ class Pmacct(ProbeInterface):
         binary: str = "pmacctd",
         mem_limit=None,
         cpu_limit=None,
+        hw_ring_size=8192,
         **kwargs: dict,
     ):
         # initialize PmacctSettings and map FlowTest values to pmacct values
@@ -147,6 +148,7 @@ class Pmacct(ProbeInterface):
         self._binary = binary
         self._cpu_limit = cpu_limit
         self._mem_limit = mem_limit
+        self._hw_ring_size = hw_ring_size
 
         assert_tool_is_installed(self._binary, executor)
 
@@ -216,6 +218,11 @@ class Pmacct(ProbeInterface):
         ).run()
         Tool(
             f"ip link set {self._settings.pcap_interface} mtu {self._mtu}",
+            executor=self._executor,
+            sudo=self._sudo,
+        ).run()
+        Tool(
+            f"ethtool -G {self._settings.pcap_interface} rx {self._hw_ring_size}",
             executor=self._executor,
             sudo=self._sudo,
         ).run()
