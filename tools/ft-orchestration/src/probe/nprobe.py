@@ -51,6 +51,7 @@ SETTINGS_TO_ARGS: dict[str, str] = {
     "fows_intra_templ": "-o",
     "black_list": "--black-list",
     "biflows_export_policy": "-N",
+    "cpu_affinity": "--cpu-affinity",
 }
 
 BASIC_TEMPLATE = r'"%FLOW_START_MILLISECONDS %FLOW_END_MILLISECONDS %PROTOCOL %IPV4_SRC_ADDR %IPV6_SRC_ADDR %IPV4_DST_ADDR %IPV6_DST_ADDR %L4_SRC_PORT %L4_DST_PORT %IN_PKTS %IN_BYTES"'
@@ -76,6 +77,7 @@ class NProbeSettings(ABC):
     queue_timeout: int = 15
     sample_rate: str = "1:1:1"
     hash_size: int = 131072
+    cpu_affinity: Optional[int] = None
 
     # Exporter options
     aggregation: Optional[str] = (
@@ -182,7 +184,7 @@ class NProbe(ProbeInterface):
         for setting, arg in SETTINGS_TO_ARGS.items():
             if hasattr(settings, setting):
                 value = getattr(settings, setting)
-                if value:
+                if value is not None:
                     args.append(arg)
                     if isinstance(value, List):
                         args.append(f'"{",".join(value)}"')
@@ -341,6 +343,7 @@ class NProbe(ProbeInterface):
             settings = copy.copy(self._settings)
             if self._settings.rss_queues > 1:
                 settings.interface = f"{settings.interface}@{i}"
+                settings.cpu_affinity = i + self._settings.rss_queues
             cmd = self._prepare_cmd(self._target, self._protocols, settings)
             process = Daemon(
                 cmd,

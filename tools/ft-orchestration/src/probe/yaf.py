@@ -186,6 +186,7 @@ class Yaf(ProbeInterface):
         cpu_limit=None,
         hw_ring_size=8192,
         pf_ring_rx_queue_size=8192,
+        cpu_bind=None,
         **kwargs: dict,
     ):
         if len(interfaces) > 1:
@@ -245,6 +246,7 @@ class Yaf(ProbeInterface):
         self._rss_queues_pcap = rss_queues
         self._hw_ring_size = hw_ring_size
         self._pf_ring_rx_queue_size = pf_ring_rx_queue_size
+        self._cpu_bind = cpu_bind
 
     def _write_config(self, settings: YafSettings):
         def to_lua_literal(value) -> str:
@@ -292,6 +294,8 @@ class Yaf(ProbeInterface):
             "-c",
             config_file,
         ]
+        if self._cpu_bind:
+            args = ["numactl", "-C", self._cpu_bind] + args
         if self._verbose:
             args.append("--verbose")
 
@@ -551,6 +555,7 @@ class YafPfring(Yaf):
             interfaces=[],
             **kwargs,
         )
+        assert_tool_is_installed("numactl", executor)
         self._rss_queues = rss_queues
         self._yaf_settings = self._settings
         self._interfaces = [interface.name for interface in interfaces]
@@ -568,6 +573,7 @@ class YafPfring(Yaf):
                 target=target,
                 protocols=protocols,
                 executor=self._executors[i],
+                cpu_bind=i,
                 **kwargs,
             )
             instance._log_file = path.join(instance._local_workdir, f"yaf_{i}.log")
