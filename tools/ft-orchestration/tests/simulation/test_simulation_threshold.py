@@ -20,7 +20,12 @@ import sys
 import pytest
 from ftanalyzer.models.sm_data_types import SMRule
 from ftanalyzer.models.statistical_model import StatisticalModel, StatisticalReport
-from ftanalyzer.replicator.flow_replicator import FlowReplicator
+from ftanalyzer.models.statistical_model import _cleanup_temp_files as model_cleanup
+from ftanalyzer.events.events import _cleanup_temp_dirs as event_cleanup
+from ftanalyzer.replicator.flow_replicator import (
+    FlowReplicator,
+    _cleanup_temp_files as replicator_cleanup,
+)
 from lbr_testsuite.topology.topology import select_topologies
 from src.collector.collector_builder import CollectorBuilder
 from src.common.html_report_plugin import HTMLReportData
@@ -220,6 +225,9 @@ def test_simulation_threshold(
                 obj.cleanup()
             except Exception as e:
                 logging.error(e)
+        model_cleanup()
+        event_cleanup()
+        replicator_cleanup()
 
     objects_for_final_cleanup = []
 
@@ -309,7 +317,7 @@ def test_simulation_threshold(
             log_dir=current_log_dir,
             host_stats_file=probe_instance.host_statistics.local_file,
             inactive_timeout=inactive_t,
-            loops=scenario.test.loops,
+            loops=loops,
             start_phase_duration=scenario.default.start_phase_duration,
             end_phase_duration=scenario.default.end_phase_duration,
             speed_mutliplier=speed_multiplier,
@@ -354,6 +362,8 @@ def test_simulation_threshold(
         _, inactive_t = probe_instance.get_timeouts()
 
         generator_instance = generator.get(scenario.mtu)
+        objects_to_cleanup.append(generator_instance)
+        objects_to_cleanup.append(generator_instance.get_cache())
         generator_conf.timestamps.flow_max_interpacket_gap = f"{inactive_t - 1}s"
 
         try:
@@ -395,6 +405,7 @@ def test_simulation_threshold(
             logging.error(e)
         cleanup()
         objects_to_cleanup = []
+        collector_instance, probe_instance, generator_instance = None, None, None
         gc.collect()
 
     passed = scenario.test.mbps_required <= speed_current

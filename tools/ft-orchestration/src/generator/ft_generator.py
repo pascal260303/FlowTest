@@ -799,3 +799,4 @@ class FtGenerator:
     def cleanup(self):
         """Clean any artifacts which were created by the generator."""
         Tool(f"rm -rf {self._local_workdir}").run()
+        self._cache.cleanup()
