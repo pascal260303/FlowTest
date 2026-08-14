@@ -1,0 +1,69 @@
+# Profile information which cannot be modified by the orchestration tool.
+name: cpr_8F_1Gbps_1500BPP
+description: Custom created profiles with predictable traffic
+marks: [cpr, 1Gb/s, 5min, 8-FLOWS, 8-ACTIVE, 3125000ppf, 83.33Kp/s]
+requirements:
+  speed: 100
+profile: /home/student/2025-bsc-kuppler-flowmeter/profiles/cpr_8F_1Gbps_1500BPP.csv
+mtu: 4096
+sampling: 1.0
+
+# default configuration describing the setup during profile collection
+default:
+  pps: 83333
+  mbps: 1000
+  start_phase_duration: 0
+  end_phase_duration: 0
+  apply_loop_offsets: false
+  generator:
+    packet_size_probabilities:
+      "64-1513": .0
+      "1514-1514": 1 # für konstante paketgröße von 1500, wird als MTU (+14) von create_network_profile.py berechnet
+  probe:
+    protocols: []
+    active_timeout: 400
+    inactive_timeout: 30
+
+# individual tests for general simulation scenario
+sim_general:
+  - id: cpr_8F_1Gbps_1500BPP_statistical
+    marks: []
+    speed_multiplier: 1.0
+    loops: 20
+    analysis:
+      model: "statistical"
+      use_statistic_counter: true
+      metrics:
+        - key: PACKETS
+          diff: 0.001
+        - key: BYTES
+          diff: 0.001
+        - key: FLOWS
+          diff: 1
+        - key: PACKETS / S
+          diff: 1
+        - key: MB / S
+          diff: 1
+        - key: DURATION
+          diff: 1
+
+sim_threshold:
+  - id: cpr_8F_1Gbps_1500BPP_throughput
+    marks: [binary_search]
+    mbps_accuracy: 50
+    mbps_required: 2500
+    analysis:
+      use_statistic_counter: true
+      metrics:
+        - key: PACKETS
+          diff: 0.001
+        - key: BYTES
+          diff: 0.001
+        - key: FLOWS
+          diff: 1
+        - key: PACKETS / S
+          diff: 1
+        - key: MB / S
+          diff: 1
+        - key: DURATION
+          diff: 1
